@@ -456,6 +456,7 @@ export async function createAreaNegocio(formData: FormData): Promise<ActionResul
   }
 
   try {
+    // Obtenemos el ID del negocio para asociar el área
     const businessId = await getBusinessId()
     await prisma.areaNegocio.create({
       data: {
