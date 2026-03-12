@@ -2,7 +2,8 @@
 
 import * as databaseActions from './actions.database';
 import * as MOCK from '@/lib/mock'
-import { ActionResult, DateRange } from '@/lib/validations'; // Assuming types are exported here or I need to import them from database file? No, validations usually has types.
+import { ActionResult } from '@/lib/validations'; 
+import { type DateRange } from '@/lib/validations';
 import { revalidatePath } from 'next/cache';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === 'true';
@@ -190,12 +191,12 @@ export async function getReportDataExtended(range?: DateRange) {
     const base = await getReportData(range);
     return { 
       ...base, 
-      activosPorMoneda: base && 'accountTotalByCurrency' in base ? base.accountTotalByCurrency : {}, 
-      pasivosPorMoneda: {}, 
-      cxcPorMoneda: {}, 
-      flujo: {}, 
-      anualMap: {}, 
-      cmvTotal: 0, 
+      activosPorMoneda: (base && 'accountTotalByCurrency' in base ? base.accountTotalByCurrency : {}) as Record<string, number>, 
+      pasivosPorMoneda: {} as Record<string, number>, 
+      cxcPorMoneda: {} as Record<string, number>, 
+      flujo: {} as Record<string, { operativo: number; inversion: number; financiero: number }>, 
+      anualMap: {} as Record<string, Record<string, { income: number; expense: number }>>,
+      cmvTotal: 0,  
       valorInventario: 0, 
       valorInventarioVenta: 0, 
       margenBrutoInventario: 0, 

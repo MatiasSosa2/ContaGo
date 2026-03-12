@@ -26,8 +26,8 @@ const prismaClientSingleton = () => {
       url: url,
       authToken,
     })
-    const adapter = new PrismaLibSql(libsql)
-    return new PrismaClient({ adapter })
+    const adapter = new PrismaLibSql(libsql as any)
+    return new PrismaClient({ adapter: adapter as any })
   }
 
   // Fallback a Prisma normal (local SQLitedev.db)

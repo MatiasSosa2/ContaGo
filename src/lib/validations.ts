@@ -111,6 +111,8 @@ export const createCategorySchema = z.object({
 })
 
 // ---- Helpers ----
+export type DateRange = { from?: Date; to?: Date }
+
 export type ActionResult<T = void> = 
   | { success: true; data?: T }
   | { success: false; error: string }

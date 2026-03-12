@@ -1,5 +1,5 @@
 ﻿import { getReportDataExtended } from '@/app/actions'
-import type { DateRange } from '@/app/actions'
+import type { DateRange } from '@/lib/validations'
 import ReportTable from '@/components/ReportTable'
 import { MonthlyBarChart, BalanceAreaChart, CashFlowAreaChart, DonutChart, HorizontalBars, Sparkline } from '@/components/ReportCharts'
 import PuntoEquilibrio from '@/components/PuntoEquilibrio'
