@@ -5,10 +5,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
 const isMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === 'true';
-const prisma = isMock ? null : require("@/lib/prisma").default;
+const hasDatabaseConfig = Boolean(process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL)
+const useMockAuth = isMock || !hasDatabaseConfig
+const prisma = useMockAuth ? null : require("@/lib/prisma").default;
 
 export const authOptions: NextAuthOptions = {
-  adapter: isMock || !prisma ? undefined : PrismaAdapter(prisma),
+  adapter: useMockAuth || !prisma ? undefined : PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
   },
@@ -30,7 +32,7 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (isMock) {
+        if (useMockAuth) {
            return { id: "demo-user-id", name: "Usuario Demo", email: "demo@finarg.com", image: null };
         }
 
