@@ -36,7 +36,7 @@ export default function RootLayout({
         className={`${inter.variable} ${archivo.variable} ${geistMono.variable} antialiased flex`}
       >
         <Sidebar />
-        <main className="flex-1 w-full min-h-screen overflow-y-auto">
+        <main className="flex-1 w-full min-h-screen overflow-y-auto pb-16 md:pb-0">
           {children}
         </main>
       </body>

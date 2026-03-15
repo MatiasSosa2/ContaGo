@@ -59,7 +59,8 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-60 h-screen sticky top-0 flex flex-col z-20 shrink-0" style={{ background: '#1B4332', borderRight: '1px solid rgba(0,0,0,0.25)' }}>
+    <>
+    <aside className="hidden md:flex md:flex-col w-60 h-screen sticky top-0 z-20 shrink-0" style={{ background: '#1B4332', borderRight: '1px solid rgba(0,0,0,0.25)' }}>
       {/* LOGOTIPO */}
       <div className="h-16 px-5 flex items-center" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="flex items-center gap-2">
@@ -132,6 +133,40 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
+
+    {/* ── Barra de navegación inferior — solo mobile ── */}
+    <nav
+      className="md:hidden fixed bottom-0 inset-x-0 z-50 flex"
+      style={{ background: '#1B4332', paddingBottom: 'env(safe-area-inset-bottom)', boxShadow: '0 -1px 16px rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+    >
+      {NAV_ITEMS.map(item => {
+        const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="flex-1 relative flex flex-col items-center justify-center py-2 gap-0.5 min-w-0 active:opacity-70 transition-opacity"
+          >
+            {isActive && (
+              <span
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                style={{ background: '#C5A065' }}
+              />
+            )}
+            <span style={{ color: isActive ? '#6EE7B7' : 'rgba(255,255,255,0.45)' }}>
+              {item.icon}
+            </span>
+            <span
+              className="text-[10px] font-medium leading-none truncate px-1"
+              style={{ color: isActive ? '#6EE7B7' : 'rgba(255,255,255,0.45)' }}
+            >
+              {item.label}
+            </span>
+          </Link>
+        )
+      })}
+    </nav>
+    </>
   )
 }
 

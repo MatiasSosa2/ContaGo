@@ -1,0 +1,370 @@
+'use client'
+
+import ReactECharts from 'echarts-for-react'
+import type { EChartsOption } from 'echarts'
+
+// ── Paleta del sistema ─────────────────────────────────────────────────────────
+const C = {
+  income:     '#2D6A4F',
+  incomeFill: 'rgba(45,106,79,0.15)',
+  expense:    '#6b7280',
+  expenseFill:'rgba(107,114,128,0.10)',
+  net:        '#C5A065',
+  netFill:    'rgba(197,160,101,0.12)',
+  red:        '#EF4444',
+  amber:      '#F59E0B',
+  green:      '#10B981',
+  axis:       '#d1d5db',
+  label:      '#9ca3af',
+  tooltip:    '#111827',
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function fmtARS(v: number) {
+  return '$' + v.toLocaleString('es-AR', { minimumFractionDigits: 0 })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. KPI SPARKLINE — Mini line/area chart sin ejes, solo tendencia
+// ─────────────────────────────────────────────────────────────────────────────
+interface SparklineProps {
+  data: number[]
+  color?: string
+  height?: number
+}
+
+export function KpiSparkline({ data, color = C.income, height = 44 }: SparklineProps) {
+  const option: EChartsOption = {
+    animation: false,
+    grid: { top: 2, bottom: 2, left: 2, right: 2 },
+    xAxis: { type: 'category', show: false, data: data.map((_, i) => i) },
+    yAxis: { type: 'value', show: false },
+    series: [{
+      type: 'line',
+      data,
+      smooth: true,
+      showSymbol: false,
+      lineStyle: { color, width: 1.5 },
+      areaStyle: {
+        color: {
+          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [
+            { offset: 0, color: color + '40' },
+            { offset: 1, color: color + '00' },
+          ],
+        },
+      },
+    }],
+  }
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height, width: '100%' }}
+      opts={{ renderer: 'svg' }}
+    />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. GAUGE DE MARGEN — Semi-círculo de rentabilidad
+// ─────────────────────────────────────────────────────────────────────────────
+interface MarginGaugeProps {
+  value: number   // porcentaje 0–100
+  height?: number
+}
+
+export function MarginGauge({ value, height = 130 }: MarginGaugeProps) {
+  const clamped = Math.max(0, Math.min(100, value))
+  const color = clamped >= 30 ? C.income : clamped >= 10 ? C.net : C.red
+  const option: EChartsOption = {
+    animation: true,
+    series: [{
+      type: 'gauge',
+      startAngle: 180,
+      endAngle: 0,
+      min: 0,
+      max: 100,
+      radius: '100%',
+      center: ['50%', '72%'],
+      progress: { show: true, width: 14, itemStyle: { color } },
+      axisLine: { lineStyle: { width: 14, color: [[1, '#f3f4f6']] } },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { show: false },
+      pointer: { show: false },
+      detail: {
+        valueAnimation: true,
+        formatter: '{value}%',
+        color,
+        fontSize: 22,
+        fontWeight: 300,
+        fontFamily: 'ui-monospace, monospace',
+        offsetCenter: [0, '-10%'],
+      },
+      data: [{ value: Math.round(clamped) }],
+    }],
+  }
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height, width: '100%' }}
+      opts={{ renderer: 'svg' }}
+    />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. RESUMEN FINANCIERO — Barras (ingresos/egresos) + Línea (neto)
+// ─────────────────────────────────────────────────────────────────────────────
+interface FinancialOverviewItem {
+  label: string
+  income: number
+  expense: number
+  net: number
+}
+
+interface FinancialOverviewProps {
+  data: FinancialOverviewItem[]
+  height?: number
+}
+
+export function FinancialOverviewChart({ data, height = 240 }: FinancialOverviewProps) {
+  const labels  = data.map(d => d.label)
+  const incomes  = data.map(d => d.income)
+  const expenses = data.map(d => d.expense)
+  const nets     = data.map(d => d.net)
+
+  const option: EChartsOption = {
+    animation: true,
+    grid: { top: 12, bottom: 36, left: 16, right: 16, containLabel: true },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: C.tooltip,
+      borderColor: '#374151',
+      borderWidth: 1,
+      textStyle: { color: '#fff', fontSize: 11 },
+      formatter: (params: any) => {
+        const label = params[0]?.axisValue ?? ''
+        let html = `<div style="font-weight:600;color:#9ca3af;margin-bottom:6px;">${label}</div>`
+        for (const p of params) {
+          const val = Number(p.value ?? 0)
+          const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px;"></span>`
+          html += `<div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:2px;">`
+          html += `<span>${dot}${p.seriesName}</span>`
+          html += `<span style="font-family:monospace;font-weight:300;">${val >= 0 ? '' : '−'}${fmtARS(Math.abs(val))}</span>`
+          html += `</div>`
+        }
+        return html
+      },
+    },
+    legend: {
+      bottom: 0,
+      icon: 'circle',
+      itemWidth: 8,
+      itemHeight: 8,
+      textStyle: { color: C.label, fontSize: 11 },
+    },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLine: { lineStyle: { color: C.axis } },
+      axisTick: { show: false },
+      axisLabel: { color: C.label, fontSize: 10, fontWeight: 500 },
+    },
+    yAxis: {
+      type: 'value',
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: C.axis, type: 'dashed' } },
+      axisLabel: {
+        color: C.label,
+        fontSize: 10,
+        formatter: (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`,
+      },
+    },
+    series: [
+      {
+        name: 'Ingresos',
+        type: 'bar',
+        data: incomes,
+        barMaxWidth: 28,
+        itemStyle: { color: C.income, borderRadius: [4, 4, 0, 0] },
+        emphasis: { itemStyle: { color: '#3A7D5C' } },
+      },
+      {
+        name: 'Egresos',
+        type: 'bar',
+        data: expenses,
+        barMaxWidth: 28,
+        itemStyle: { color: '#d1d5db', borderRadius: [4, 4, 0, 0] },
+        emphasis: { itemStyle: { color: '#b0b7c3' } },
+      },
+      {
+        name: 'Neto',
+        type: 'line',
+        data: nets,
+        smooth: true,
+        showSymbol: true,
+        symbolSize: 5,
+        lineStyle: { color: C.net, width: 2 },
+        itemStyle: { color: C.net },
+        areaStyle: {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: C.net + '30' },
+              { offset: 1, color: C.net + '00' },
+            ],
+          },
+        },
+      },
+    ],
+  }
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height, width: '100%' }}
+      opts={{ renderer: 'svg' }}
+    />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. DONUT DE GASTOS POR CATEGORÍA
+// ─────────────────────────────────────────────────────────────────────────────
+interface DonutSlice {
+  name: string
+  value: number
+  itemStyle: { color: string }
+}
+
+interface ExpenseDonutProps {
+  data: DonutSlice[]
+  totalLabel?: string
+  height?: number
+}
+
+export function ExpenseCategoryDonut({ data, totalLabel = '', height = 220 }: ExpenseDonutProps) {
+  const option: EChartsOption = {
+    animation: true,
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: C.tooltip,
+      borderColor: '#374151',
+      textStyle: { color: '#fff', fontSize: 11 },
+      formatter: (p: any) => {
+        const pct = p.percent?.toFixed(1) ?? '0'
+        return `<div style="font-weight:600;margin-bottom:4px;">${p.name}</div>
+          <div style="font-family:monospace;">${fmtARS(p.value)}<span style="color:#9ca3af;margin-left:8px;">${pct}%</span></div>`
+      },
+    },
+    legend: { show: false },
+    graphic: [
+      {
+        type: 'text',
+        left: 'center',
+        top: '36%',
+        style: {
+          text: totalLabel,
+          fill: '#6b7280',
+          fontSize: 11,
+          fontWeight: 500,
+        } as any,
+      },
+      {
+        type: 'text',
+        left: 'center',
+        top: '44%',
+        style: {
+          text: fmtARS(data.reduce((s, d) => s + d.value, 0)),
+          fill: '#111827',
+          fontSize: 17,
+          fontFamily: 'ui-monospace, monospace',
+          fontWeight: 300,
+        } as any,
+      },
+    ],
+    series: [{
+      type: 'pie',
+      radius: ['54%', '76%'],
+      center: ['50%', '50%'],
+      padAngle: 2,
+      itemStyle: { borderRadius: 4 },
+      label: { show: false },
+      data,
+      emphasis: {
+        scale: true,
+        scaleSize: 4,
+        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
+      },
+    }],
+  }
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height, width: '100%' }}
+      opts={{ renderer: 'svg' }}
+    />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. BARRA APILADA HORIZONTAL — Semáforo de deuda
+// ─────────────────────────────────────────────────────────────────────────────
+interface DebtBarItem {
+  name: string
+  value: number
+  color: string
+}
+
+interface DebtStatusBarProps {
+  data: DebtBarItem[]
+  height?: number
+}
+
+export function DebtStatusBar({ data, height = 48 }: DebtStatusBarProps) {
+  const total = data.reduce((s, d) => s + d.value, 0)
+  if (total === 0) return null
+
+  const option: EChartsOption = {
+    animation: true,
+    grid: { top: 0, bottom: 0, left: 0, right: 0 },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'none' },
+      backgroundColor: C.tooltip,
+      borderColor: '#374151',
+      textStyle: { color: '#fff', fontSize: 11 },
+      formatter: (params: any) => {
+        let html = ''
+        for (const p of params) {
+          if (!p.value) continue
+          const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px;"></span>`
+          html += `<div style="display:flex;justify-content:space-between;gap:12px;">`
+          html += `<span>${dot}${p.seriesName}</span>`
+          html += `<span style="font-family:monospace;font-weight:300;">${fmtARS(p.value)}</span>`
+          html += `</div>`
+        }
+        return html
+      },
+    },
+    xAxis: { type: 'value', show: false },
+    yAxis: { type: 'category', show: false, data: [''] },
+    series: data.map(d => ({
+      name: d.name,
+      type: 'bar',
+      stack: 'deuda',
+      data: [d.value],
+      barMaxWidth: 16,
+      itemStyle: { color: d.color, borderRadius: 0 },
+      label: { show: false },
+    })),
+  }
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height, width: '100%' }}
+      opts={{ renderer: 'svg' }}
+    />
+  )
+}

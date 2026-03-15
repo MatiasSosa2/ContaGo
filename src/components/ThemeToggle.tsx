@@ -24,6 +24,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggle}
+      suppressHydrationWarning
       title={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       className="print:hidden w-full flex items-center gap-3 px-4 py-2.5 rounded-sm text-xs font-medium uppercase tracking-wider transition-all
         text-gray-400 hover:text-gray-700 hover:bg-gray-50 border border-transparent hover:border-black/[0.07]"

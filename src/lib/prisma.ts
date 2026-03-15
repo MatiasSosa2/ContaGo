@@ -1,45 +1,55 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaLibSql } from '@prisma/adapter-libsql'
-import { createClient } from '@libsql/client'
 
-const prismaClientSingleton = () => {
-  const connectionString = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL
-  const isMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === 'true';
+function buildPrismaClient() {
+  const isMock =
+    process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' ||
+    process.env.USE_MOCK_DATA === 'true'
 
-  if (!connectionString) {
-    if (isMock) {
-       // Mock Mode: Return a dummy client to satisfy types without crashing on init
-       // We use a dummy file url, even if file doesn't exist, it won't crash until query
-       return new PrismaClient({ datasources: { db: { url: "file:./dummy.db" } } })
-    }
-    // If not mock and no URL, let it throw or default?
-    // fallback to dev.db if undefined?
-    // Default prisma behavior checks .env
+  // ── Modo mock: no se conecta a ninguna DB real ──────────────────────────────
+  if (isMock) {
+    return new PrismaClient()
   }
-  
-  const url = connectionString || "file:./dev.db";
 
-  // Usa adaptador Turso solo si la URL es de Turso (empieza con libsql:// o wss://)
-  if (url.startsWith('libsql') || url.startsWith('wss')) {
+  // ── Leer URL de Turso (TURSO_DATABASE_URL tiene prioridad) ─────────────────
+  const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL
+
+  if (!url) {
+    throw new Error(
+      '\n[Prisma] ❌ No se encontró TURSO_DATABASE_URL ni DATABASE_URL.\n' +
+      '  → Verificá que el archivo .env tenga las variables configuradas y reiniciá el servidor (npm run dev).'
+    )
+  }
+
+  // ── Conexión remota Turso via libSQL ────────────────────────────────────────
+  // En Prisma 7, PrismaLibSql es un factory que recibe Config directamente
+  // (ya NO se usa createClient de @libsql/client por separado)
+  if (url.startsWith('libsql') || url.startsWith('wss') || url.startsWith('https')) {
     const authToken = process.env.TURSO_AUTH_TOKEN
-    const libsql = createClient({
-      url: url,
-      authToken,
-    })
-    const adapter = new PrismaLibSql(libsql as any)
-    return new PrismaClient({ adapter: adapter as any })
+
+    if (!authToken) {
+      throw new Error(
+        '\n[Prisma] ❌ TURSO_AUTH_TOKEN no está definido.\n' +
+        '  → Agregá el token de autenticación de Turso al archivo .env.'
+      )
+    }
+
+    // API Prisma 7: PrismaLibSql({ url, authToken }) — es un AdapterFactory
+    const adapter = new PrismaLibSql({ url, authToken })
+    return new PrismaClient({ adapter } as any)
   }
 
-  // Fallback a Prisma normal (local SQLitedev.db)
-  return new PrismaClient({ datasources: { db: { url } } })
+  // ── SQLite local (file:./...) — solo para desarrollo sin Turso ─────────────
+  return new PrismaClient()
 }
 
 declare global {
-  var prisma: undefined | ReturnType<typeof prismaClientSingleton>
+  // eslint-disable-next-line no-var
+  var prisma: undefined | ReturnType<typeof buildPrismaClient>
 }
 
-const prisma = globalThis.prisma ?? prismaClientSingleton()
-
+// Singleton: reutilizamos la conexión entre hot-reloads en dev
+const prisma = globalThis.prisma ?? buildPrismaClient()
 export default prisma
 
 if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma

@@ -92,6 +92,26 @@ body {
   border: 0.5px solid rgba(0,0,0,0.10);
 }
 
+/* Ocultar scrollbar — scroll invisible pero funcional */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Targets touch mínimos 44px (WCAG / Apple HIG) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Safe area iOS — Bottom Nav */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* Hover dorado en filas de datos */
 .data-row {
   transition: border-color 0.15s ease;
