@@ -1,9 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "env": {
-    "USE_MOCK_DATA": "true",
-    "NEXT_PUBLIC_USE_MOCK_DATA": "true"
-  },
   "installCommand": "npm install",
   "buildCommand": "npx prisma generate && next build"
 }
