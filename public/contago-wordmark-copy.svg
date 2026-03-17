@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="260 1120 5480 1060" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="1040 1120 2450 1060" preserveAspectRatio="xMidYMid meet">
 
 <defs>
-	<mask id="contago-wordmark-mask" maskUnits="userSpaceOnUse" x="260" y="1120" width="5480" height="1060">
-		<rect x="260" y="1120" width="5480" height="1060" fill="#000000" />
+	<mask id="contago-wordmark-mask" maskUnits="userSpaceOnUse" x="1040" y="1120" width="2450" height="1060">
+		<rect x="1040" y="1120" width="2450" height="1060" fill="#000000" />
 		<g transform="translate(0.000000,3375.000000) scale(0.100000,-0.100000)" fill="#ffffff" stroke="none">
 <path d="M38270 20030 c168 -10 276 -25 455 -61 90 -18 140 -31 285 -74 250
 -74 555 -219 775 -370 199 -137 245 -172 245 -191 0 -13 -53 -69 -410 -439
@@ -71,5 +71,5 @@ c-197 -211 -455 -369 -728 -448 -265 -77 -613 -87 -870 -27 -341 81 -605 232
 	</mask>
 </defs>
 
-<rect x="260" y="1120" width="5480" height="1060" fill="#f6f1e8" mask="url(#contago-wordmark-mask)" />
+<rect x="1040" y="1120" width="2450" height="1060" fill="#f6f1e8" mask="url(#contago-wordmark-mask)" />
 </svg>

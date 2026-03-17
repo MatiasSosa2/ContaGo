@@ -6,8 +6,6 @@ import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-import { prepareCredentialsLogin } from '@/app/auth/actions'
-
 function GoogleIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
@@ -63,19 +61,6 @@ export default function LoginPanel({
       setError(null)
       const email = String(formData.get('email') || '')
       const password = String(formData.get('password') || '')
-
-      const challengeCheck = await prepareCredentialsLogin(formData)
-      if (!challengeCheck.success) {
-        setError(challengeCheck.error)
-        return
-      }
-
-      if (challengeCheck.data?.requiresCode && challengeCheck.data.email && challengeCheck.data.purpose) {
-        const target = `/auth/verify-code?email=${encodeURIComponent(challengeCheck.data.email)}&purpose=${encodeURIComponent(challengeCheck.data.purpose)}`
-        router.push(target)
-        router.refresh()
-        return
-      }
 
       const result = await signIn('credentials', {
         email,

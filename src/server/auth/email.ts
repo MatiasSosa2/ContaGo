@@ -6,6 +6,19 @@ type SendAuthCodeEmailInput = {
   purpose: EmailChallengePurpose
 }
 
+function sendAuthCodeToConsole({ email, code, purpose }: SendAuthCodeEmailInput, reason?: string) {
+  if (reason) {
+    console.warn(`[AuthEmailFallback:${purpose}] ${reason}`)
+  }
+
+  console.info(`[AuthEmail:${purpose}] ${email} -> ${code}`)
+  return { provider: 'console' as const }
+}
+
+function canFallbackToConsole() {
+  return process.env.NODE_ENV !== 'production'
+}
+
 function getEmailSubject(purpose: EmailChallengePurpose) {
   switch (purpose) {
     case 'PASSWORD_RESET':
@@ -40,6 +53,10 @@ export async function sendAuthCodeEmail({ email, code, purpose }: SendAuthCodeEm
     const from = process.env.AUTH_EMAIL_FROM
 
     if (!apiKey || !from) {
+      if (canFallbackToConsole()) {
+        return sendAuthCodeToConsole({ email, code, purpose }, 'Falta configurar RESEND_API_KEY o AUTH_EMAIL_FROM.')
+      }
+
       throw new Error('Falta configurar RESEND_API_KEY o AUTH_EMAIL_FROM para enviar correos.')
     }
 
@@ -59,12 +76,16 @@ export async function sendAuthCodeEmail({ email, code, purpose }: SendAuthCodeEm
 
     if (!response.ok) {
       const details = await response.text()
+
+      if (canFallbackToConsole()) {
+        return sendAuthCodeToConsole({ email, code, purpose }, `Resend fallo: ${details}`)
+      }
+
       throw new Error(`No se pudo enviar el email de autenticacion. ${details}`)
     }
 
     return { provider: 'resend' as const }
   }
 
-  console.info(`[AuthEmail:${purpose}] ${email} -> ${code}`)
-  return { provider: 'console' as const }
+  return sendAuthCodeToConsole({ email, code, purpose })
 }

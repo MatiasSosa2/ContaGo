@@ -17,6 +17,15 @@ const hasDatabaseConfig = Boolean(process.env.DATABASE_URL || process.env.TURSO_
 const useMockAuth = isMock || !hasDatabaseConfig
 const prisma = useMockAuth ? null : prismaClient;
 
+type CredentialsAuthUser = {
+  id: string
+  name: string | null
+  email: string
+  image: string | null
+  emailVerified: Date | null
+  lastSecurityChallengeAt: Date | null
+}
+
 function getConfiguredProviders() {
   const providers = []
 
@@ -60,7 +69,19 @@ function getConfiguredProviders() {
         try {
           if (!prisma) return null;
 
-          const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+          const user = await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              password: true,
+              emailVerified: true,
+              lastSecurityChallengeAt: true,
+            },
+          });
+
           if (!user || !user.password) {
             if (normalizedEmail === "demo@finarg.com" && password === "Demo1234") {
               return { id: "demo-local", name: "Demo Local", email: "demo@finarg.com", image: null };
@@ -71,7 +92,14 @@ function getConfiguredProviders() {
           const isCorrectPassword = await bcrypt.compare(password, user.password);
           if (!isCorrectPassword) return null;
 
-          return user;
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            emailVerified: user.emailVerified,
+            lastSecurityChallengeAt: user.lastSecurityChallengeAt,
+          } as CredentialsAuthUser;
         } catch {
           if (normalizedEmail === "demo@finarg.com" && password === "Demo1234") {
             return { id: "demo-local", name: "Demo Local (DB Error)", email: "demo@finarg.com", image: null };
@@ -127,7 +155,8 @@ async function hydrateTokenContext(token: JWT) {
 
 function buildVerifyCodeRedirect(email: string, purpose: 'SIGNUP_VERIFY' | 'SOCIAL_LOGIN_VERIFY' | 'RISK_CHALLENGE') {
   const params = new URLSearchParams({ email, purpose })
-  return `/auth/verify-code?${params.toString()}`
+  const origin = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '')
+  return `${origin}/auth/verify-code?${params.toString()}`
 }
 
 export const authOptions: NextAuthOptions = {
@@ -185,18 +214,26 @@ export const authOptions: NextAuthOptions = {
     },
     async signIn({ user, account }) {
       if (!useMockAuth && prisma && user.id && user.email && account?.provider) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: {
-            email: true,
-            emailVerified: true,
-            lastSecurityChallengeAt: true,
-          },
-        })
-
         const provider = account.provider === 'google' || account.provider === 'apple'
           ? account.provider
           : 'credentials'
+
+        const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
+
+        const dbUser = provider === 'credentials'
+          ? {
+              email: credentialsUser.email ?? null,
+              emailVerified: credentialsUser.emailVerified ?? null,
+              lastSecurityChallengeAt: credentialsUser.lastSecurityChallengeAt ?? null,
+            }
+          : await prisma.user.findUnique({
+              where: { id: user.id },
+              select: {
+                email: true,
+                emailVerified: true,
+                lastSecurityChallengeAt: true,
+              },
+            })
 
         const challengePurpose = dbUser
           ? decideLoginChallenge({
