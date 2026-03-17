@@ -10,6 +10,7 @@ export default function LoginPage() {
       <LoginPanel
         googleEnabled={Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)}
         appleEnabled={Boolean(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET)}
+        temporaryAccessEnabled={Boolean(process.env.TEMP_ACCESS_ADMIN_EMAIL)}
       />
     </AuthShell>
   )

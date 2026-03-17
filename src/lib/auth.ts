@@ -24,6 +24,11 @@ type CredentialsAuthUser = {
   image: string | null
   emailVerified: Date | null
   lastSecurityChallengeAt: Date | null
+  isTemporaryAccess?: boolean
+}
+
+function getTemporaryAccessAdminEmail() {
+  return process.env.TEMP_ACCESS_ADMIN_EMAIL?.trim().toLowerCase() || null
 }
 
 function getConfiguredProviders() {
@@ -53,14 +58,55 @@ function getConfiguredProviders() {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        temporaryAccess: { label: "TemporaryAccess", type: "text" },
       },
       async authorize(credentials) {
         if (useMockAuth) {
-          return { id: "demo-user-id", name: "Usuario Demo", email: "demo@finarg.com", image: null };
+          return null;
         }
 
+        const wantsTemporaryAccess = credentials?.temporaryAccess === 'true'
         const normalizedEmail = credentials?.email?.trim().toLowerCase()
         const password = credentials?.password
+
+        if (wantsTemporaryAccess) {
+          const temporaryAccessEmail = getTemporaryAccessAdminEmail()
+
+          if (!temporaryAccessEmail || !prisma) {
+            return null
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { email: temporaryAccessEmail },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              emailVerified: true,
+              lastSecurityChallengeAt: true,
+              memberships: {
+                where: { status: 'ACTIVE', role: 'ADMIN' },
+                select: { businessId: true },
+                take: 1,
+              },
+            },
+          })
+
+          if (!user || user.memberships.length === 0) {
+            return null
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            emailVerified: user.emailVerified,
+            lastSecurityChallengeAt: user.lastSecurityChallengeAt,
+            isTemporaryAccess: true,
+          } as CredentialsAuthUser
+        }
 
         if (!normalizedEmail || !password) {
           throw new Error("Credenciales inválidas")
@@ -83,9 +129,6 @@ function getConfiguredProviders() {
           });
 
           if (!user || !user.password) {
-            if (normalizedEmail === "demo@finarg.com" && password === "Demo1234") {
-              return { id: "demo-local", name: "Demo Local", email: "demo@finarg.com", image: null };
-            }
             return null;
           }
 
@@ -101,9 +144,6 @@ function getConfiguredProviders() {
             lastSecurityChallengeAt: user.lastSecurityChallengeAt,
           } as CredentialsAuthUser;
         } catch {
-          if (normalizedEmail === "demo@finarg.com" && password === "Demo1234") {
-            return { id: "demo-local", name: "Demo Local (DB Error)", email: "demo@finarg.com", image: null };
-          }
           return null;
         }
       },
@@ -219,6 +259,16 @@ export const authOptions: NextAuthOptions = {
           : 'credentials'
 
         const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
+        const isTemporaryAccess = credentialsUser.isTemporaryAccess === true
+
+        if (isTemporaryAccess) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          }).catch(() => null)
+
+          return true
+        }
 
         const dbUser = provider === 'credentials'
           ? {

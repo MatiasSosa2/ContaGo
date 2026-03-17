@@ -1,6 +1,9 @@
 ﻿'use client'
 
+import { useTransition } from 'react'
+
 import Link from 'next/link'
+import { signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
 import ThemeToggle from '@/components/ThemeToggle'
 
@@ -57,9 +60,16 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const [isSigningOut, startSignOutTransition] = useTransition()
 
   if (pathname.startsWith('/auth') || pathname.startsWith('/select-business')) {
     return null
+  }
+
+  function handleSignOut() {
+    startSignOutTransition(async () => {
+      await signOut({ callbackUrl: '/auth/login' })
+    })
   }
 
   return (
@@ -135,8 +145,33 @@ export default function Sidebar() {
             <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(167,243,208,0.60)' }}>Administrador</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-red-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          <svg className="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
+          </svg>
+          {isSigningOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
+        </button>
       </div>
     </aside>
+
+    <button
+      type="button"
+      onClick={handleSignOut}
+      disabled={isSigningOut}
+      className="md:hidden fixed right-4 top-4 z-40 flex items-center gap-2 rounded-full border border-red-200 bg-white/95 px-4 py-2 text-sm font-semibold text-red-600 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
+    >
+      <svg className="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
+      </svg>
+      {isSigningOut ? 'Saliendo...' : 'Cerrar sesión'}
+    </button>
 
     {/* ── Barra de navegación inferior — solo mobile ── */}
     <nav

@@ -40,9 +40,11 @@ function AppleIcon() {
 export default function LoginPanel({
   googleEnabled,
   appleEnabled,
+  temporaryAccessEnabled,
 }: {
   googleEnabled: boolean
   appleEnabled: boolean
+  temporaryAccessEnabled: boolean
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -79,6 +81,26 @@ export default function LoginPanel({
     })
   }
 
+  function handleTemporaryAccess() {
+    startTransition(async () => {
+      setError(null)
+
+      const result = await signIn('credentials', {
+        temporaryAccess: 'true',
+        redirect: false,
+        callbackUrl: '/select-business',
+      })
+
+      if (!result || result.error) {
+        setError('No se pudo iniciar el acceso temporal. Intenta nuevamente.')
+        return
+      }
+
+      router.push(result.url || '/select-business')
+      router.refresh()
+    })
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -101,6 +123,31 @@ export default function LoginPanel({
           Continuar con Apple
         </button>
       </div>
+
+      {temporaryAccessEnabled && (
+        <div className="rounded-2xl border border-brand-military/15 bg-brand-military/5 p-3.5 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Acceso temporal al panel</p>
+              <p className="mt-1 text-xs leading-5 text-gray-500">
+                Ingresa con el usuario administrador configurado en Turso, sin exponer contraseña ni email a terceros.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleTemporaryAccess}
+              disabled={isPending}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-military/20 bg-white px-4 py-3 text-sm font-semibold text-brand-military transition hover:border-brand-military hover:bg-brand-military/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H9m0 0 3-3m-3 3 3 3" />
+              </svg>
+              {isPending ? 'Ingresando...' : 'Entrar sin contraseña'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-gray-300">
         <div className="h-px flex-1 bg-gray-200" />

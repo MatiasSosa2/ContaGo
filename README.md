@@ -95,6 +95,24 @@ Hoy el proyecto ya tiene implementados:
 - selector de negocio activo
 - challenge de riesgo para login cuando la validacion de seguridad es vieja o falta verificar el email
 
+## Acceso temporal con usuario real de Turso
+
+Si quieres mostrar la app a socios sin revelar credenciales reales, puedes habilitar un botón temporal en el login que entra siempre con un único usuario administrador existente en Turso.
+
+Agrega en `.env`:
+
+```env
+TEMP_ACCESS_ADMIN_EMAIL="cisaestudio@gmail.com"
+```
+
+Condiciones de este acceso:
+
+- no usa datos mock
+- inicia sesión con un usuario real existente en Turso
+- ese usuario debe tener al menos una membresía activa con rol `ADMIN`
+- el resto del sistema sigue operando exactamente igual después del ingreso
+- si quitas `TEMP_ACCESS_ADMIN_EMAIL`, el botón desaparece del login
+
 Para cerrar esta parte en entorno real solo faltan dos cosas operativas:
 
 - cargar credenciales reales de Resend
