@@ -102,13 +102,13 @@ export default function LoginPanel({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-6 lg:space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:gap-2.5">
         <button
           type="button"
           disabled={!googleEnabled || isPending}
           onClick={() => handleProviderSignIn('google')}
-          className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50 lg:py-2.5"
         >
           <GoogleIcon />
           Continuar con Google
@@ -117,7 +117,7 @@ export default function LoginPanel({
           type="button"
           disabled={!appleEnabled || isPending}
           onClick={() => handleProviderSignIn('apple')}
-          className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50 lg:py-2.5"
         >
           <AppleIcon />
           Continuar con Apple
@@ -125,14 +125,14 @@ export default function LoginPanel({
       </div>
 
       {temporaryAccessEnabled && (
-        <div className="rounded-2xl border border-brand-military/15 bg-brand-military/5 p-3.5 sm:p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs leading-5 text-gray-500">Entrar sin contraseña.</p>
+        <div className="rounded-2xl border border-brand-military/15 bg-brand-military/5 p-3.5 sm:p-4 lg:p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:gap-2">
+            <p className="text-xs leading-5 text-gray-500 lg:leading-4">Entrar sin contraseña.</p>
             <button
               type="button"
               onClick={handleTemporaryAccess}
               disabled={isPending}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-military/20 bg-white px-4 py-3 text-sm font-semibold text-brand-military transition hover:border-brand-military hover:bg-brand-military/5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-military/20 bg-white px-4 py-3 text-sm font-semibold text-brand-military transition hover:border-brand-military hover:bg-brand-military/5 disabled:cursor-not-allowed disabled:opacity-60 lg:px-3.5 lg:py-2.5"
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
@@ -144,34 +144,34 @@ export default function LoginPanel({
         </div>
       )}
 
-      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-gray-300">
+      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-gray-300 lg:gap-2">
         <div className="h-px flex-1 bg-gray-200" />
         o inicia sesion con email
         <div className="h-px flex-1 bg-gray-200" />
       </div>
 
-      <form action={handleCredentialsSubmit} className="space-y-4">
+      <form action={handleCredentialsSubmit} className="space-y-4 lg:space-y-3">
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-xs font-medium text-gray-500">Email</label>
-          <input id="email" name="email" type="email" required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-brand-military" />
+          <input id="email" name="email" type="email" required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-brand-military lg:py-2.5" />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="password" className="text-xs font-medium text-gray-500">Contraseña</label>
-          <input id="password" name="password" type="password" required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-brand-military" />
+          <input id="password" name="password" type="password" required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-brand-military lg:py-2.5" />
         </div>
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 lg:py-2.5">
             {error}
           </div>
         )}
 
-        <button type="submit" disabled={isPending} className="w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="submit" disabled={isPending} className="w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60 lg:py-2.5">
           {isPending ? 'Ingresando...' : 'Iniciar sesion'}
         </button>
       </form>
 
-      <div className="flex items-center justify-between text-sm text-gray-500">
+      <div className="flex items-center justify-between text-sm text-gray-500 lg:text-[13px]">
         <Link href="/auth/register" className="font-medium text-brand-military hover:text-brand-military-dark">Crear cuenta</Link>
         <Link href="/auth/forgot-password" className="hover:text-gray-700">Olvide mi contraseña</Link>
       </div>
