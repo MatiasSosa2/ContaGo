@@ -58,6 +58,10 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname()
 
+  if (pathname.startsWith('/auth') || pathname.startsWith('/select-business')) {
+    return null
+  }
+
   return (
     <>
     <aside className="hidden md:flex md:flex-col w-60 h-screen sticky top-0 z-20 shrink-0" style={{ background: '#1B4332', borderRight: '1px solid rgba(0,0,0,0.25)' }}>

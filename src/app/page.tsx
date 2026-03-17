@@ -1,4 +1,4 @@
-﻿import { getAccounts, getCategories, getTransactions, getMonthlyStats, getWeeklyStats, getDailyStats, getContacts, getAreasNegocio, getCreditosDeudas } from '@/app/actions'
+﻿import { getAccounts, getCategories, getTransactions, getMonthlyStats, getDailyStats, getContacts, getAreasNegocio, getCreditosDeudas } from '@/app/actions'
 import AccountManager from '@/components/AccountManager'
 import ContactManager from '@/components/ContactManager'
 import AreaNegocioManager from '@/components/AreaNegocioManager'
@@ -8,6 +8,7 @@ import AlertsBanner from '@/components/AlertsBanner'
 import type { AlertItem } from '@/components/AlertsBanner'
 import PeriodTabs from '@/components/PeriodTabs'
 import type { PeriodKey } from '@/components/PeriodTabs'
+import { requirePageSession } from '@/server/auth/require-page-session'
 import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
@@ -17,13 +18,13 @@ export default async function Home({
 }: {
   searchParams: Promise<{ periodo?: string }>
 }) {
+  await requirePageSession()
   const sp = await searchParams
   const periodo = (sp.periodo ?? 'mensual') as PeriodKey
   const accounts = await getAccounts()
   const categories = await getCategories()
   const transactions = await getTransactions()
   const monthlyStats = await getMonthlyStats()
-  const weeklyStats = await getWeeklyStats()
   const dailyStats = await getDailyStats()
   const contacts = await getContacts()
   const areas = await getAreasNegocio()
@@ -170,12 +171,7 @@ export default async function Home({
     { name: 'Futuros',  value: totalFuturo,  color: '#10B981' },
   ]
 
-  // ── Weekly income (ARS) ──
-  const arsWeekly = weeklyStats.find(s => s.currency === 'ARS') || { income: 0, expense: 0, balance: 0 }
-  const ingresoSemanalGrowth = arsMonthly.income > 0 ? ((arsWeekly.income / arsMonthly.income) * 100) : null
-
   // ── Helpers de formato ──
-  const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
   const fmtARS = (v: number) => '$' + Math.abs(v).toLocaleString('es-AR', { minimumFractionDigits: 0 })
 
   return (
@@ -326,7 +322,7 @@ export default async function Home({
                 height={200}
               />
               <div className="flex flex-col gap-1.5 mt-1">
-                {expenseCategoryChartData.map((s, i) => {
+                {expenseCategoryChartData.map((s) => {
                   const totalGastos = expenseCategoryChartData.reduce((acc, x) => acc + x.value, 0)
                   const pct = totalGastos > 0 ? ((s.value / totalGastos) * 100).toFixed(0) : '0'
                   return (

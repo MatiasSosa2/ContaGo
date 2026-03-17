@@ -1,10 +1,11 @@
 ﻿import { getReportDataExtended } from '@/app/actions'
 import type { DateRange } from '@/lib/validations'
 import ReportTable from '@/components/ReportTable'
-import { MonthlyBarChart, BalanceAreaChart, CashFlowAreaChart, DonutChart, HorizontalBars, Sparkline } from '@/components/ReportCharts'
+import { CashFlowAreaChart, DonutChart, HorizontalBars, Sparkline } from '@/components/ReportCharts'
 import PuntoEquilibrio from '@/components/PuntoEquilibrio'
 import PrintButton from '@/components/PrintButton'
 import PeriodFilter from '@/components/PeriodFilter'
+import { requirePageSession } from '@/server/auth/require-page-session'
 import Link from 'next/link'
 import { Suspense } from 'react'
 
@@ -13,7 +14,6 @@ export const dynamic = 'force-dynamic'
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 const MILITARY = '#4A6741'
-const MILITARY_LIGHT = '#c8d8c5'
 const GOLD = '#C5A065'
 
 function fmt(v: number, cur = 'ARS') {
@@ -123,6 +123,7 @@ export default async function ReportsPage({
 }: {
   searchParams?: Promise<{ preset?: string; from?: string; to?: string }>
 }) {
+  await requirePageSession()
   const params = await searchParams
   const range: DateRange | undefined =
     params?.from || params?.to
@@ -140,8 +141,6 @@ export default async function ReportsPage({
 
   const totals = totalsByCurrency[cur] || { income: 0, expense: 0 }
   const balance = totals.income - totals.expense
-  const txCount = allTx.length
-  const avgTx = txCount > 0 ? (totals.income + totals.expense) / txCount : 0
 
   // Margen de utilidad %
   const marginPct = totals.income > 0 ? ((totals.income - totals.expense) / totals.income) * 100 : 0

@@ -23,6 +23,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ContaGO",
   description: "Plataforma de Gestión Financiera",
+  icons: {
+    icon: "/contago-mark.svg",
+    shortcut: "/contago-mark.svg",
+    apple: "/contago-mark.svg",
+  },
 };
 
 export default function RootLayout({
@@ -32,6 +37,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
+      {/* Script bloqueante: aplica el tema guardado antes del primer pintado para evitar flash */}
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var t=localStorage.getItem('theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light')})()`,
+          }}
+        />
+      </head>
       <body
         className={`${inter.variable} ${archivo.variable} ${geistMono.variable} antialiased flex`}
       >

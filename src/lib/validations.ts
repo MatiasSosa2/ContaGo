@@ -1,5 +1,30 @@
 import { z } from 'zod'
 
+export const EMAIL_CHALLENGE_PURPOSES = [
+  'SIGNUP_VERIFY',
+  'SOCIAL_LOGIN_VERIFY',
+  'PASSWORD_RESET',
+  'RISK_CHALLENGE',
+] as const
+
+export const BUSINESS_OPERATING_MODELS = ['SERVICES', 'PRODUCTS', 'BOTH'] as const
+
+const emailSchema = z
+  .string()
+  .trim()
+  .email('Email inválido')
+  .transform((value) => value.toLowerCase())
+
+const passwordSchema = z
+  .string()
+  .min(8, 'La contraseña debe tener al menos 8 caracteres')
+  .max(72, 'La contraseña es demasiado larga')
+
+const challengeCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, 'El código debe tener 6 dígitos')
+
 // ---- Transaction ----
 export const createTransactionSchema = z.object({
   amount: z
@@ -108,6 +133,47 @@ export const createCategorySchema = z.object({
     .min(1, 'El nombre es obligatorio')
     .max(100, 'Máximo 100 caracteres'),
   type: z.enum(['INCOME', 'EXPENSE']).default('EXPENSE'),
+})
+
+// ---- Auth ----
+export const registerWithCredentialsSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'El nombre es obligatorio')
+    .max(100, 'Máximo 100 caracteres'),
+  email: emailSchema,
+  password: passwordSchema,
+  businessName: z
+    .string()
+    .trim()
+    .min(2, 'El nombre del negocio es obligatorio')
+    .max(120, 'Máximo 120 caracteres'),
+  operatingModel: z.enum(BUSINESS_OPERATING_MODELS, {
+    message: 'Selecciona si tu negocio ofrece servicios, productos o ambos',
+  }),
+})
+
+export const requestEmailChallengeSchema = z.object({
+  email: emailSchema,
+  purpose: z.enum(EMAIL_CHALLENGE_PURPOSES),
+})
+
+export const loginWithCredentialsSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+})
+
+export const verifyEmailChallengeSchema = z.object({
+  email: emailSchema,
+  purpose: z.enum(EMAIL_CHALLENGE_PURPOSES),
+  code: challengeCodeSchema,
+})
+
+export const resetPasswordWithCodeSchema = z.object({
+  email: emailSchema,
+  code: challengeCodeSchema,
+  password: passwordSchema,
 })
 
 // ---- Helpers ----

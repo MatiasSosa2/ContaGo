@@ -2,9 +2,8 @@
 
 import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { requireBusinessContext } from '@/server/auth/require-business-context'
 import {
-  createTransactionSchema,
-  createAccountSchema,
   updateAccountSchema,
   createContactSchema,
   createCategorySchema,
@@ -15,42 +14,55 @@ import {
   type ActionResult,
 } from '@/lib/validations'
 
-async function ensureDefaults() {
-  // La inicialización automática global ya no es válida con multi-tenancy.
-  // Los datos por defecto se deben crear al crear un nuevo Business.
-  return;
+async function getBusinessId() {
+  const sessionContext = await requireBusinessContext()
+  return sessionContext.activeBusiness.id
 }
 
-// Helper temporal para obtener el contexto de negocio
-// TODO: Reemplazar por obtención real desde sesión de usuario
-async function getBusinessId() {
-  // Intentamos obtener el primer negocio disponible
-  const business = await prisma.business.findFirst()
-  
-  if (business) return business.id
-
-  // Si no hay negocios, creamos uno por defecto (Demo) para que la app funcione
-  const newBusiness = await prisma.business.create({
-    data: {
-      name: 'Empresa Demo',
-      currency: 'ARS'
-    }
+async function getScopedAccount(id: string, businessId: string) {
+  return prisma.account.findFirst({
+    where: { id, businessId },
+    select: { id: true, currentBalance: true },
   })
-  return newBusiness.id
+}
+
+async function getScopedTransaction(id: string, businessId: string) {
+  return prisma.transaction.findFirst({
+    where: { id, businessId },
+    select: {
+      id: true,
+      accountId: true,
+      amount: true,
+      type: true,
+    },
+  })
+}
+
+async function getScopedProducto(id: string, businessId: string) {
+  return prisma.producto.findFirst({
+    where: { id, businessId },
+    select: { id: true, stockActual: true },
+  })
 }
 
 export async function getAccounts() {
-  // await ensureDefaults() // Eliminado temporalmente
-  return await prisma.account.findMany() // TODO: Filtrar por businessId
+  const businessId = await getBusinessId()
+  return await prisma.account.findMany({
+    where: { businessId },
+  })
 }
 
 export async function getCategories() {
-  // await ensureDefaults() // Eliminado temporalmente
-  return await prisma.category.findMany() // TODO: Filtrar por businessId
+  const businessId = await getBusinessId()
+  return await prisma.category.findMany({
+    where: { businessId },
+  })
 }
 
 export async function getTransactions() {
+  const businessId = await getBusinessId()
   return await prisma.transaction.findMany({
+    where: { businessId },
     orderBy: { date: 'desc' },
     include: { category: true, account: true, contact: true, areaNegocio: true },
     take: 100
@@ -58,18 +70,23 @@ export async function getTransactions() {
 }
 
 export async function getAreasNegocio() {
+  const businessId = await getBusinessId()
   return await prisma.areaNegocio.findMany({
+    where: { businessId },
     orderBy: { nombre: 'asc' }
   })
 }
 
 export async function getContacts() {
+  const businessId = await getBusinessId()
   return await prisma.contact.findMany({
+    where: { businessId },
     orderBy: { name: 'asc' }
   })
 }
 
 export async function createContact(formData: FormData): Promise<ActionResult> {
+  void formData
   // TODO: Implementar con Auth (businessId)
   return { success: false, error: "Función deshabilitada temporalmente hasta configurar Auth." }
   /*
@@ -102,6 +119,7 @@ export async function createContact(formData: FormData): Promise<ActionResult> {
 }
 
 export async function createTransaction(formData: FormData): Promise<ActionResult> {
+  void formData
   // TODO: Implementar con Auth (businessId)
   return { success: false, error: "Función deshabilitada temporalmente hasta configurar Auth." }
   /*
@@ -184,11 +202,12 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
 }
 
 export async function deleteTransaction(id: string) {
-  const transaction = await prisma.transaction.findUnique({ where: { id } })
+  const businessId = await getBusinessId()
+  const transaction = await getScopedTransaction(id, businessId)
   if (!transaction) return
 
   // Revert balance
-  const account = await prisma.account.findUnique({ where: { id: transaction.accountId } })
+  const account = await getScopedAccount(transaction.accountId, businessId)
   if (account) {
     // Si era INGRESO, RESTAMOS al saldo. Si era EGRESO, SUMAMOS al saldo.
     const balanceChange = transaction.type === 'INCOME' ? -transaction.amount : transaction.amount
@@ -198,11 +217,12 @@ export async function deleteTransaction(id: string) {
     })
   }
 
-  await prisma.transaction.delete({ where: { id } })
+  await prisma.transaction.deleteMany({ where: { id, businessId } })
   revalidatePath('/')
 }
 
 export async function createAccount(formData: FormData): Promise<ActionResult> {
+  void formData
   // TODO: Implementar con Auth (businessId)
   return { success: false, error: "Función deshabilitada temporalmente hasta configurar Auth." }
   /*
@@ -229,7 +249,9 @@ export async function createAccount(formData: FormData): Promise<ActionResult> {
 }
 
 export async function getAllTransactions() {
+  const businessId = await getBusinessId()
   return await prisma.transaction.findMany({
+    where: { businessId },
     orderBy: { date: 'desc' },
     include: { category: true, account: true, contact: true, areaNegocio: true },
   })
@@ -238,11 +260,12 @@ export async function getAllTransactions() {
 export type DateRange = { from?: Date; to?: Date }
 
 export async function getReportData(range?: DateRange) {
+  const businessId = await getBusinessId()
   const dateFilter = range?.from || range?.to
     ? { date: { ...(range.from ? { gte: range.from } : {}), ...(range.to ? { lte: range.to } : {}) } }
     : {}
   const allTx = await prisma.transaction.findMany({
-    where: dateFilter,
+    where: { businessId, ...dateFilter },
     orderBy: { date: 'desc' },
     include: { category: true, account: true, contact: true, areaNegocio: true },
   })
@@ -315,7 +338,7 @@ export async function getReportData(range?: DateRange) {
     .sort((a, b) => (b.income + b.expense) - (a.income + a.expense))
 
   // -- Balance real de cuentas (para Runway) --
-  const accounts = await prisma.account.findMany()
+  const accounts = await prisma.account.findMany({ where: { businessId } })
   const accountTotalByCurrency = accounts.reduce((acc, a) => {
     const c = a.currency || 'ARS'
     acc[c] = (acc[c] || 0) + a.currentBalance
@@ -326,12 +349,13 @@ export async function getReportData(range?: DateRange) {
 }
 
 export async function getMonthlyStats() {
+  const businessId = await getBusinessId()
   const now = new Date()
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
   
   const transactions = await prisma.transaction.findMany({
-    where: { date: { gte: firstDay, lte: lastDay } }
+    where: { businessId, date: { gte: firstDay, lte: lastDay } }
   })
 
   const byCurrency: Record<string, { income: number, expense: number }> = {}
@@ -350,6 +374,7 @@ export async function getMonthlyStats() {
 }
 
 export async function getWeeklyStats() {
+  const businessId = await getBusinessId()
   const now = new Date()
   const dayOfWeek = now.getDay() // 0=domingo
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
@@ -361,7 +386,7 @@ export async function getWeeklyStats() {
   sunday.setHours(23, 59, 59, 999)
 
   const transactions = await prisma.transaction.findMany({
-    where: { date: { gte: monday, lte: sunday } }
+    where: { businessId, date: { gte: monday, lte: sunday } }
   })
 
   const byCurrency: Record<string, { income: number, expense: number }> = {}
@@ -382,6 +407,7 @@ export async function getWeeklyStats() {
 // ---- Contact CRUD ----
 
 export async function updateContact(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId()
   const raw = {
     name: (formData.get('name') as string)?.trim(),
     type: formData.get('type') as string,
@@ -396,27 +422,34 @@ export async function updateContact(id: string, formData: FormData): Promise<Act
 
   const { name, type, phone, email } = parsed.data
 
-  await prisma.contact.update({
-    where: { id },
+  const result = await prisma.contact.updateMany({
+    where: { id, businessId },
     data: { name, type, phone: phone || null, email: email || null }
   })
+
+  if (result.count === 0) {
+    return { success: false, error: 'El contacto no existe o no pertenece al negocio activo' }
+  }
+
   revalidatePath('/')
   return { success: true }
 }
 
 export async function deleteContact(id: string) {
+  const businessId = await getBusinessId()
   // Desvincula transacciones antes de eliminar
   await prisma.transaction.updateMany({
-    where: { contactId: id },
+    where: { contactId: id, businessId },
     data: { contactId: null }
   })
-  await prisma.contact.delete({ where: { id } })
+  await prisma.contact.deleteMany({ where: { id, businessId } })
   revalidatePath('/')
 }
 
 // ---- Account CRUD ----
 
 export async function updateAccount(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId()
   const raw = { name: (formData.get('name') as string)?.trim() }
 
   const parsed = updateAccountSchema.safeParse(raw)
@@ -424,20 +457,29 @@ export async function updateAccount(id: string, formData: FormData): Promise<Act
     return { success: false, error: parsed.error.issues[0].message }
   }
 
-  await prisma.account.update({
-    where: { id },
+  const result = await prisma.account.updateMany({
+    where: { id, businessId },
     data: { name: parsed.data.name }
   })
+
+  if (result.count === 0) {
+    return { success: false, error: 'La cuenta no existe o no pertenece al negocio activo' }
+  }
+
   revalidatePath('/')
   return { success: true }
 }
 
 export async function deleteAccount(id: string): Promise<ActionResult> {
-  const txCount = await prisma.transaction.count({ where: { accountId: id } })
+  const businessId = await getBusinessId()
+  const txCount = await prisma.transaction.count({ where: { accountId: id, businessId } })
   if (txCount > 0) {
     return { success: false, error: 'No se puede eliminar una cuenta con transacciones asociadas' }
   }
-  await prisma.account.delete({ where: { id } })
+  const result = await prisma.account.deleteMany({ where: { id, businessId } })
+  if (result.count === 0) {
+    return { success: false, error: 'La cuenta no existe o no pertenece al negocio activo' }
+  }
   revalidatePath('/')
   return { success: true }
 }
@@ -474,6 +516,7 @@ export async function createAreaNegocio(formData: FormData): Promise<ActionResul
 }
 
 export async function updateAreaNegocio(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId()
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
@@ -485,10 +528,14 @@ export async function updateAreaNegocio(id: string, formData: FormData): Promise
   }
 
   try {
-    await prisma.areaNegocio.update({
-      where: { id },
+    const result = await prisma.areaNegocio.updateMany({
+      where: { id, businessId },
       data: { nombre: parsed.data.nombre, descripcion: parsed.data.descripcion || null }
     })
+
+    if (result.count === 0) {
+      return { success: false, error: 'El área no existe o no pertenece al negocio activo' }
+    }
   } catch {
     return { success: false, error: 'Ya existe un área con ese nombre' }
   }
@@ -498,11 +545,12 @@ export async function updateAreaNegocio(id: string, formData: FormData): Promise
 }
 
 export async function deleteAreaNegocio(id: string) {
+  const businessId = await getBusinessId()
   await prisma.transaction.updateMany({
-    where: { areaNegocioId: id },
+    where: { areaNegocioId: id, businessId },
     data: { areaNegocioId: null }
   })
-  await prisma.areaNegocio.delete({ where: { id } })
+  await prisma.areaNegocio.deleteMany({ where: { id, businessId } })
   revalidatePath('/')
 }
 
@@ -531,6 +579,7 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
 }
 
 export async function updateCategory(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId()
   const raw = {
     name: (formData.get('name') as string)?.trim(),
     type: formData.get('type') as string,
@@ -541,35 +590,47 @@ export async function updateCategory(id: string, formData: FormData): Promise<Ac
     return { success: false, error: parsed.error.issues[0].message }
   }
 
-  await prisma.category.update({ where: { id }, data: parsed.data })
+  const result = await prisma.category.updateMany({ where: { id, businessId }, data: parsed.data })
+  if (result.count === 0) {
+    return { success: false, error: 'La categoría no existe o no pertenece al negocio activo' }
+  }
   revalidatePath('/')
   return { success: true }
 }
 
 export async function deleteCategory(id: string) {
+  const businessId = await getBusinessId()
   // Desvincula transacciones
   await prisma.transaction.updateMany({
-    where: { categoryId: id },
+    where: { categoryId: id, businessId },
     data: { categoryId: null }
   })
-  await prisma.category.delete({ where: { id } })
+  await prisma.category.deleteMany({ where: { id, businessId } })
   revalidatePath('/')
 }
 
 // ---- Créditos y Deudas ----
 
 export async function getCreditosDeudas() {
+  const businessId = await getBusinessId()
   return await prisma.transaction.findMany({
-    where: { esCredito: true },
+    where: { businessId, esCredito: true },
     orderBy: [{ estado: 'asc' }, { fechaVencimiento: 'asc' }],
     include: { contact: true, category: true, account: true, areaNegocio: true },
   })
 }
 
 export async function marcarEstadoCredito(id: string, estado: string): Promise<ActionResult> {
+  const businessId = await getBusinessId()
   const valid = ['COBRADO', 'PAGADO', 'PENDIENTE', 'VENCIDO']
   if (!valid.includes(estado)) return { success: false, error: 'Estado inválido' }
-  await prisma.transaction.update({ where: { id }, data: { estado } })
+  const result = await prisma.transaction.updateMany({
+    where: { id, businessId, esCredito: true },
+    data: { estado },
+  })
+  if (result.count === 0) {
+    return { success: false, error: 'La transacción no existe o no pertenece al negocio activo' }
+  }
   revalidatePath('/')
   revalidatePath('/creditos')
   return { success: true }
@@ -578,8 +639,9 @@ export async function marcarEstadoCredito(id: string, estado: string): Promise<A
 // ---- Stock: Productos ----
 
 export async function getProductos() {
+  const businessId = await getBusinessId()
   return await prisma.producto.findMany({
-    where: { activo: true },
+    where: { businessId, activo: true },
     orderBy: { nombre: 'asc' },
     include: { movimientos: { orderBy: { fecha: 'desc' }, take: 5 } },
   })
@@ -616,6 +678,7 @@ export async function createProducto(formData: FormData): Promise<ActionResult> 
 }
 
 export async function updateProducto(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId()
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
@@ -632,24 +695,31 @@ export async function updateProducto(id: string, formData: FormData): Promise<Ac
   const parsed = createProductoSchema.safeParse(raw)
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
 
-  await prisma.producto.update({ where: { id }, data: {
+  const result = await prisma.producto.updateMany({ where: { id, businessId }, data: {
     ...parsed.data,
     descripcion: parsed.data.descripcion || null,
     categoria: parsed.data.categoria || null,
     marca: parsed.data.marca || null,
   }})
+
+  if (result.count === 0) {
+    return { success: false, error: 'El producto no existe o no pertenece al negocio activo' }
+  }
+
   revalidatePath('/stock')
   return { success: true }
 }
 
 export async function deleteProducto(id: string) {
-  await prisma.producto.update({ where: { id }, data: { activo: false } })
+  const businessId = await getBusinessId()
+  await prisma.producto.updateMany({ where: { id, businessId }, data: { activo: false } })
   revalidatePath('/stock')
 }
 
 // ---- Stock: Movimientos ----
 
 export async function addMovimientoStock(formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId()
   const raw = {
     productoId: formData.get('productoId') as string,
     tipo: formData.get('tipo') as string,
@@ -664,26 +734,32 @@ export async function addMovimientoStock(formData: FormData): Promise<ActionResu
 
   const { productoId, tipo, cantidad, precio, motivo, fecha: fechaStr } = parsed.data
   const fecha = fechaStr ? new Date(fechaStr) : new Date()
+  const producto = await getScopedProducto(productoId, businessId)
+
+  if (!producto) {
+    return { success: false, error: 'El producto no existe o no pertenece al negocio activo' }
+  }
 
   await prisma.movimientoStock.create({
     data: { productoId, tipo, cantidad, precio, motivo: motivo || null, fecha },
   })
 
   // Actualizar stockActual
-  const producto = await prisma.producto.findUnique({ where: { id: productoId } })
-  if (producto) {
-    const delta = tipo === 'ENTRADA' ? cantidad : tipo === 'SALIDA' ? -cantidad : 0
-    const nuevoStock = tipo === 'AJUSTE' ? cantidad : producto.stockActual + delta
-    await prisma.producto.update({ where: { id: productoId }, data: { stockActual: nuevoStock } })
-  }
+  const delta = tipo === 'ENTRADA' ? cantidad : tipo === 'SALIDA' ? -cantidad : 0
+  const nuevoStock = tipo === 'AJUSTE' ? cantidad : producto.stockActual + delta
+  await prisma.producto.update({ where: { id: productoId }, data: { stockActual: nuevoStock } })
 
   revalidatePath('/stock')
   return { success: true }
 }
 
 export async function getMovimientosStock(productoId: string) {
+  const businessId = await getBusinessId()
   return await prisma.movimientoStock.findMany({
-    where: { productoId },
+    where: {
+      productoId,
+      producto: { businessId },
+    },
     orderBy: { fecha: 'desc' },
     take: 50,
   })
@@ -692,12 +768,13 @@ export async function getMovimientosStock(productoId: string) {
 // ---- Reportes: datos extendidos ----
 
 export async function getReportDataExtended(range?: DateRange) {
+  const businessId = await getBusinessId()
   const base = await getReportData(range)
   
   // Estado Patrimonial: cuentas como activos, créditos PENDIENTE como pasivos
-  const cuentas = await prisma.account.findMany()
+  const cuentas = await prisma.account.findMany({ where: { businessId } })
   const creditosPendientes = await prisma.transaction.findMany({
-    where: { esCredito: true, estado: { in: ['PENDIENTE', 'VENCIDO'] } },
+    where: { businessId, esCredito: true, estado: { in: ['PENDIENTE', 'VENCIDO'] } },
   })
   const activosPorMoneda = cuentas.reduce((acc, c) => {
     const cur = c.currency || 'ARS'
@@ -720,7 +797,6 @@ export async function getReportDataExtended(range?: DateRange) {
   // Flujo de Fondos: clasifica por categoría en Operativo / Inversión / Financiero
   const allTx = base.allTx
   const flujo: Record<string, { operativo: number; inversion: number; financiero: number }> = {}
-  const operativoKeywords = ['venta', 'compra', 'sueldo', 'servicio', 'alquiler', 'cobro', 'pago', 'impuesto']
   const inversionKeywords = ['inversion', 'equipo', 'activo', 'infraestructura', 'maquinaria']
   const financieroKeywords = ['prestamo', 'credito', 'financiamiento', 'dividendo', 'capital']
 
@@ -751,11 +827,13 @@ export async function getReportDataExtended(range?: DateRange) {
   }
 
   // CMV: Costo de Mercadería Vendida = suma de salidas de stock * precio
-  const salidasStock = await prisma.movimientoStock.findMany({ where: { tipo: 'SALIDA' } })
+  const salidasStock = await prisma.movimientoStock.findMany({
+    where: { tipo: 'SALIDA', producto: { businessId } },
+  })
   const cmvTotal = salidasStock.reduce((acc, m) => acc + m.cantidad * m.precio, 0)
 
   // Stock: inventario actual
-  const productosActivos = await prisma.producto.findMany({ where: { activo: true } })
+  const productosActivos = await prisma.producto.findMany({ where: { businessId, activo: true } })
   const valorInventario = productosActivos.reduce((acc, p) => acc + p.stockActual * p.precioCosto, 0)
   const valorInventarioVenta = productosActivos.reduce((acc, p) => acc + p.stockActual * p.precioVenta, 0)
   const margenBrutoInventario = valorInventarioVenta - valorInventario
@@ -771,12 +849,13 @@ export async function getReportDataExtended(range?: DateRange) {
 // ---- Dashboard: datos del día ----
 
 export async function getDailyStats() {
+  const businessId = await getBusinessId()
   const now = new Date()
   const inicioHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
   const finHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
 
   const txHoy = await prisma.transaction.findMany({
-    where: { date: { gte: inicioHoy, lte: finHoy } },
+    where: { businessId, date: { gte: inicioHoy, lte: finHoy } },
     include: { category: true, account: true },
     orderBy: { date: 'desc' },
   })
@@ -796,8 +875,9 @@ export async function getDailyStats() {
 // ---- Bienes de Uso ----
 
 export async function getBienesDeUso() {
+  const businessId = await getBusinessId()
   return await prisma.bienDeUso.findMany({
-    where: { activo: true },
+    where: { businessId, activo: true },
     orderBy: { fechaCompra: 'desc' },
   })
 }
@@ -840,11 +920,13 @@ export async function createBienDeUso(formData: FormData): Promise<ActionResult>
 
   // Si se seleccionó una cuenta: crear el movimiento de egreso y descontar saldo
   if (accountId) {
-    const account = await prisma.account.findUnique({ where: { id: accountId } })
+    const account = await prisma.account.findFirst({ where: { id: accountId, businessId } })
     if (!account) return { success: false, error: 'La cuenta seleccionada no existe' }
 
     // Buscar o crear categoría "Bienes de Uso"
-    let cat = await prisma.category.findFirst({ where: { name: 'Bienes de Uso', type: 'EXPENSE' } })
+    let cat = await prisma.category.findFirst({
+      where: { name: 'Bienes de Uso', type: 'EXPENSE', businessId },
+    })
     if (!cat) {
       cat = await prisma.category.create({ 
         data: { 
@@ -883,6 +965,7 @@ export async function createBienDeUso(formData: FormData): Promise<ActionResult>
 }
 
 export async function updateBienDeUso(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId()
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
@@ -900,8 +983,8 @@ export async function updateBienDeUso(id: string, formData: FormData): Promise<A
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
 
   const { fechaCompra, descripcion, notas, ...rest } = parsed.data
-  await prisma.bienDeUso.update({
-    where: { id },
+  const result = await prisma.bienDeUso.updateMany({
+    where: { id, businessId },
     data: {
       ...rest,
       fechaCompra: new Date(fechaCompra),
@@ -909,11 +992,17 @@ export async function updateBienDeUso(id: string, formData: FormData): Promise<A
       notas: notas || null,
     },
   })
+
+  if (result.count === 0) {
+    return { success: false, error: 'El bien no existe o no pertenece al negocio activo' }
+  }
+
   revalidatePath('/bienes')
   return { success: true }
 }
 
 export async function deleteBienDeUso(id: string) {
-  await prisma.bienDeUso.update({ where: { id }, data: { activo: false } })
+  const businessId = await getBusinessId()
+  await prisma.bienDeUso.updateMany({ where: { id, businessId }, data: { activo: false } })
   revalidatePath('/bienes')
 }
