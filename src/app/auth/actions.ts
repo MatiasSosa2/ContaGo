@@ -12,6 +12,7 @@ import {
   type ActionResult,
   verifyEmailChallengeSchema,
 } from '@/lib/validations'
+import type { EmailChallengePurpose } from '@/server/auth/challenges'
 import { createEmailChallenge, verifyEmailChallenge } from '@/server/auth/challenges'
 import { sendAuthCodeEmail } from '@/server/auth/email'
 import { ensureUserBusinessMembership } from '@/server/auth/business-context'
@@ -103,7 +104,7 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
 
 export async function prepareCredentialsLogin(
   formData: FormData,
-): Promise<ActionResult<{ requiresCode?: boolean; email?: string; purpose?: 'SIGNUP_VERIFY' | 'RISK_CHALLENGE' }>> {
+): Promise<ActionResult<{ requiresCode?: boolean; email?: string; purpose?: EmailChallengePurpose }>> {
   if (USE_MOCK) {
     return { success: true }
   }

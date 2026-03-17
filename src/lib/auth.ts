@@ -7,6 +7,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
 import prismaClient from '@/lib/prisma'
+import type { EmailChallengePurpose } from '@/server/auth/challenges'
 import { createEmailChallenge } from '@/server/auth/challenges'
 import { resolveUserActiveBusiness } from '@/server/auth/business-context'
 import { sendAuthCodeEmail } from '@/server/auth/email'
@@ -193,7 +194,10 @@ async function hydrateTokenContext(token: JWT) {
   return token
 }
 
-function buildVerifyCodeRedirect(email: string, purpose: 'SIGNUP_VERIFY' | 'SOCIAL_LOGIN_VERIFY' | 'RISK_CHALLENGE') {
+function buildVerifyCodeRedirect(
+  email: string,
+  purpose: Exclude<EmailChallengePurpose, 'PASSWORD_RESET'>,
+) {
   const params = new URLSearchParams({ email, purpose })
   const origin = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '')
   return `${origin}/auth/verify-code?${params.toString()}`
@@ -285,12 +289,12 @@ export const authOptions: NextAuthOptions = {
               },
             })
 
-        const challengePurpose = dbUser
+        const challengePurpose: Exclude<EmailChallengePurpose, 'PASSWORD_RESET'> | null = dbUser
           ? decideLoginChallenge({
               provider,
               emailVerified: dbUser.emailVerified,
               lastSecurityChallengeAt: dbUser.lastSecurityChallengeAt,
-            })
+            }) as Exclude<EmailChallengePurpose, 'PASSWORD_RESET'> | null
           : null
 
         if (dbUser?.email && challengePurpose) {
