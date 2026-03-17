@@ -30,6 +30,7 @@ export default async function SelectBusinessPage({
     <AuthShell
       title="Selecciona tu negocio"
       subtitle="Tu cuenta tiene acceso a mas de un negocio. Elige el contexto correcto antes de continuar."
+      showSignOut
     >
       <BusinessSelectorPanel
         businesses={sessionContext.businesses}

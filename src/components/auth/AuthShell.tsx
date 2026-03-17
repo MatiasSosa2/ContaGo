@@ -3,14 +3,18 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 
+import AuthSignOutButton from '@/components/auth/AuthSignOutButton'
+
 export default function AuthShell({
   title,
   subtitle,
   children,
+  showSignOut = false,
 }: {
   title: string
   subtitle: string
   children: ReactNode
+  showSignOut?: boolean
 }) {
   return (
     <div className="min-h-screen bg-[#f3efe7] lg:h-screen lg:overflow-hidden lg:bg-transparent">
@@ -52,10 +56,11 @@ export default function AuthShell({
             <h2 className="mt-3 text-[2rem] font-semibold tracking-tight text-gray-900 sm:text-4xl lg:mt-2 lg:text-[1.95rem]">{title}</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-gray-500 lg:mt-2 lg:text-[13px] lg:leading-5">{subtitle}</p>
             <div className="mt-6 lg:mt-4">{children}</div>
-            <div className="mt-6 text-xs text-gray-400 lg:mt-4">
+            <div className="mt-6 flex flex-col gap-3 text-xs text-gray-400 lg:mt-4 lg:flex-row lg:items-center lg:justify-between">
               <Link href="/" className="font-medium text-brand-military hover:text-brand-military-dark">
                 Volver al inicio
               </Link>
+              {showSignOut && <AuthSignOutButton />}
             </div>
           </div>
         </section>
