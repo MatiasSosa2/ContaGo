@@ -127,12 +127,7 @@ export default function LoginPanel({
       {temporaryAccessEnabled && (
         <div className="rounded-2xl border border-brand-military/15 bg-brand-military/5 p-3.5 sm:p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Acceso temporal al panel</p>
-              <p className="mt-1 text-xs leading-5 text-gray-500">
-                Ingresa con el usuario administrador configurado en Turso, sin exponer contraseña ni email a terceros.
-              </p>
-            </div>
+            <p className="text-xs leading-5 text-gray-500">Entrar sin contraseña.</p>
             <button
               type="button"
               onClick={handleTemporaryAccess}
