@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 
+import { buildAuthChallengeRedirectPath } from './challenge-routing'
 import { getSessionContext } from './get-session-context'
 
 export async function requirePageSession() {
@@ -7,6 +8,12 @@ export async function requirePageSession() {
 
   if (!sessionContext) {
     redirect('/auth/login')
+  }
+
+  const challengeRedirectPath = buildAuthChallengeRedirectPath(sessionContext)
+
+  if (challengeRedirectPath) {
+    redirect(challengeRedirectPath)
   }
 
   if (sessionContext.businesses.length === 0) {

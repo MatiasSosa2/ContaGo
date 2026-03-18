@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+import { prepareCredentialsLogin } from '@/app/auth/actions'
+
 function GoogleIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
@@ -49,11 +51,15 @@ export default function LoginPanel({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(searchParams.get('error'))
+  const [message, setMessage] = useState<string | null>(
+    searchParams.get('verified') === '1' ? 'Codigo validado. Inicia sesion para continuar.' : null,
+  )
   const [isPending, startTransition] = useTransition()
 
   function handleProviderSignIn(provider: 'google' | 'apple') {
     startTransition(async () => {
       setError(null)
+      setMessage(null)
       await signIn(provider, { callbackUrl: '/select-business' })
     })
   }
@@ -61,8 +67,28 @@ export default function LoginPanel({
   function handleCredentialsSubmit(formData: FormData) {
     startTransition(async () => {
       setError(null)
+      setMessage(null)
       const email = String(formData.get('email') || '')
       const password = String(formData.get('password') || '')
+
+      const preflight = new FormData()
+      preflight.set('email', email)
+      preflight.set('password', password)
+
+      const preparation = await prepareCredentialsLogin(preflight)
+
+      if (!preparation.success) {
+        setError(preparation.error)
+        return
+      }
+
+      if (preparation.data?.requiresCode && preparation.data.email && preparation.data.purpose) {
+        router.push(
+          `/auth/verify-code?email=${encodeURIComponent(preparation.data.email)}&purpose=${encodeURIComponent(preparation.data.purpose)}`,
+        )
+        router.refresh()
+        return
+      }
 
       const result = await signIn('credentials', {
         email,
@@ -84,6 +110,7 @@ export default function LoginPanel({
   function handleTemporaryAccess() {
     startTransition(async () => {
       setError(null)
+      setMessage(null)
 
       const result = await signIn('credentials', {
         temporaryAccess: 'true',
@@ -153,12 +180,18 @@ export default function LoginPanel({
       <form action={handleCredentialsSubmit} className="space-y-4 lg:space-y-3">
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-xs font-medium text-gray-500">Email</label>
-          <input id="email" name="email" type="email" required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-brand-military lg:py-2.5" />
+          <input id="email" name="email" type="email" defaultValue={searchParams.get('email') || ''} required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-brand-military lg:py-2.5" />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="password" className="text-xs font-medium text-gray-500">Contraseña</label>
           <input id="password" name="password" type="password" required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-brand-military lg:py-2.5" />
         </div>
+
+        {message && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 lg:py-2.5">
+            {message}
+          </div>
+        )}
 
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 lg:py-2.5">

@@ -1,9 +1,7 @@
 ﻿'use client'
 
-import { useTransition } from 'react'
-
+import Image from 'next/image'
 import Link from 'next/link'
-import { signOut } from 'next-auth/react'
 import { usePathname } from 'next/navigation'
 import ThemeToggle from '@/components/ThemeToggle'
 
@@ -60,32 +58,33 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const [isSigningOut, startSignOutTransition] = useTransition()
 
   if (pathname.startsWith('/auth') || pathname.startsWith('/select-business')) {
     return null
-  }
-
-  function handleSignOut() {
-    startSignOutTransition(async () => {
-      await signOut({ callbackUrl: '/auth/login' })
-    })
   }
 
   return (
     <>
     <aside className="hidden md:flex md:flex-col w-60 h-screen sticky top-0 z-20 shrink-0" style={{ background: '#1B4332', borderRight: '1px solid rgba(0,0,0,0.25)' }}>
       {/* LOGOTIPO */}
-      <div className="h-16 px-5 flex items-center" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#2D6A4F' }}>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <span className="text-base font-semibold tracking-tight" style={{ color: '#F0FDF4' }}>
-            Conta<span style={{ color: '#6EE7B7' }}>GO</span>
-          </span>
+      <div className="h-[88px] px-5 flex items-center" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center justify-start gap-0">
+          <Image
+            src="/contago-wordmark-copy.svg"
+            alt="Conta"
+            width={560}
+            height={180}
+            priority
+            className="h-auto w-[124px]"
+          />
+          <Image
+            src="/contago-mark.svg"
+            alt="GO"
+            width={355}
+            height={355}
+            priority
+            className="-ml-[14px] h-[78px] w-[78px] translate-y-[2px]"
+          />
         </div>
       </div>
 
@@ -136,42 +135,7 @@ export default function Sidebar() {
       <div className="px-3 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <ThemeToggle />
       </div>
-
-      <div className="px-4 py-4" style={{ background: 'rgba(0,0,0,0.20)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0" style={{ background: '#2D6A4F', color: '#A7F3D0' }}>AA</div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium leading-tight truncate" style={{ color: '#F0FDF4' }}>Usuario Admin</p>
-            <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(167,243,208,0.60)' }}>Administrador</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={isSigningOut}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-400/30 bg-red-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          <svg className="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
-          </svg>
-          {isSigningOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
-        </button>
-      </div>
     </aside>
-
-    <button
-      type="button"
-      onClick={handleSignOut}
-      disabled={isSigningOut}
-      className="md:hidden fixed right-4 top-4 z-40 flex items-center gap-2 rounded-full border border-red-200 bg-white/95 px-4 py-2 text-sm font-semibold text-red-600 shadow-[0_12px_30px_rgba(0,0,0,0.16)] backdrop-blur transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
-    >
-      <svg className="h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
-      </svg>
-      {isSigningOut ? 'Saliendo...' : 'Cerrar sesión'}
-    </button>
 
     {/* ── Barra de navegación inferior — solo mobile ── */}
     <nav

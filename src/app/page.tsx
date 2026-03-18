@@ -5,10 +5,11 @@ import AreaNegocioManager from '@/components/AreaNegocioManager'
 import TransactionFormCard from '@/components/TransactionFormCard'
 import { KpiSparkline, MarginGauge, FinancialOverviewChart, ExpenseCategoryDonut, DebtStatusBar } from '@/components/DashboardCharts'
 import AlertsBanner from '@/components/AlertsBanner'
+import DashboardUserMenu from '@/components/DashboardUserMenu'
 import type { AlertItem } from '@/components/AlertsBanner'
 import PeriodTabs from '@/components/PeriodTabs'
 import type { PeriodKey } from '@/components/PeriodTabs'
-import { requirePageSession } from '@/server/auth/require-page-session'
+import { requireBusinessContext } from '@/server/auth/require-business-context'
 import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,7 @@ export default async function Home({
 }: {
   searchParams: Promise<{ periodo?: string }>
 }) {
-  await requirePageSession()
+  const sessionContext = await requireBusinessContext()
   const sp = await searchParams
   const periodo = (sp.periodo ?? 'mensual') as PeriodKey
   const accounts = await getAccounts()
@@ -173,18 +174,32 @@ export default async function Home({
 
   // ── Helpers de formato ──
   const fmtARS = (v: number) => '$' + Math.abs(v).toLocaleString('es-AR', { minimumFractionDigits: 0 })
-
   return (
     <div className="p-3 sm:p-5 lg:p-6 max-w-[1920px] mx-auto font-sans text-gray-800 min-h-screen bg-gray-50">
 
       {/* ══ FILA 0 — HEADER EJECUTIVO ════════════════════════════════════════ */}
-      <header className="mb-4 md:mb-6">
-        <h1 className="text-base md:text-xl font-semibold tracking-tight text-gray-900" style={{ fontFamily: 'var(--font-archivo), Archivo, system-ui' }}>
-          Panel de Control
-        </h1>
-        <p className="text-xs md:text-sm text-gray-400 mt-0.5">
-          Visión financiera consolidada &middot; {nowDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
-        </p>
+      <header className="mb-4 border border-stone-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.05)] md:mb-6 lg:-mx-6 lg:-mt-6 lg:mb-6 lg:border-x-0 lg:border-t-0 lg:shadow-none">
+        <div className="px-4 py-4 sm:px-5 lg:min-h-[88px] lg:px-6 lg:py-0">
+          <div className="flex flex-col gap-4 lg:h-full lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+              <span>Inicio</span>
+              <span className="h-1 w-1 rounded-full bg-stone-300" />
+              <span>{sessionContext.activeBusiness.name}</span>
+              <span className="inline-flex items-center border border-[#d9cfba] bg-[#f6efe2] px-2 py-1 text-[10px] font-medium normal-case tracking-normal text-[#7a6850]">
+                {sessionContext.activeBusiness.role === 'ADMIN' ? 'Administrador' : sessionContext.activeBusiness.role === 'COLLABORATOR' ? 'Colaborador' : 'Visualizador'}
+              </span>
+            </div>
+
+            <DashboardUserMenu
+              user={sessionContext.user}
+              business={{
+                name: sessionContext.activeBusiness.name,
+                role: sessionContext.activeBusiness.role,
+              }}
+              authProvider={sessionContext.auth.provider}
+            />
+          </div>
+        </div>
       </header>
 
       {/* FILTRO DE PERÍODO */}
@@ -365,7 +380,7 @@ export default async function Home({
                 {dailyStats.txHoy.length > 0 ? `${dailyStats.txHoy.length} operaci${dailyStats.txHoy.length !== 1 ? 'ones' : 'ón'} hoy` : 'Sin movimientos hoy'}
               </p>
             </div>
-            <a href="#" className="text-xs font-medium text-emerald-700 hover:underline shrink-0">Ver todos →</a>
+            <a href="/reports" className="text-xs font-medium text-emerald-700 hover:underline shrink-0">Ver todos →</a>
           </div>
           {transactions.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-3">

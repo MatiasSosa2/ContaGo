@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import { requestEmailVerification, verifyEmailCode } from '@/app/auth/actions'
 
@@ -13,6 +14,7 @@ export default function VerifyCodePanel({
   email: string
   purpose: 'SIGNUP_VERIFY' | 'SOCIAL_LOGIN_VERIFY' | 'PASSWORD_RESET' | 'RISK_CHALLENGE'
 }) {
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -28,7 +30,14 @@ export default function VerifyCodePanel({
         setError(result.error)
         return
       }
-      setMessage('Codigo validado. Ya puedes iniciar sesion.')
+
+      if (purpose === 'PASSWORD_RESET') {
+        setMessage('Codigo validado. Ya puedes continuar con el cambio de contraseña.')
+        return
+      }
+
+      router.push(`/auth/login?email=${encodeURIComponent(email)}&verified=1`)
+      router.refresh()
     })
   }
 
