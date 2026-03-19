@@ -49,8 +49,8 @@ export function KpiSparkline({ data, color = C.income, height = 44 }: SparklineP
         color: {
           type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [
-            { offset: 0, color: color + '40' },
-            { offset: 1, color: color + '00' },
+            { offset: 0, color: color + '90' },
+            { offset: 1, color: color + '30' },
           ],
         },
       },
@@ -179,7 +179,11 @@ export function FinancialOverviewChart({ data, height = 240 }: FinancialOverview
       axisLabel: {
         color: C.label,
         fontSize: 10,
-        formatter: (v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`,
+        formatter: (v: number) => {
+          const abs = Math.abs(v)
+          if (abs >= 1_000_000) return `${v < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(1).replace('.0', '')}M`
+          return `${v < 0 ? '-' : ''}$${abs.toLocaleString('es-AR')}`
+        },
       },
     },
     series: [
@@ -196,24 +200,24 @@ export function FinancialOverviewChart({ data, height = 240 }: FinancialOverview
         type: 'bar',
         data: expenses,
         barMaxWidth: 28,
-        itemStyle: { color: '#d1d5db', borderRadius: [4, 4, 0, 0] },
-        emphasis: { itemStyle: { color: '#b0b7c3' } },
+        itemStyle: { color: '#B91C1C', borderRadius: [4, 4, 0, 0] },
+        emphasis: { itemStyle: { color: '#991B1B' } },
       },
       {
-        name: 'Neto',
+        name: 'Ganancia',
         type: 'line',
         data: nets,
         smooth: true,
         showSymbol: true,
         symbolSize: 5,
-        lineStyle: { color: C.net, width: 2 },
-        itemStyle: { color: C.net },
+        lineStyle: { color: '#38BDF8', width: 2 },
+        itemStyle: { color: '#38BDF8' },
         areaStyle: {
           color: {
             type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
-              { offset: 0, color: C.net + '30' },
-              { offset: 1, color: C.net + '00' },
+              { offset: 0, color: '#38BDF830' },
+              { offset: 1, color: '#38BDF800' },
             ],
           },
         },
@@ -299,6 +303,76 @@ export function ExpenseCategoryDonut({ data, totalLabel = '', height = 220 }: Ex
       },
     }],
   }
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height, width: '100%' }}
+      opts={{ renderer: 'svg' }}
+    />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4b. DONUT 3D — Rentabilidad (Egresos vs Ganancia)
+// ─────────────────────────────────────────────────────────────────────────────
+interface ProfitabilityDonutProps {
+  expense: number
+  gain: number
+  height?: number
+}
+
+export function ProfitabilityDonut({ expense, gain, height = 140 }: ProfitabilityDonutProps) {
+  const hasGain = gain > 0
+  const data = [
+    { value: expense, name: '% de egresos', itemStyle: { color: '#B91C1C' } },
+    ...(hasGain ? [{ value: gain, name: '% de ganancia', itemStyle: { color: '#1E40AF' } }] : []),
+  ]
+
+  const option: EChartsOption = {
+    animation: true,
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: C.tooltip,
+      borderColor: '#374151',
+      textStyle: { color: '#fff', fontSize: 11 },
+      formatter: (p: any) => {
+        const pct = p.percent?.toFixed(1) ?? '0'
+        return `<div style="font-weight:600;margin-bottom:2px;">${p.name}</div>
+          <div style="font-family:monospace;">${fmtARS(p.value)}<span style="color:#9ca3af;margin-left:6px;">${pct}%</span></div>`
+      },
+    },
+    legend: { show: false },
+    series: [{
+      type: 'pie',
+      radius: ['50%', '78%'],
+      center: ['50%', '50%'],
+      padAngle: 2,
+      itemStyle: { borderRadius: 4 },
+      label: {
+        show: true,
+        position: 'outside',
+        formatter: '{b}',
+        fontSize: 11,
+        fontWeight: 600,
+        fontFamily: 'ui-serif, Georgia, serif',
+        color: 'inherit',
+      },
+      labelLine: {
+        show: true,
+        length: 8,
+        length2: 12,
+        smooth: true,
+        lineStyle: { color: '#d1d5db', width: 1 },
+      },
+      data,
+      emphasis: {
+        scale: true,
+        scaleSize: 4,
+        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
+      },
+    }],
+  }
+
   return (
     <ReactECharts
       option={option}

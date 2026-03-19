@@ -11,16 +11,16 @@ const getDatabaseActions = () => import('./actions.database');
 
 // ---- PROXY FUNCTIONS ----
 
-export async function getAccounts() {
+export async function getAccounts(preBusinessId?: string) {
   if (USE_MOCK) return MOCK.MOCK_ACCOUNTS;
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getAccounts();
+  return databaseActions.getAccounts(preBusinessId);
 }
 
-export async function getCategories() {
+export async function getCategories(preBusinessId?: string) {
   if (USE_MOCK) return MOCK.MOCK_CATEGORIES;
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getCategories();
+  return databaseActions.getCategories(preBusinessId);
 }
 
 export async function getTransactions() {
@@ -29,16 +29,16 @@ export async function getTransactions() {
   return databaseActions.getTransactions();
 }
 
-export async function getAreasNegocio() {
+export async function getAreasNegocio(preBusinessId?: string) {
   if (USE_MOCK) return MOCK.MOCK_AREAS;
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getAreasNegocio();
+  return databaseActions.getAreasNegocio(preBusinessId);
 }
 
-export async function getContacts() {
+export async function getContacts(preBusinessId?: string) {
   if (USE_MOCK) return MOCK.MOCK_CONTACTS;
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getContacts();
+  return databaseActions.getContacts(preBusinessId);
 }
 
 export async function createContact(formData: FormData): Promise<ActionResult> {
@@ -245,6 +245,15 @@ export async function getDailyStats() {
   return databaseActions.getDailyStats();
 }
 
+export async function getDashboardStats(period: string, customFrom?: string, customTo?: string, preBusinessId?: string) {
+  if (USE_MOCK) {
+    const { getMockDashboardStats } = await import('@/lib/mock');
+    return getMockDashboardStats(period, customFrom, customTo);
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getDashboardStats(period as any, customFrom, customTo, preBusinessId);
+}
+
 export async function getBienesDeUso() {
   if (USE_MOCK) return MOCK.MOCK_BIENES;
   const databaseActions = await getDatabaseActions();
@@ -267,4 +276,13 @@ export async function deleteBienDeUso(id: string) {
   if (USE_MOCK) { revalidatePath('/bienes'); return; }
   const databaseActions = await getDatabaseActions();
   return databaseActions.deleteBienDeUso(id);
+}
+
+export async function getCajasData() {
+  if (USE_MOCK) {
+    const { getMockCajasData } = await import('@/lib/mock');
+    return getMockCajasData();
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCajasData();
 }

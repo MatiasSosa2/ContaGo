@@ -1,7 +1,8 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { unstable_cache } from 'next/cache'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
 import {
   updateAccountSchema,
@@ -45,15 +46,15 @@ async function getScopedProducto(id: string, businessId: string) {
   })
 }
 
-export async function getAccounts() {
-  const businessId = await getBusinessId()
+export async function getAccounts(preBusinessId?: string) {
+  const businessId = preBusinessId ?? await getBusinessId()
   return await prisma.account.findMany({
     where: { businessId },
   })
 }
 
-export async function getCategories() {
-  const businessId = await getBusinessId()
+export async function getCategories(preBusinessId?: string) {
+  const businessId = preBusinessId ?? await getBusinessId()
   return await prisma.category.findMany({
     where: { businessId },
   })
@@ -69,16 +70,16 @@ export async function getTransactions() {
   })
 }
 
-export async function getAreasNegocio() {
-  const businessId = await getBusinessId()
+export async function getAreasNegocio(preBusinessId?: string) {
+  const businessId = preBusinessId ?? await getBusinessId()
   return await prisma.areaNegocio.findMany({
     where: { businessId },
     orderBy: { nombre: 'asc' }
   })
 }
 
-export async function getContacts() {
-  const businessId = await getBusinessId()
+export async function getContacts(preBusinessId?: string) {
+  const businessId = preBusinessId ?? await getBusinessId()
   return await prisma.contact.findMany({
     where: { businessId },
     orderBy: { name: 'asc' }
@@ -218,6 +219,7 @@ export async function deleteTransaction(id: string) {
   }
 
   await prisma.transaction.deleteMany({ where: { id, businessId } })
+  revalidateTag(`dashboard:${businessId}`)
   revalidatePath('/')
 }
 
@@ -631,6 +633,7 @@ export async function marcarEstadoCredito(id: string, estado: string): Promise<A
   if (result.count === 0) {
     return { success: false, error: 'La transacción no existe o no pertenece al negocio activo' }
   }
+  revalidateTag(`dashboard:${businessId}`)
   revalidatePath('/')
   revalidatePath('/creditos')
   return { success: true }
@@ -872,6 +875,400 @@ export async function getDailyStats() {
   return { txHoy, byCurrency }
 }
 
+// ---- Dashboard Stats (Período dinámico) ----
+
+export type DashboardPeriodKey = 'diario' | 'semanal' | 'mensual' | 'semestral' | 'anual' | 'custom'
+
+export interface DashboardStatsResult {
+  kpis: { income: number; expense: number; gain: number; marginPct: number }
+  prevKpis: { income: number; expense: number; gain: number; marginPct: number }
+  chartData: { label: string; income: number; expense: number; net: number }[]
+  categoryBreakdown: { name: string; value: number; color: string }[]
+  incomeCategoryBreakdown: { name: string; value: number; color: string }[]
+  recentTx: {
+    id: string; description: string; amount: number; currency: string; type: string;
+    date: Date; category?: { name: string } | null; account?: { name: string } | null;
+  }[]
+  sparklines: { income: number[]; expense: number[]; balance: number[] }
+  debtStatus: {
+    vencidos: { count: number; total: number }
+    en48hs: { count: number; total: number }
+    futuros: { count: number; total: number }
+    totalPendiente: number
+    creditosDeudas: any[]
+  }
+  alerts: { severity: 'danger' | 'warning'; icon: 'runway' | 'margin' | 'spike'; title: string; message: string }[]
+  periodLabel: string
+}
+
+function computePeriodRange(period: DashboardPeriodKey, customFrom?: string, customTo?: string): { from: Date; to: Date; prevFrom: Date; prevTo: Date; label: string } {
+  const now = new Date()
+  let from: Date, to: Date, prevFrom: Date, prevTo: Date, label: string
+
+  switch (period) {
+    case 'diario': {
+      from = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      const ayer = new Date(from); ayer.setDate(ayer.getDate() - 1)
+      prevFrom = new Date(ayer.getFullYear(), ayer.getMonth(), ayer.getDate(), 0, 0, 0)
+      prevTo = new Date(ayer.getFullYear(), ayer.getMonth(), ayer.getDate(), 23, 59, 59, 999)
+      label = 'Hoy'
+      break
+    }
+    case 'semanal': {
+      const dayOfWeek = now.getDay()
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+      from = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset, 0, 0, 0)
+      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      prevFrom = new Date(from); prevFrom.setDate(prevFrom.getDate() - 7)
+      prevTo = new Date(from); prevTo.setDate(prevTo.getDate() - 1); prevTo.setHours(23, 59, 59, 999)
+      label = 'Esta semana'
+      break
+    }
+    case 'mensual': {
+      from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      prevFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0)
+      prevTo = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+      label = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+      label = label.charAt(0).toUpperCase() + label.slice(1)
+      break
+    }
+    case 'semestral': {
+      from = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate(), 0, 0, 0)
+      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      prevFrom = new Date(now.getFullYear(), now.getMonth() - 12, now.getDate(), 0, 0, 0)
+      prevTo = new Date(from); prevTo.setDate(prevTo.getDate() - 1); prevTo.setHours(23, 59, 59, 999)
+      label = 'Último semestre'
+      break
+    }
+    case 'anual': {
+      from = new Date(now.getFullYear(), 0, 1, 0, 0, 0)
+      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      prevFrom = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0)
+      prevTo = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999)
+      label = `Año ${now.getFullYear()}`
+      break
+    }
+    case 'custom': {
+      from = customFrom ? new Date(customFrom + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+      to = customTo ? new Date(customTo + 'T23:59:59.999') : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      const durationMs = to.getTime() - from.getTime()
+      prevTo = new Date(from.getTime() - 1)
+      prevFrom = new Date(prevTo.getTime() - durationMs)
+      prevFrom.setHours(0, 0, 0, 0)
+      prevTo.setHours(23, 59, 59, 999)
+      const fmtDate = (d: Date) => d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+      label = `${fmtDate(from)} – ${fmtDate(to)}`
+      break
+    }
+  }
+
+  return { from, to, prevFrom, prevTo, label }
+}
+
+function groupTransactions(
+  txs: { date: Date; type: string; amount: number }[],
+  period: DashboardPeriodKey,
+  from: Date,
+  to: Date
+): { label: string; income: number; expense: number; net: number }[] {
+  const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+  const DAY_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+
+  // Decide grouping based on period or range duration
+  const durationDays = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24))
+  let mode: 'hour' | 'day' | 'month'
+  if (period === 'diario') mode = 'hour'
+  else if (period === 'semanal') mode = 'day'
+  else if (period === 'mensual') mode = 'day'
+  else if (period === 'semestral' || period === 'anual') mode = 'month'
+  else {
+    // custom
+    if (durationDays <= 2) mode = 'hour'
+    else if (durationDays <= 62) mode = 'day'
+    else mode = 'month'
+  }
+
+  const buckets: Record<string, { label: string; income: number; expense: number; order: number }> = {}
+
+  if (mode === 'hour') {
+    for (let h = 0; h < 24; h++) {
+      const key = String(h)
+      buckets[key] = { label: `${h}:00`, income: 0, expense: 0, order: h }
+    }
+    for (const tx of txs) {
+      const d = new Date(tx.date)
+      const key = String(d.getHours())
+      if (buckets[key]) {
+        if (tx.type === 'INCOME') buckets[key].income += tx.amount
+        else buckets[key].expense += tx.amount
+      }
+    }
+  } else if (mode === 'day') {
+    // Generate day buckets from `from` to `to`
+    const cursor = new Date(from)
+    let order = 0
+    while (cursor <= to) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
+      const lbl = period === 'semanal'
+        ? DAY_LABELS[cursor.getDay()]
+        : `${cursor.getDate()}/${cursor.getMonth() + 1}`
+      buckets[key] = { label: lbl, income: 0, expense: 0, order: order++ }
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    for (const tx of txs) {
+      const d = new Date(tx.date)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      if (buckets[key]) {
+        if (tx.type === 'INCOME') buckets[key].income += tx.amount
+        else buckets[key].expense += tx.amount
+      }
+    }
+  } else {
+    // month mode
+    const cursor = new Date(from.getFullYear(), from.getMonth(), 1)
+    const endMonth = new Date(to.getFullYear(), to.getMonth(), 1)
+    let order = 0
+    while (cursor <= endMonth) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
+      buckets[key] = { label: MONTH_LABELS[cursor.getMonth()], income: 0, expense: 0, order: order++ }
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+    for (const tx of txs) {
+      const d = new Date(tx.date)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      if (buckets[key]) {
+        if (tx.type === 'INCOME') buckets[key].income += tx.amount
+        else buckets[key].expense += tx.amount
+      }
+    }
+  }
+
+  return Object.values(buckets)
+    .sort((a, b) => a.order - b.order)
+    .map(b => ({ label: b.label, income: b.income, expense: b.expense, net: b.income - b.expense }))
+}
+
+function computeSparklines(
+  txs: { date: Date; type: string; amount: number }[],
+  period: DashboardPeriodKey,
+  from: Date,
+  to: Date
+): { income: number[]; expense: number[]; balance: number[] } {
+  // For sparklines we want 6 subdivisions of the period
+  const NUM_POINTS = 6
+  const totalMs = to.getTime() - from.getTime()
+  const sliceMs = totalMs / NUM_POINTS
+
+  const income: number[] = []
+  const expense: number[] = []
+  const balance: number[] = []
+
+  for (let i = 0; i < NUM_POINTS; i++) {
+    const sliceStart = from.getTime() + sliceMs * i
+    const sliceEnd = from.getTime() + sliceMs * (i + 1)
+    let inc = 0, exp = 0
+    for (const tx of txs) {
+      const t = new Date(tx.date).getTime()
+      if (t >= sliceStart && t < sliceEnd) {
+        if (tx.type === 'INCOME') inc += tx.amount
+        else exp += tx.amount
+      }
+    }
+    income.push(inc)
+    expense.push(exp)
+    balance.push(inc - exp)
+  }
+
+  return { income, expense, balance }
+}
+
+export async function getDashboardStats(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  /** Pre-resolved businessId — avoids redundant requireBusinessContext() calls */
+  preBusinessId?: string,
+): Promise<DashboardStatsResult> {
+  const businessId = preBusinessId ?? await getBusinessId()
+
+  // Cache key includes businessId + period params → safe per-tenant isolation.
+  // Revalidates every 15 s so rapid tab switches hit memory, not Turso.
+  const cacheKey = `dashboard:${businessId}:${period}:${customFrom ?? ''}:${customTo ?? ''}`
+  const cached = unstable_cache(
+    async () => _fetchDashboardStats(businessId, period, customFrom, customTo),
+    [cacheKey],
+    { revalidate: 15, tags: [`dashboard:${businessId}`] },
+  )
+  return cached()
+}
+
+async function _fetchDashboardStats(
+  businessId: string,
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+): Promise<DashboardStatsResult> {
+  const now = new Date()
+  const { from, to, prevFrom, prevTo, label: periodLabel } = computePeriodRange(period, customFrom, customTo)
+
+  // ── Fetch current + previous period transactions in parallel ──
+  // prevTxs only needs aggregates; creditosDeudas only needs amounts + status
+  const [currentTxs, prevTxs, creditosDeudas, accounts] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { businessId, date: { gte: from, lte: to } },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        id: true, description: true, amount: true, currency: true,
+        type: true, date: true, createdAt: true,
+        category: { select: { name: true } },
+        account: { select: { name: true } },
+      },
+    }),
+    prisma.transaction.findMany({
+      where: { businessId, date: { gte: prevFrom, lte: prevTo } },
+      select: { amount: true, type: true },
+    }),
+    prisma.transaction.findMany({
+      where: { businessId, esCredito: true, estado: { in: ['PENDIENTE', 'VENCIDO'] } },
+      select: { amount: true, estado: true, fechaVencimiento: true },
+    }),
+    prisma.account.findMany({
+      where: { businessId },
+      select: { currency: true, currentBalance: true },
+    }),
+  ])
+
+  // ── KPIs current period ──
+  let curIncome = 0, curExpense = 0
+  for (const tx of currentTxs) {
+    if (tx.type === 'INCOME') curIncome += tx.amount
+    else curExpense += tx.amount
+  }
+  const curGain = curIncome - curExpense
+  const curMargin = curIncome > 0 ? (curGain / curIncome) * 100 : 0
+
+  // ── KPIs previous period ──
+  let prevIncome = 0, prevExpense = 0
+  for (const tx of prevTxs) {
+    if (tx.type === 'INCOME') prevIncome += tx.amount
+    else prevExpense += tx.amount
+  }
+  const prevGain = prevIncome - prevExpense
+  const prevMargin = prevIncome > 0 ? (prevGain / prevIncome) * 100 : 0
+
+  // ── Chart data (grouped dynamically) ──
+  const chartData = groupTransactions(currentTxs, period, from, to)
+
+  // ── Sparklines ──
+  const sparklines = computeSparklines(currentTxs, period, from, to)
+
+  // ── Category breakdown (period) ──
+  const CAT_COLORS = ['#3A4D39', '#C5A065', '#5A7A57', '#d4ae84', '#6b8f65', '#c49a6c']
+  const catMap: Record<string, { name: string; value: number }> = {}
+  for (const tx of currentTxs) {
+    if (tx.type !== 'EXPENSE') continue
+    const catName = tx.category?.name || 'Sin categoría'
+    if (!catMap[catName]) catMap[catName] = { name: catName, value: 0 }
+    catMap[catName].value += tx.amount
+  }
+  const categoryBreakdown = Object.values(catMap)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6)
+    .map((c, i) => ({ ...c, color: CAT_COLORS[i % CAT_COLORS.length] }))
+
+  // ── Income category breakdown (period) ──
+  const incCatMap: Record<string, { name: string; value: number }> = {}
+  for (const tx of currentTxs) {
+    if (tx.type !== 'INCOME') continue
+    const catName = tx.category?.name || 'Sin categoría'
+    if (!incCatMap[catName]) incCatMap[catName] = { name: catName, value: 0 }
+    incCatMap[catName].value += tx.amount
+  }
+  const INCOME_COLORS = ['#2D6A4F', '#5A7A57', '#6b8f65', '#81a87e', '#a3c49e', '#c5dfb8']
+  const incomeCategoryBreakdown = Object.values(incCatMap)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6)
+    .map((c, i) => ({ ...c, color: INCOME_COLORS[i % INCOME_COLORS.length] }))
+
+  // ── Recent transactions (last 7 in period) ──
+  const recentTx = currentTxs.slice(0, 7).map(tx => ({
+    id: tx.id,
+    description: tx.description,
+    amount: tx.amount,
+    currency: tx.currency,
+    type: tx.type,
+    date: tx.date,
+    category: tx.category ? { name: tx.category.name } : null,
+    account: tx.account ? { name: tx.account.name } : null,
+  }))
+
+  // ── Debt status (independent of period) ──
+  const now48h = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+  const vencidos = creditosDeudas.filter(c =>
+    c.estado === 'VENCIDO' || (c.fechaVencimiento && new Date(c.fechaVencimiento) < now && c.estado === 'PENDIENTE')
+  )
+  const en48hs = creditosDeudas.filter(c =>
+    c.estado === 'PENDIENTE' && c.fechaVencimiento && new Date(c.fechaVencimiento) >= now && new Date(c.fechaVencimiento) <= now48h
+  )
+  const futuros = creditosDeudas.filter(c =>
+    c.estado === 'PENDIENTE' && (!c.fechaVencimiento || new Date(c.fechaVencimiento) > now48h)
+  )
+  const debtStatus = {
+    vencidos: { count: vencidos.length, total: vencidos.reduce((s, c) => s + c.amount, 0) },
+    en48hs: { count: en48hs.length, total: en48hs.reduce((s, c) => s + c.amount, 0) },
+    futuros: { count: futuros.length, total: futuros.reduce((s, c) => s + c.amount, 0) },
+    totalPendiente: creditosDeudas.filter(c => c.estado === 'PENDIENTE' || c.estado === 'VENCIDO').reduce((s, c) => s + c.amount, 0),
+    creditosDeudas: creditosDeudas as any[],
+  }
+
+  // ── Alerts (based on period data + account balances) ──
+  const alerts: DashboardStatsResult['alerts'] = []
+  const arsBalance = accounts.reduce((s, a) => a.currency === 'ARS' ? s + a.currentBalance : s, 0)
+  const avgExpense = prevExpense > 0 ? prevExpense : curExpense
+  const runwayMths = avgExpense > 0 ? arsBalance / avgExpense : null
+
+  if (runwayMths !== null && runwayMths < 3) {
+    alerts.push({
+      severity: runwayMths < 1.5 ? 'danger' : 'warning',
+      icon: 'runway',
+      title: 'Runway bajo',
+      message: `Con el ritmo actual de gastos, el saldo ARS cubre solo ${runwayMths.toFixed(1)} meses. Revisá la liquidez.`,
+    })
+  }
+  if (curMargin < 20 && curIncome > 0) {
+    alerts.push({
+      severity: curMargin < 0 ? 'danger' : 'warning',
+      icon: 'margin',
+      title: 'Margen reducido',
+      message: `El margen del período es ${curMargin.toFixed(1)}%. Analizá costos en Reportes.`,
+    })
+  }
+  if (prevExpense > 0 && curExpense > prevExpense * 1.2) {
+    const spikePct = ((curExpense - prevExpense) / prevExpense) * 100
+    alerts.push({
+      severity: spikePct > 50 ? 'danger' : 'warning',
+      icon: 'spike',
+      title: 'Gastos en alza',
+      message: `Los gastos subieron un ${spikePct.toFixed(0)}% respecto al período anterior.`,
+    })
+  }
+
+  return {
+    kpis: { income: curIncome, expense: curExpense, gain: curGain, marginPct: curMargin },
+    prevKpis: { income: prevIncome, expense: prevExpense, gain: prevGain, marginPct: prevMargin },
+    chartData,
+    categoryBreakdown,
+    incomeCategoryBreakdown,
+    recentTx,
+    sparklines,
+    debtStatus,
+    alerts,
+    periodLabel,
+  }
+}
+
 // ---- Bienes de Uso ----
 
 export async function getBienesDeUso() {
@@ -1005,4 +1402,141 @@ export async function deleteBienDeUso(id: string) {
   const businessId = await getBusinessId()
   await prisma.bienDeUso.updateMany({ where: { id, businessId }, data: { activo: false } })
   revalidatePath('/bienes')
+}
+
+// ---- Cajas: datos completos para la pestaña Cajas ----
+
+export interface CajasAccountItem {
+  id: string
+  name: string
+  type: string
+  currency: string
+  currentBalance: number
+  recentMovements: number  // movimientos últimos 7 días
+  todayVariation: number   // variación neta del día
+}
+
+export interface CajasGroupData {
+  accounts: CajasAccountItem[]
+  total: number
+  todayVariation: number
+}
+
+export interface CajasData {
+  efectivo: CajasGroupData
+  virtual: CajasGroupData
+  summaryMessage: string       // barra de consejo superior
+  aiTipEfectivo: string        // consejo IA para efectivo
+  aiTipVirtual: string         // consejo IA para virtual
+}
+
+export async function getCajasData(): Promise<CajasData> {
+  const businessId = await getBusinessId()
+
+  // Traer todas las cuentas del negocio
+  const accounts = await prisma.account.findMany({
+    where: { businessId },
+  })
+
+  // Fechas para cálculos
+  const now = new Date()
+  const inicioHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+  const finHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+  const hace7dias = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+  // Movimientos últimos 7 días agrupados por cuenta
+  const recentTx = await prisma.transaction.findMany({
+    where: { businessId, date: { gte: hace7dias } },
+    select: { accountId: true, amount: true, type: true, date: true },
+  })
+
+  // Calcular movimientos recientes y variación diaria por cuenta
+  const movCountByAccount: Record<string, number> = {}
+  const todayVarByAccount: Record<string, number> = {}
+
+  for (const tx of recentTx) {
+    // Contar movimientos de últimos 7 días
+    movCountByAccount[tx.accountId] = (movCountByAccount[tx.accountId] || 0) + 1
+
+    // Variación de hoy
+    if (tx.date >= inicioHoy && tx.date <= finHoy) {
+      const delta = tx.type === 'INCOME' ? tx.amount : -tx.amount
+      todayVarByAccount[tx.accountId] = (todayVarByAccount[tx.accountId] || 0) + delta
+    }
+  }
+
+  // Clasificar: CASH = Efectivo, BANK/WALLET/otro = Virtual
+  const efectivoAccounts: CajasAccountItem[] = []
+  const virtualAccounts: CajasAccountItem[] = []
+
+  for (const acc of accounts) {
+    const item: CajasAccountItem = {
+      id: acc.id,
+      name: acc.name,
+      type: acc.type,
+      currency: acc.currency,
+      currentBalance: acc.currentBalance,
+      recentMovements: movCountByAccount[acc.id] || 0,
+      todayVariation: todayVarByAccount[acc.id] || 0,
+    }
+    if (acc.type === 'CASH') {
+      efectivoAccounts.push(item)
+    } else {
+      virtualAccounts.push(item)
+    }
+  }
+
+  const totalEfectivo = efectivoAccounts.reduce((s, a) => s + a.currentBalance, 0)
+  const totalVirtual = virtualAccounts.reduce((s, a) => s + a.currentBalance, 0)
+  const todayVarEfectivo = efectivoAccounts.reduce((s, a) => s + a.todayVariation, 0)
+  const todayVarVirtual = virtualAccounts.reduce((s, a) => s + a.todayVariation, 0)
+
+  // Calcular resumen comparativo (últimos 30 días vs 30 días anteriores)
+  const hace30dias = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const hace60dias = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+
+  const tx30 = await prisma.transaction.findMany({
+    where: { businessId, date: { gte: hace60dias } },
+    select: { amount: true, type: true, date: true },
+  })
+
+  let incomeActual = 0, incomePrev = 0
+
+  for (const tx of tx30) {
+    if (tx.type === 'INCOME') {
+      if (tx.date >= hace30dias) incomeActual += tx.amount
+      else incomePrev += tx.amount
+    }
+  }
+
+  const growth = incomePrev > 0 ? ((incomeActual - incomePrev) / incomePrev) * 100 : 0
+  const totalGeneral = totalEfectivo + totalVirtual
+  const summaryMessage = growth !== 0
+    ? `Tus cajas suman $${totalGeneral.toLocaleString('es-AR')} en total. Tus ingresos ${growth >= 0 ? 'crecieron' : 'bajaron'} un ${Math.abs(growth).toFixed(1)}% respecto al mes anterior.`
+    : `Tus cajas suman $${totalGeneral.toLocaleString('es-AR')} en total.`
+
+  // Consejos IA (placeholder inteligentes basados en datos)
+  const aiTipEfectivo = efectivoAccounts.length === 0
+    ? 'No tenés cajas de efectivo registradas. Creá una para empezar a trackear tus movimientos físicos.'
+    : todayVarEfectivo > 0
+      ? `Hoy ingresaron $${todayVarEfectivo.toLocaleString('es-AR')} en efectivo. Buen día de caja.`
+      : todayVarEfectivo < 0
+        ? `Hoy salieron $${Math.abs(todayVarEfectivo).toLocaleString('es-AR')} en efectivo. Revisá si hay gastos no planificados.`
+        : 'Sin movimientos de efectivo hoy. Todo estable.'
+
+  const aiTipVirtual = virtualAccounts.length === 0
+    ? 'No tenés cuentas virtuales registradas. Agregá tus bancos y billeteras digitales.'
+    : todayVarVirtual > 0
+      ? `Hoy ingresaron $${todayVarVirtual.toLocaleString('es-AR')} en cuentas virtuales.`
+      : todayVarVirtual < 0
+        ? `Hoy salieron $${Math.abs(todayVarVirtual).toLocaleString('es-AR')} de cuentas virtuales.`
+        : 'Sin movimientos virtuales hoy.'
+
+  return {
+    efectivo: { accounts: efectivoAccounts, total: totalEfectivo, todayVariation: todayVarEfectivo },
+    virtual: { accounts: virtualAccounts, total: totalVirtual, todayVariation: todayVarVirtual },
+    summaryMessage,
+    aiTipEfectivo,
+    aiTipVirtual,
+  }
 }

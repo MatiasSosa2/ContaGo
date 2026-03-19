@@ -12,14 +12,16 @@
   "dependencies": {
     "@libsql/client": "^0.17.0",
     "@next-auth/prisma-adapter": "^1.0.7",
-    "@prisma/adapter-libsql": "^7.4.1",
-    "@prisma/client": "^7.4.1",
+    "@prisma/adapter-libsql": "7.4.1",
+    "@prisma/client": "7.4.1",
     "bcryptjs": "^3.0.3",
+    "date-fns": "^4.1.0",
     "echarts": "^6.0.0",
     "echarts-for-react": "^3.0.6",
     "next": "16.1.6",
     "next-auth": "^4.24.13",
     "react": "19.2.3",
+    "react-day-picker": "^9.14.0",
     "react-dom": "19.2.3",
     "recharts": "^3.7.0",
     "zod": "^4.3.6"
@@ -33,7 +35,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "prisma": "^7.4.1",
+    "prisma": "7.4.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

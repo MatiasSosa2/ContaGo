@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Archivo, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import FloatingActionButton from "@/components/FloatingActionButton";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -52,6 +53,7 @@ export default function RootLayout({
         <main className="flex-1 w-full min-h-screen overflow-y-auto pb-16 md:pb-0">
           {children}
         </main>
+        <FloatingActionButton />
       </body>
     </html>
   );

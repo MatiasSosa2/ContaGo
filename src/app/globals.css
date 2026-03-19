@@ -27,7 +27,7 @@
   /* Pro palette — institutional green tones */
   --color-forest: #1B4332;         /* Deep forest green — sidebar authority */
   --color-emerald: #2D6A4F;        /* Vibrant emerald — profit indicators */
-  --color-emerald-light: #D8F3DC;  /* Soft emerald — positive backgrounds */
+   --color-emerald-light: #D8F3DC;  /* Soft emerald — positive backgrounds */
 }
 
 @theme inline {
@@ -99,6 +99,28 @@ body {
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* DateRangeModal — react-day-picker custom styles */
+.contago-calendar .rdp-root {
+  --rdp-accent-color: #1B4332;
+  --rdp-accent-background-color: #ecfdf5;
+}
+.contago-calendar .rdp-range_start .rdp-day_button,
+.contago-calendar .rdp-range_end .rdp-day_button {
+  background: #1B4332;
+  color: #6EE7B7;
+}
+.contago-calendar .rdp-range_middle .rdp-day_button {
+  background: rgba(45, 106, 79, 0.08);
+  color: #1B4332;
+}
+.contago-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+  font-weight: 700;
+  color: #2D6A4F;
+}
+.contago-calendar .rdp-chevron {
+  fill: #6b7280;
 }
 
 /* Targets touch mínimos 44px (WCAG / Apple HIG) */
