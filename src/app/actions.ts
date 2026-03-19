@@ -7,7 +7,13 @@ import { revalidatePath } from 'next/cache';
 
 const hasDatabaseConfig = Boolean(process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL);
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === 'true' || !hasDatabaseConfig;
-const getDatabaseActions = () => import('./actions.database');
+
+// Cache the module promise so it resolves only once across all calls
+let _dbActionsPromise: Promise<typeof import('./actions.database')> | null = null;
+const getDatabaseActions = () => {
+  if (!_dbActionsPromise) _dbActionsPromise = import('./actions.database');
+  return _dbActionsPromise;
+};
 
 // ---- PROXY FUNCTIONS ----
 

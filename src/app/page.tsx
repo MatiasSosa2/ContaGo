@@ -1,4 +1,4 @@
-﻿import { getAccounts, getCategories, getContacts, getAreasNegocio, getDashboardStats } from '@/app/actions'
+﻿import { getDashboardStats } from '@/app/actions'
 import { KpiSparkline, FinancialOverviewChart, ProfitabilityDonut } from '@/components/DashboardCharts'
 import KpiCardWithModal from '@/components/KpiCardWithModal'
 import DashboardUserMenu from '@/components/DashboardUserMenu'
@@ -9,67 +9,45 @@ import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
 
-export default async function Home({
-  searchParams,
+// ── Skeleton loader that shows immediately while data streams in ──
+function DashboardSkeleton() {
+  return (
+    <>
+      <section className="mb-4 md:mb-5 grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className="h-[180px] rounded-2xl bg-gray-200 animate-pulse" />
+        ))}
+      </section>
+      <div className="mb-4 md:mb-5">
+        <div className="executive-card h-[340px] animate-pulse bg-gray-100 rounded-2xl" />
+      </div>
+    </>
+  )
+}
+
+// ── Async server component: fetches data and renders KPIs + charts ──
+async function DashboardContent({
+  businessId,
+  periodo,
+  customFrom,
+  customTo,
 }: {
-  searchParams: Promise<{ periodo?: string; from?: string; to?: string }>
+  businessId: string
+  periodo: PeriodKey
+  customFrom?: string
+  customTo?: string
 }) {
-  const sessionContext = await requireBusinessContext()
-  const sp = await searchParams
-  const periodo = (sp.periodo ?? 'mensual') as PeriodKey
-  const customFrom = sp.from
-  const customTo = sp.to
-
-  // ── Single consolidated fetch (pass businessId to avoid redundant auth calls) ──
-  const businessId = sessionContext.activeBusiness.id
-  const [stats] = await Promise.all([
-    getDashboardStats(periodo, customFrom, customTo, businessId),
-  ])
-
+  const stats = await getDashboardStats(periodo, customFrom, customTo, businessId)
   const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, sparklines, periodLabel } = stats
 
-  // ── Growth comparisons (current vs previous period) ──
   const incomeGrowth = prevKpis.income > 0 ? ((kpis.income - prevKpis.income) / prevKpis.income) * 100 : null
   const expenseGrowth = prevKpis.expense > 0 ? ((kpis.expense - prevKpis.expense) / prevKpis.expense) * 100 : null
   const gainGrowth = prevKpis.gain !== 0 ? ((kpis.gain - prevKpis.gain) / Math.abs(prevKpis.gain)) * 100 : null
 
-  // ── Helpers de formato ──
   const fmtARS = (v: number) => '$' + Math.abs(v).toLocaleString('es-AR', { minimumFractionDigits: 0 })
+
   return (
-    <div className="p-3 sm:p-5 lg:p-6 max-w-[1920px] mx-auto font-sans text-gray-800 min-h-screen bg-gray-50">
-
-      {/* ══ FILA 0 — HEADER EJECUTIVO ════════════════════════════════════════ */}
-      <header className="mb-4 border border-stone-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.05)] md:mb-6 lg:-mx-6 lg:-mt-6 lg:mb-6 lg:border-x-0 lg:border-t-0 lg:shadow-none">
-        <div className="px-4 py-4 sm:px-5 lg:min-h-[88px] lg:px-6 lg:py-0">
-          <div className="flex flex-col gap-4 lg:h-full lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">
-              <span>Inicio</span>
-              <span className="h-1 w-1 rounded-full bg-stone-300" />
-              <span>{sessionContext.activeBusiness.name}</span>
-              <span className="inline-flex items-center border border-[#d9cfba] bg-[#f6efe2] px-2 py-1 text-[10px] font-medium normal-case tracking-normal text-[#7a6850]">
-                {sessionContext.activeBusiness.role === 'ADMIN' ? 'Administrador' : sessionContext.activeBusiness.role === 'COLLABORATOR' ? 'Colaborador' : 'Visualizador'}
-              </span>
-            </div>
-
-            <DashboardUserMenu
-              user={sessionContext.user}
-              business={{
-                name: sessionContext.activeBusiness.name,
-                role: sessionContext.activeBusiness.role,
-              }}
-              authProvider={sessionContext.auth.provider}
-            />
-          </div>
-        </div>
-      </header>
-
-      {/* FILTRO DE PERÍODO */}
-      <div className="mb-3 md:mb-4 flex items-center justify-between gap-3">
-        <Suspense fallback={null}>
-          <PeriodTabs active={periodo} customFrom={customFrom} customTo={customTo} />
-        </Suspense>
-      </div>
-
+    <>
       {/* ══ FILA 1 — 4 KPI CARDS PROTAGONISTAS ══════════════════════════════ */}
       <section className="mb-4 md:mb-5 grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
 
@@ -182,7 +160,6 @@ export default async function Home({
 
       {/* ══ INSIGHTS IA — 3 tarjetas preparadas para mensajes inteligentes ══ */}
       <div className="mb-4 md:mb-5 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-        {/* Insight Ingresos */}
         <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] border border-black/[0.04]">
           <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
             <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -191,12 +168,9 @@ export default async function Home({
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none mb-0.5">Ingresos</p>
-            <p className="text-[11px] text-gray-600 truncate leading-tight">
-              Análisis disponible próximamente
-            </p>
+            <p className="text-[11px] text-gray-600 truncate leading-tight">Análisis disponible próximamente</p>
           </div>
         </div>
-        {/* Insight Egresos */}
         <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] border border-black/[0.04]">
           <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
             <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -205,12 +179,9 @@ export default async function Home({
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none mb-0.5">Egresos</p>
-            <p className="text-[11px] text-gray-600 truncate leading-tight">
-              Análisis disponible próximamente
-            </p>
+            <p className="text-[11px] text-gray-600 truncate leading-tight">Análisis disponible próximamente</p>
           </div>
         </div>
-        {/* Insight Rentabilidad */}
         <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] border border-black/[0.04]">
           <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
             <svg className="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -219,12 +190,73 @@ export default async function Home({
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none mb-0.5">Rentabilidad</p>
-            <p className="text-[11px] text-gray-600 truncate leading-tight">
-              Análisis disponible próximamente
-            </p>
+            <p className="text-[11px] text-gray-600 truncate leading-tight">Análisis disponible próximamente</p>
           </div>
         </div>
       </div>
+    </>
+  )
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string; from?: string; to?: string }>
+}) {
+  // Auth + searchParams resolve in parallel — both are needed for the shell
+  const [sessionContext, sp] = await Promise.all([
+    requireBusinessContext(),
+    searchParams,
+  ])
+  const periodo = (sp.periodo ?? 'mensual') as PeriodKey
+  const customFrom = sp.from
+  const customTo = sp.to
+  const businessId = sessionContext.activeBusiness.id
+
+  return (
+    <div className="p-3 sm:p-5 lg:p-6 max-w-[1920px] mx-auto font-sans text-gray-800 min-h-screen bg-gray-50">
+
+      {/* ══ FILA 0 — HEADER EJECUTIVO (renders immediately) ══════════════════ */}
+      <header className="mb-4 border border-stone-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.05)] md:mb-6 lg:-mx-6 lg:-mt-6 lg:mb-6 lg:border-x-0 lg:border-t-0 lg:shadow-none">
+        <div className="px-4 py-4 sm:px-5 lg:min-h-[88px] lg:px-6 lg:py-0">
+          <div className="flex flex-col gap-4 lg:h-full lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">
+              <span>Inicio</span>
+              <span className="h-1 w-1 rounded-full bg-stone-300" />
+              <span>{sessionContext.activeBusiness.name}</span>
+              <span className="inline-flex items-center border border-[#d9cfba] bg-[#f6efe2] px-2 py-1 text-[10px] font-medium normal-case tracking-normal text-[#7a6850]">
+                {sessionContext.activeBusiness.role === 'ADMIN' ? 'Administrador' : sessionContext.activeBusiness.role === 'COLLABORATOR' ? 'Colaborador' : 'Visualizador'}
+              </span>
+            </div>
+
+            <DashboardUserMenu
+              user={sessionContext.user}
+              business={{
+                name: sessionContext.activeBusiness.name,
+                role: sessionContext.activeBusiness.role,
+              }}
+              authProvider={sessionContext.auth.provider}
+            />
+          </div>
+        </div>
+      </header>
+
+      {/* FILTRO DE PERÍODO (renders immediately) */}
+      <div className="mb-3 md:mb-4 flex items-center justify-between gap-3">
+        <Suspense fallback={null}>
+          <PeriodTabs active={periodo} customFrom={customFrom} customTo={customTo} />
+        </Suspense>
+      </div>
+
+      {/* ══ DASHBOARD DATA — streams in via Suspense ══════════════════════════ */}
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardContent
+          businessId={businessId}
+          periodo={periodo}
+          customFrom={customFrom}
+          customTo={customTo}
+        />
+      </Suspense>
 
     </div>
   )

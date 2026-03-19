@@ -219,7 +219,7 @@ export async function deleteTransaction(id: string) {
   }
 
   await prisma.transaction.deleteMany({ where: { id, businessId } })
-  revalidateTag(`dashboard:${businessId}`)
+  revalidateTag(`dashboard:${businessId}`, 'max')
   revalidatePath('/')
 }
 
@@ -633,7 +633,7 @@ export async function marcarEstadoCredito(id: string, estado: string): Promise<A
   if (result.count === 0) {
     return { success: false, error: 'La transacción no existe o no pertenece al negocio activo' }
   }
-  revalidateTag(`dashboard:${businessId}`)
+  revalidateTag(`dashboard:${businessId}`, 'max')
   revalidatePath('/')
   revalidatePath('/creditos')
   return { success: true }

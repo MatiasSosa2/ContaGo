@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { getServerSession } from 'next-auth'
 
 import { authOptions } from '@/lib/auth'
@@ -25,7 +26,11 @@ export type SessionContext = {
   }
 }
 
-export async function getSessionContext(): Promise<SessionContext | null> {
+// Memoized per-request: avoids redundant DB queries when multiple
+// server components / actions call getSessionContext in the same request.
+export const getSessionContext = cache(_getSessionContextImpl)
+
+async function _getSessionContextImpl(): Promise<SessionContext | null> {
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id || !session.user.email) {

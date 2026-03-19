@@ -225,7 +225,10 @@ export function DonutChart({ slices, symbol = '$', centerLabel = '' }: { slices:
             {slices.map((s, i) => <Cell key={i} fill={s.color} stroke="none" />)}
           </Pie>
           <Tooltip
-            formatter={(val: number | undefined) => [`${symbol}${Number(val ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`, '']}
+            formatter={(val: number | string | ReadonlyArray<number | string> | undefined) => {
+              const rawValue = Array.isArray(val) ? val[0] : val
+              return [`${symbol}${Number(rawValue ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`, '']
+            }}
             contentStyle={{ background: '#111827', border: '1px solid #374151', color: '#fff', fontSize: 11, fontWeight: 700 }}
             itemStyle={{ color: '#fff' }}
           />

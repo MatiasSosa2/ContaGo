@@ -1,8 +1,9 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useTransition, useState } from 'react'
-import DateRangeModal from './DateRangeModal'
+import { useTransition, useState, lazy, Suspense } from 'react'
+
+const DateRangeModal = lazy(() => import('./DateRangeModal'))
 
 export const PERIODS = [
   { key: 'diario',    label: 'Diario' },
@@ -87,13 +88,17 @@ export default function PeriodTabs({ active, customFrom, customTo }: PeriodTabsP
           )
         })}
       </div>
-      <DateRangeModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onConfirm={handleRangeConfirm}
-        initialFrom={customFrom}
-        initialTo={customTo}
-      />
+      {modalOpen && (
+        <Suspense fallback={null}>
+          <DateRangeModal
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onConfirm={handleRangeConfirm}
+            initialFrom={customFrom}
+            initialTo={customTo}
+          />
+        </Suspense>
+      )}
     </>
   )
 }
