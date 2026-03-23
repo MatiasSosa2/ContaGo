@@ -134,19 +134,19 @@ export default function ReportTable({ transactions }: { transactions: Tx[] }) {
       </div>
 
       {/* Tabla */}
-      <div className="overflow-hidden">
-        <table className="w-full">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[700px]">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-400 w-[90px]">Fecha</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-400">Descripción</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-400 w-[130px]">Categoría</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-400 w-[120px]">Contacto</th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-400 w-[120px]">Cuenta</th>
-              <th className="px-3 py-3 text-right text-xs font-medium text-gray-400 w-[110px]">Monto</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide w-[90px]">Fecha</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Descripción</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide w-[130px]">Categoría</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide w-[120px]">Contacto</th>
+              <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide w-[120px]">Cuenta</th>
+              <th className="px-3 py-3 text-right text-[10px] font-semibold text-gray-500 uppercase tracking-wide w-[120px]">Monto</th>
             </tr>
           </thead>
-          <tbody className="bg-white">
+          <tbody className="bg-white divide-y divide-gray-50">
             {paged.length === 0 ? (
               <tr><td colSpan={6} className="px-5 py-10 text-center text-sm text-gray-400 font-medium">Sin resultados</td></tr>
             ) : paged.map(tx => (
@@ -162,19 +162,19 @@ export default function ReportTable({ transactions }: { transactions: Tx[] }) {
                 </td>
                 <td className="px-3 py-3">
                   {tx.category ? (
-                    <span className="text-xs font-medium px-2.5 py-0.5 bg-gray-100 text-gray-500 rounded-full">
+                    <span className="text-xs font-medium px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-full">
                       {tx.category.name}
                     </span>
-                  ) : <span className="text-[10px] text-gray-300">—</span>}
+                  ) : <span className="text-[10px] text-gray-400">—</span>}
                 </td>
                 <td className="px-3 py-3 text-xs font-medium text-gray-500">
-                  {tx.contact?.name || <span className="text-gray-300">—</span>}
+                  {tx.contact?.name || <span className="text-gray-400">—</span>}
                 </td>
                 <td className="px-3 py-3 text-xs font-medium text-gray-500">
                   {tx.account.name}
                 </td>
                 <td className="px-3 py-3 text-right whitespace-nowrap">
-                  <span className={`text-sm font-light font-mono ${tx.type === 'INCOME' ? 'text-brand-military-dark' : 'text-gray-500'}`}>
+                  <span className={`text-sm font-normal font-mono num-tabular ${tx.type === 'INCOME' ? 'text-brand-military-dark' : 'text-gray-500'}`}>
                     {tx.type === 'INCOME' ? '+' : '-'}{CURRENCY_SYMBOL[tx.currency] || '$'}{Math.abs(tx.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </span>
                 </td>

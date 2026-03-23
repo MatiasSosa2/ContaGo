@@ -82,17 +82,17 @@ function CajaGroupColumn({
   return (
     <div className="flex flex-col gap-5">
       {/* Card principal */}
-      <div className="bg-white rounded-2xl border border-[#E5E7EB] overflow-hidden" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}>
+      <div className="bg-white dark:bg-[#141414] rounded-2xl border border-[#E5E7EB] dark:border-white/10 overflow-hidden" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}>
 
         {/* Header + monto total */}
-        <div className="px-5 pt-5 pb-4" style={{ background: 'linear-gradient(180deg, #FAFBFC 0%, #FFFFFF 100%)' }}>
+        <div className="px-5 pt-5 pb-4 bg-[#F0F4EF] dark:bg-[#0D1F14] border-b border-[#D8E2D6] dark:border-white/[0.07]">
           <div className="flex items-center gap-2.5 mb-3">
             <div className="w-9 h-9 rounded-xl bg-brand-military-light flex items-center justify-center text-brand-military">
               {icon}
             </div>
-            <h2 className="text-base font-semibold text-[#1F2937]">{label}</h2>
+            <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
           </div>
-          <p className="text-3xl md:text-[32px] font-mono font-bold text-[#1F2937] num-tabular leading-none">
+          <p className="text-3xl md:text-[32px] font-mono font-bold text-[#1F2937] dark:text-[#E8E8E8] num-tabular leading-none">
             {CURRENCY_SYMBOL[selectedCurrency]}{filteredTotal.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
           </p>
         </div>
@@ -104,7 +104,7 @@ function CajaGroupColumn({
               <select
                 value={selectedCurrency}
                 onChange={e => setSelectedCurrency(e.target.value)}
-                className="appearance-none bg-white border border-[#E5E7EB] text-sm font-medium text-[#374151] rounded-lg px-3 py-2 pr-8 outline-none focus:border-brand-military transition-colors cursor-pointer"
+                className="appearance-none bg-white dark:bg-[#1F1F1F] border border-[#E5E7EB] dark:border-white/10 text-sm font-medium text-[#374151] dark:text-[#D1D5DB] rounded-lg px-3 py-2 pr-8 outline-none focus:border-brand-military transition-colors cursor-pointer"
               >
                 {currencies.map(c => (
                   <option key={c} value={c}>
@@ -131,10 +131,10 @@ function CajaGroupColumn({
               {filtered.map(acc => (
                 <div
                   key={acc.id}
-                  className="flex items-center justify-between px-3.5 py-3 rounded-xl cursor-pointer transition-all duration-150 hover:bg-[#F3F4F6] group"
+                  className="flex items-center justify-between px-3.5 py-3 rounded-xl cursor-pointer transition-all duration-150 hover:bg-[#F3F4F6] dark:hover:bg-white/5 group"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-[#1F2937] group-hover:text-brand-military transition-colors truncate">
+                    <p className="text-sm font-medium text-[#1F2937] dark:text-[#E8E8E8] group-hover:text-brand-military transition-colors truncate">
                       {acc.name}
                     </p>
                     <p className="text-xs text-[#9CA3AF] mt-0.5">
@@ -143,7 +143,7 @@ function CajaGroupColumn({
                         : 'Sin movimientos recientes'}
                     </p>
                   </div>
-                  <p className="text-sm font-mono font-semibold text-[#1F2937] num-tabular shrink-0 ml-3">
+                  <p className="text-sm font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8] num-tabular shrink-0 ml-3">
                     {fmtMoney(acc.currentBalance, acc.currency)}
                   </p>
                 </div>
@@ -153,21 +153,20 @@ function CajaGroupColumn({
         </div>
 
         {/* Card resumen inferior */}
-        <div className="mx-4 mb-4 mt-1 rounded-xl px-4 py-3.5" style={{ background: '#F9FAFB' }}>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-[#374151]">
-              Total {label.toLowerCase()}
-            </span>
-            <span className="text-sm font-mono font-bold text-[#1F2937] num-tabular">
-              {fmtMoney(filteredTotal, selectedCurrency)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <span className={`text-xs font-medium ${filteredTodayVar >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>
-              {filteredTodayVar >= 0 ? '+' : '−'}{fmtMoney(filteredTodayVar, selectedCurrency)} hoy
-            </span>
-            <button className="text-xs font-medium text-[#6B7280] hover:text-brand-military transition-colors">
-              Ver todas las cajas →
+          <div className="mx-4 mb-4 mt-1 rounded-xl px-4 py-3.5 bg-[#1A1A1A]" style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-stone-400">
+                Total {label.toLowerCase()}
+              </span>
+              <span className="text-sm font-mono font-bold text-white num-tabular">
+                {fmtMoney(filteredTotal, selectedCurrency)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className={`text-xs font-medium ${filteredTodayVar >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {filteredTodayVar >= 0 ? '+' : '−'}{fmtMoney(filteredTodayVar, selectedCurrency)} hoy
+              </span>
+              <button className="text-xs font-medium text-stone-500 hover:text-brand-gold transition-colors">
             </button>
           </div>
         </div>
@@ -177,13 +176,14 @@ function CajaGroupColumn({
       {/* Consejos de la IA */}
       <div>
         <div className="flex items-center gap-2 mb-2.5 px-1">
-          <div className="w-6 h-6 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+          <div className="w-6 h-6 rounded-lg bg-brand-gold/15 flex items-center justify-center text-brand-gold">
             <SparkleIcon />
           </div>
           <span className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Consejos de la IA</span>
         </div>
-        <div className="bg-white rounded-xl border border-[#E5E7EB] px-4 py-3.5" style={{ boxShadow: '0px 1px 4px rgba(0,0,0,0.04)' }}>
-          <p className="text-sm text-[#4B5563] leading-relaxed">{aiTip}</p>
+        <div className="rounded-xl border border-white/[0.07] px-4 py-4 relative overflow-hidden bg-[#111827]" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+          <div className="absolute inset-y-0 left-0 w-[3px] bg-brand-gold rounded-l-xl" />
+          <p className="text-sm text-stone-300 leading-relaxed pl-1">{aiTip}</p>
         </div>
       </div>
     </div>

@@ -325,7 +325,7 @@ export function ProfitabilityDonut({ expense, gain, height = 140 }: Profitabilit
   const hasGain = gain > 0
   const data = [
     { value: expense, name: '% de egresos', itemStyle: { color: '#B91C1C' } },
-    ...(hasGain ? [{ value: gain, name: '% de ganancia', itemStyle: { color: '#1E40AF' } }] : []),
+    ...(hasGain ? [{ value: gain, name: '% de ganancia', itemStyle: { color: '#52A875' } }] : []),
   ]
 
   const option: EChartsOption = {

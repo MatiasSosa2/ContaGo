@@ -48,8 +48,8 @@ export function MonthlyBarChart({ data, symbol = '$' }: { data: MonthData[]; sym
           width={52}
         />
         <Tooltip content={<CustomTooltip symbol={symbol} />} cursor={{ fill: '#f9fafb' }} />
-        <Bar dataKey="income" name="Ingresos" fill={MILITARY} radius={[8, 8, 0, 0]} barSize={8} />
-        <Bar dataKey="expense" name="Gastos" fill="#d1d5db" radius={[8, 8, 0, 0]} barSize={8} />
+        <Bar dataKey="income" name="Ingresos" fill={MILITARY} radius={[8, 8, 0, 0]} barSize={14} />
+        <Bar dataKey="expense" name="Gastos" fill="#9ca3af" radius={[8, 8, 0, 0]} barSize={14} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -265,17 +265,17 @@ export function HorizontalBars({ items, max, symbol = '$' }: { items: HBarItem[]
             <div className="space-y-1">
               {item.income > 0 && (
                 <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-brand-military shrink-0" />
-                  <div className="flex-1 bg-gray-100 h-1.5 rounded-none">
-                    <div className="h-1.5 bg-brand-military transition-all" style={{ width: `${incPct}%` }} />
+                  <div className="w-2 h-2 rounded-full bg-brand-military shrink-0" />
+                  <div className="flex-1 bg-gray-100 h-2 rounded-full">
+                    <div className="h-2 bg-brand-military rounded-full transition-all" style={{ width: `${incPct}%` }} />
                   </div>
                 </div>
               )}
               {item.expense > 0 && (
                 <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
-                  <div className="flex-1 bg-gray-100 h-1.5 rounded-none">
-                    <div className="h-1.5 bg-gray-400 transition-all" style={{ width: `${expPct}%` }} />
+                  <div className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
+                  <div className="flex-1 bg-gray-100 h-2 rounded-full">
+                    <div className="h-2 bg-gray-500 rounded-full transition-all" style={{ width: `${expPct}%` }} />
                   </div>
                 </div>
               )}
@@ -317,7 +317,7 @@ export function Sparkline({ data, color = MILITARY }: { data: number[]; color?: 
 // ─── Estado vacío ─────────────────────────────────────────────────────────────
 function EmptyState() {
   return (
-    <div className="flex items-center justify-center h-32 text-sm font-medium text-gray-300">
+    <div className="flex items-center justify-center h-32 text-sm font-medium text-gray-400">
       Sin datos
     </div>
   )

@@ -140,10 +140,10 @@ export default function TransactionList({ transactions, onDelete }: { transactio
       <div className="overflow-hidden">
       <table className="w-full">
         <thead>
-        <tr className="bg-gray-50/60 border-b border-black/[0.05]">
-            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Descripción</th>
-            <th className="px-4 py-3 text-left text-sm font-medium text-gray-500 w-44">Entidad</th>
-            <th className="px-4 py-3 text-right text-sm font-medium text-gray-500 w-32">Importe</th>
+        <tr className="bg-[#F0F4EF] border-b border-[#D8E2D6]">
+            <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4A6741]">Descripción</th>
+            <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4A6741] w-44">Entidad</th>
+            <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4A6741] w-32">Importe</th>
             <th className="px-4 py-3 w-10"></th>
           </tr>
         </thead>
@@ -152,13 +152,12 @@ export default function TransactionList({ transactions, onDelete }: { transactio
           <tr key={tx.id} className={`group hover:bg-gray-50/50 transition-colors border-b border-black/[0.04] ${
             i === paged.length - 1 ? 'border-b-0' : ''
           }`}>
-            <td className="px-4 py-4">
+            <td className={`px-4 py-4 ${
+              tx.type === 'INCOME'
+                ? 'border-l-[3px] border-l-emerald-500/60'
+                : 'border-l-[3px] border-l-stone-300/70'
+            }`}>
               <div className="flex items-center gap-3">
-                 <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                    tx.type === 'INCOME' 
-                      ? 'bg-brand-military'
-                      : 'bg-gray-300'
-                 }`}></div>
                  <div className="overflow-hidden">
                     <p className="text-sm font-medium text-slate-800 truncate" title={tx.description}>{tx.description}</p>
                     <p className="text-xs text-slate-400 mt-0.5 font-mono">{new Date(tx.date).toLocaleDateString('es-AR')}</p>
@@ -171,17 +170,17 @@ export default function TransactionList({ transactions, onDelete }: { transactio
                   <span className="text-sm font-medium text-slate-600 truncate max-w-full">{tx.account.name}</span>
                   <div className="flex flex-wrap gap-1">
                      {tx.category && (
-                     <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full">
+                     <span className="text-[11px] px-2 py-0.5 bg-[#F0F4EF] text-[#3A4D39] rounded-sm font-medium">
                        {tx.category.name}
                      </span>
                      )}
                      {tx.contact && (
-                       <span className="text-xs px-2 py-0.5 bg-white text-slate-400 border border-slate-200 rounded-full">
+                       <span className="text-[11px] px-2 py-0.5 bg-stone-100 text-stone-500 border border-stone-200 rounded-sm">
                          {tx.contact.name}
                        </span>
                      )}
                      {tx.areaNegocio && (
-                       <span className="text-xs px-2 py-0.5 bg-brand-military-light text-brand-military-dark rounded-full">
+                       <span className="text-[11px] px-2 py-0.5 bg-[#1A1A1A] text-stone-300 rounded-sm font-medium">
                          {tx.areaNegocio.nombre}
                        </span>
                      )}
@@ -190,7 +189,7 @@ export default function TransactionList({ transactions, onDelete }: { transactio
             </td>
 
             <td className="px-4 py-4 whitespace-nowrap text-right">
-               <span className={`text-base font-mono font-light tracking-tight ${
+               <span className={`text-base font-mono font-normal num-tabular tracking-tight ${
                   tx.type === 'INCOME' ? 'text-brand-military-dark' : 'text-gray-600'
                }`}>
                   {tx.type === 'INCOME' ? '+' : '−'}{CURRENCY_SYMBOL[tx.currency] || '$'}{Math.abs(tx.amount).toLocaleString('es-AR', { minimumFractionDigits: 2 })}

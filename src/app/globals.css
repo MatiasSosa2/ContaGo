@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Map Tailwind dark: variant to data-theme="dark" on <html> */
+@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   --background: #ffffff;
   --foreground: #080808;
@@ -68,16 +71,48 @@ body {
   font-size: 15px;
 }
 
-/* Card executive style — use donde sea */
+/* ── Card system — jerarquía tonal ────────────────────────────── */
+
+/* Base executive card */
 .executive-card {
   background: #ffffff;
   border-radius: 12px;
   border: 1px solid rgba(0,0,0,0.06);
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+}
+
+/* Variante con acento lateral militar (análisis/gráficos) */
+.executive-card-accent {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-left: 3px solid #3A4D39;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+}
+
+/* Acento lateral — colores semánticos */
+.accent-left-income  { border-left: 3px solid rgba(5,150,105,0.65) !important; }
+.accent-left-expense { border-left: 3px solid rgba(107,114,128,0.45) !important; }
+.accent-left-gold    { border-left: 3px solid #C5A065 !important; }
+.accent-left-military{ border-left: 3px solid #3A4D39 !important; }
+
+/* Header strip para secciones dentro de tarjetas */
+.card-section-header {
+  background: #F0F4EF;
+  border-bottom: 1px solid rgba(58,77,57,0.10);
+}
+
+/* Tarjeta oscura (IA / insights) */
+.card-dark {
+  background: #0f0f0f;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 
 /* Tipografía numérica tabular — alineación perfecta en columnas */
 .num-tabular {
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
@@ -165,8 +200,8 @@ body {
 
 [data-theme="dark"] {
   --foreground: #E8E8E8;
-  --background: #141414;
-  --color-bone:           #111111;
+  --background: #000000;
+  --color-bone:           #000000;
 
   /* Tokens de marca — verde solo como acento */
   --color-military:       #5A8A55;
@@ -178,17 +213,17 @@ body {
   --color-gold-dark:      #C8A96E;
   --color-gold-light:     #231B0E;
 
-  --color-sand:           #2A2A2A;
+  --color-sand:           #1A1A1A;
   --color-oxide:          #C47570;
 
   --color-carbon:         #070707;
   --color-carbon-mid:     #101010;
-  --color-slate:          #222222;
+  --color-slate:          #181818;
 }
 
 /* Body en dark */
 [data-theme="dark"] body {
-  background-color: #111111;
+  background-color: #000000;
   background-image: none;
   color: #E8E8E8;
 }
@@ -196,11 +231,19 @@ body {
 /* ── Cards y superficies blancas ── */
 [data-theme="dark"] .bg-white,
 [data-theme="dark"] .executive-card {
-  background-color: #1C1C1C !important;
+  background-color: #141414 !important;
+  outline: 1px solid rgba(255,255,255,0.10) !important;
 }
 [data-theme="dark"] .bg-brand-slate,
 [data-theme="dark"] .bg-brand-bone {
-  background-color: #252525 !important;
+  background-color: #0A0A0A !important;
+}
+
+/* ── ring-1 y box-shadow en dark: reemplazar por borde visible ── */
+[data-theme="dark"] .ring-1 {
+  --tw-ring-color: rgba(255,255,255,0.12) !important;
+  --tw-ring-shadow: 0 0 0 1px rgba(255,255,255,0.12) !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.12) !important;
 }
 
 /* ── Textos ── */
@@ -224,21 +267,24 @@ body {
 [data-theme="dark"] .border-gray-200,
 [data-theme="dark"] .border-gray-300\/60,
 [data-theme="dark"] .border-gray-300 {
-  border-color: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.12) !important;
 }
 [data-theme="dark"] .border-black\/\[0\.07\],
 [data-theme="dark"] .border-black\/\[0\.06\] {
-  border-color: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.10) !important;
 }
 [data-theme="dark"] .border-black\/\[0\.05\] {
-  border-color: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.08) !important;
 }
 [data-theme="dark"] .divide-black\/\[0\.05\] > * + * {
-  border-color: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.08) !important;
 }
 [data-theme="dark"] .divide-x > * + *,
 [data-theme="dark"] .divide-y > * + * {
-  border-color: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+[data-theme="dark"] .border-gray-100 {
+  border-color: rgba(255,255,255,0.08) !important;
 }
 
 /* ── Fondos de accent claro ── */
@@ -286,17 +332,32 @@ body {
 
 /* ── Sidebar ── */
 [data-theme="dark"] aside {
-  background-color: #0F0F0F !important;
-  border-color: rgba(255,255,255,0.05) !important;
+  background-color: #050505 !important;
+  border-color: rgba(255,255,255,0.08) !important;
 }
 [data-theme="dark"] aside .bg-white {
-  background-color: #0F0F0F !important;
+  background-color: #050505 !important;
+}
+
+/* ── Fondos grises suaves usados como accent/section en dark ── */
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-gray-100 {
+  background-color: #0D0D0D !important;
+}
+[data-theme="dark"] .bg-gray-200 {
+  background-color: #1A1A1A !important;
 }
 
 /* ─────────────────────────────────────────────────────────────── */
 
 /* ── Print / PDF ─────────────────────────────────────────────── */
 @media print {
+  /* Preservar colores reales en la impresión (gráficos, fondos) */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   /* Ocultar elementos de navegación y controles */
   .no-print,
   aside,
@@ -307,15 +368,17 @@ body {
   }
 
   body {
-    background: white !important;
+    background: #f9fafb !important;
     background-image: none !important;
-    color: black;
+    color: #111 !important;
     font-size: 10pt;
   }
 
-  /* Cada panel en su propia página si es muy alto */
-  section {
+  /* Cada panel sin corte de página interno */
+  section,
+  .rounded-2xl {
     page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   /* Quitar sombras y fondos semitransparentes */
@@ -325,9 +388,42 @@ body {
     -webkit-backdrop-filter: none !important;
   }
 
-  /* Asegurar que los colores de marca se impriman */
+  /* ── Recharts: el JS de PrintButton ya fija dimensiones px antes de imprimir.
+        Aquí solo nos aseguramos de que el SVG interno escale sin ser cortado. ── */
+  .recharts-responsive-container {
+    /* width/height los fija PrintButton.tsx con inline style */
+    overflow: visible !important;
+  }
+
+  /* El SVG interno respeta las dimensiones inline que Recharts le pone */
+  .recharts-wrapper svg.recharts-surface {
+    overflow: visible !important;
+  }
+
+  /* Gradientes SVG: asegurar que se preserven para evitar gráficos en blanco */
+  .recharts-responsive-container defs,
+  .recharts-wrapper defs {
+    display: block !important;
+  }
+
+  /* Salto de página: el hero de ventas ocupa la primera hoja,
+     luego los KPIs y gráficos en la segunda */
+  .print-page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Tabla de transacciones — puede ocupar varias páginas */
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
   @page {
-    margin: 1.5cm;
+    margin: 1.2cm 1.5cm;
     size: A4 landscape;
   }
 }

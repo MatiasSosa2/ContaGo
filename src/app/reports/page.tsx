@@ -5,8 +5,8 @@ import { CashFlowAreaChart, DonutChart, HorizontalBars, Sparkline } from '@/comp
 import PuntoEquilibrio from '@/components/PuntoEquilibrio'
 import PrintButton from '@/components/PrintButton'
 import PeriodFilter from '@/components/PeriodFilter'
-import { requirePageSession } from '@/server/auth/require-page-session'
-import Link from 'next/link'
+import { requireBusinessContext } from '@/server/auth/require-business-context'
+import AppHeader from '@/components/AppHeader'
 import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
@@ -34,18 +34,15 @@ function Panel({
   title: string; accent?: PanelAccent; variant?: PanelVariant; children: React.ReactNode; className?: string; action?: React.ReactNode
 }) {
   const header =
-    accent === 'military' ? 'bg-brand-military/90'
-    : accent === 'dark'   ? 'bg-brand-carbon'
-    :                        'bg-brand-slate'
-  const titleColor = accent === 'light' ? 'text-gray-600' : 'text-white'
-  const variantClass =
-    variant === 'hero' ? 'bg-brand-carbon text-white'
-    : variant === 'stat' ? 'bg-white'
-    : 'bg-white'
+    accent === 'military' ? 'bg-brand-military'
+    : accent === 'dark'   ? 'bg-brand-military-mid'
+    :                        'bg-white border-b border-gray-100'
+  const titleColor = accent === 'light' ? 'text-gray-700' : 'text-white'
+  const variantClass = 'bg-white'
   return (
     <div
-      className={`${variantClass} rounded-2xl flex flex-col overflow-hidden ${className}`}
-      style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.02)' }}
+      className={`${variantClass} rounded-2xl flex flex-col overflow-hidden print:overflow-visible ring-1 ring-black/[0.06] ${className}`}
+      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 6px 24px rgba(0,0,0,0.06)' }}
     >
       <div className={`${header} px-5 py-3.5 flex items-center justify-between shrink-0`}>
         <h2 className={`text-sm font-medium ${titleColor}`}>{title}</h2>
@@ -62,35 +59,35 @@ function KpiTile({
   label: string; value: string; sub?: string; trend?: number[]; delta?: number; highlight?: boolean; dark?: boolean; gold?: boolean
 }) {
   const bg = dark
-    ? 'bg-brand-carbon'
+    ? 'bg-brand-military'
     : gold
     ? 'bg-brand-gold-light'
     : highlight
     ? 'bg-brand-military-light'
     : 'bg-white'
-  const labelColor = dark ? 'text-gray-400' : gold ? 'text-gray-500' : highlight ? 'text-gray-500' : 'text-gray-400'
+  const labelColor = dark ? 'text-gray-400' : gold ? 'text-gray-500' : highlight ? 'text-gray-500' : 'text-gray-500'
   const valueColor = dark ? 'text-white' : gold ? 'text-[#1A1A1A]' : highlight ? 'text-[#1A1A1A]' : 'text-[#1A1A1A]'
   const subColor = dark ? 'text-gray-500' : 'text-gray-500'
   const deltaPositive = delta !== undefined && delta >= 0
   const deltaColor = dark
-    ? (deltaPositive ? 'text-green-300' : 'text-red-300')
+    ? (deltaPositive ? 'text-brand-military-light' : 'text-red-300')
     : (deltaPositive ? 'text-brand-military-dark' : 'text-red-500')
   return (
     <div
-      className={`${bg} rounded-2xl flex flex-col justify-between min-h-[120px] p-5`}
-      style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.02)' }}
+      className={`${bg} rounded-2xl flex flex-col justify-between min-h-[120px] p-4 md:p-5 ring-1 ring-black/[0.06] min-w-0 overflow-hidden`}
+      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 6px 24px rgba(0,0,0,0.06)' }}
     >
-      <div>
-        <div className="flex items-start justify-between mb-3">
-          <p className={`text-xs font-medium leading-relaxed ${labelColor}`}>{label}</p>
+      <div className="min-w-0">
+        <div className="flex items-start justify-between mb-2 gap-1">
+          <p className={`text-xs font-medium leading-relaxed ${labelColor} min-w-0`}>{label}</p>
           {delta !== undefined && (
-            <span className={`text-xs font-medium font-mono ${deltaColor} ml-2 shrink-0 px-2 py-0.5 rounded-full bg-black/[0.04]`}>
+            <span className={`text-[10px] font-medium font-mono ${deltaColor} shrink-0 px-1.5 py-0.5 rounded-full bg-black/[0.04] whitespace-nowrap`}>
               {deltaPositive ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
             </span>
           )}
         </div>
-        <p className={`font-mono text-3xl font-light tracking-tight leading-none ${valueColor}`}>{value}</p>
-        {sub && <p className={`text-xs mt-2 font-normal leading-relaxed ${subColor}`}>{sub}</p>}
+        <p className={`font-mono text-lg md:text-xl font-normal num-tabular tracking-tight leading-tight break-all ${valueColor}`}>{value}</p>
+        {sub && <p className={`text-[11px] mt-1.5 font-normal leading-relaxed truncate ${subColor}`} title={sub}>{sub}</p>}
       </div>
       {trend && trend.length > 1 && (
         <div className="mt-3 -mx-1">
@@ -103,16 +100,16 @@ function KpiTile({
 
 function DonutLegend({ label, color, value, pct }: { label: string; color: string; value: string; pct: number }) {
   return (
-    <div className="flex items-center justify-between py-2.5 last:border-0">
+    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
         <span className="text-sm font-medium text-gray-600">{label}</span>
       </div>
       <div className="flex items-center gap-3">
-        <div className="h-1 w-20 bg-gray-100 rounded-full">
-          <div className="h-1 rounded-full" style={{ width: `${pct}%`, background: color }} />
+        <div className="h-2 w-28 bg-gray-200 rounded-full">
+          <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: color }} />
         </div>
-        <span className="text-sm font-light font-mono text-[#1A1A1A] w-28 text-right">{value}</span>
+        <span className="text-sm font-normal font-mono num-tabular text-[#1A1A1A] w-28 text-right">{value}</span>
       </div>
     </div>
   )
@@ -123,7 +120,7 @@ export default async function ReportsPage({
 }: {
   searchParams?: Promise<{ preset?: string; from?: string; to?: string }>
 }) {
-  await requirePageSession()
+  const sessionContext = await requireBusinessContext()
   const params = await searchParams
   const range: DateRange | undefined =
     params?.from || params?.to
@@ -146,6 +143,7 @@ export default async function ReportsPage({
   const marginPct = totals.income > 0 ? ((totals.income - totals.expense) / totals.income) * 100 : 0
   const gananciaBruta = totals.income - (cmvTotal || 0)
   const gananciaNeta = gananciaBruta - totals.expense
+  const margenBrutoPct = totals.income > 0 ? (gananciaBruta / totals.income) * 100 : 0
 
   // Runway: saldo real de cuentas / promedio mensual de gastos (últimos 3 meses)
   const accountBalance = accountTotalByCurrency[cur] || 0
@@ -165,8 +163,8 @@ export default async function ReportsPage({
   const balanceSpark = monthlyData.slice(-6).map(d => d.income - d.expense)
 
   const donutSlices = [
-    { name: 'Ingresos', value: totals.income, color: MILITARY },
-    { name: 'Gastos',   value: totals.expense, color: '#d1d5db' },
+    { name: 'Ventas', value: totals.income, color: MILITARY },
+    { name: 'Costos',   value: totals.expense, color: '#9ca3af' },
   ]
 
   const catMax = Math.max(...topCategories.map(c => c.income + c.expense), 1)
@@ -191,90 +189,102 @@ export default async function ReportsPage({
   const deltaIncomeTotal = deltaTotalsPrev.income > 0 ? ((deltaTotals.income - deltaTotalsPrev.income) / deltaTotalsPrev.income) * 100 : undefined
   const deltaExpenseTotal = deltaTotalsPrev.expense > 0 ? ((deltaTotals.expense - deltaTotalsPrev.expense) / deltaTotalsPrev.expense) * 100 : undefined
 
-  // Executive Summary — insights categorizados
+  // Briefing — insights para vendedores
   const cxcTotal = Object.values(cxcPorMoneda).reduce((s, v) => s + v, 0)
   const riesgos: string[] = []
   const oportunidades: string[] = []
   const proximosPasos: string[] = []
 
   if (deltaIncome !== undefined) {
-    if (deltaIncome > 10) oportunidades.push(`Ingresos ${deltaIncome.toFixed(0)}% por encima del mes anterior. Tendencia de crecimiento sostenida.`)
-    else if (deltaIncome < -10) riesgos.push(`Los ingresos cayeron ${Math.abs(deltaIncome).toFixed(0)}% vs el mes anterior. Revisar pipeline de cobranzas.`)
+    if (deltaIncome > 10) oportunidades.push(`Facturación ${deltaIncome.toFixed(0)}% por encima del mes anterior. Evaluá escalar publicidad o ampliar el catálogo.`)
+    else if (deltaIncome < -10) riesgos.push(`Las ventas cayeron ${Math.abs(deltaIncome).toFixed(0)}% vs el mes anterior. Revisá precios, stock disponible y visibilidad del catálogo.`)
   }
   if (deltaExpense !== undefined && deltaExpense > 15) {
-    riesgos.push(`Gastos del mes crecieron ${deltaExpense.toFixed(0)}% vs el mes anterior. Desvío significativo.`)
-    proximosPasos.push('Identificar las categorías de mayor variación en gastos y establecer topes.')
+    riesgos.push(`Los costos crecieron ${deltaExpense.toFixed(0)}% vs el mes anterior. Puede estar comprimiendo tu margen bruto.`)
+    proximosPasos.push('Revisá los costos de abastecimiento y logística. Buscá alternativas de proveedores si el margen se redujo.')
   }
   if (cxcTotal > 0) {
-    oportunidades.push(`${fmt(cxcTotal, cur)} en cuentas por cobrar. Cobrar hoy impacta el flujo de caja de inmediato.`)
-    proximosPasos.push('Priorizar la gestión de cobranza de las cuentas por cobrar pendientes.')
+    oportunidades.push(`${fmt(cxcTotal, cur)} pendiente de cobro. Priorizá la gestión de pagos atrasados para mejorar el flujo de caja.`)
+    proximosPasos.push('Gestioná los cobros pendientes antes del cierre del mes para reflejar liquidez real.')
   }
   if (runwayMonths !== null && runwayMonths < 3) {
-    riesgos.push(`Runway crítico: ${runwayMonths.toFixed(1)} meses de cobertura con el ritmo actual de gastos.`)
+    riesgos.push(`Capital de trabajo crítico: ${runwayMonths.toFixed(1)} meses de cobertura. Revisá el ritmo de reposición de stock y priorizá ventas rápidas.`)
   } else if (runwayMonths !== null && runwayMonths >= 6) {
-    oportunidades.push(`Runway de ${runwayMonths.toFixed(1)} meses. Liquidez suficiente para planificar inversiones.`)
+    oportunidades.push(`Liquidez de ${runwayMonths.toFixed(1)} meses disponible. Podés invertir en ampliar el catálogo o stock de productos estrella.`)
   }
-  if (marginPct < 20 && totals.income > 0) {
-    riesgos.push(`Margen en ${marginPct.toFixed(1)}%. Solo $${marginPct.toFixed(0)} de ganancia neta por cada $100 de ventas.`)
-    proximosPasos.push('Revisar la estructura de costos para elevar el margen por encima del 20%.')
-  } else if (marginPct >= 50) {
-    oportunidades.push(`Margen saludable del ${marginPct.toFixed(1)}%. La estructura de costos está bien controlada.`)
+  if (margenBrutoPct < 30 && totals.income > 0) {
+    riesgos.push(`Margen bruto del ${margenBrutoPct.toFixed(1)}%. Cada $100 vendidos solo generan $${margenBrutoPct.toFixed(0)} de ganancia bruta. Revisá precios y costos.`)
+    proximosPasos.push('Identificá los productos con menor margen. Considerá ajustar precios, cambiar proveedor o discontinuar SKUs no rentables.')
+  } else if (margenBrutoPct >= 50) {
+    oportunidades.push(`Excelente margen bruto del ${margenBrutoPct.toFixed(1)}%. Tu estructura de costos está optimizada. Buen momento para invertir en marketing.`)
   }
-  if (valorInventario > totals.income * 0.5) {
-    proximosPasos.push(`Inventario (${fmt(valorInventario, cur)}) supera el 50% de ingresos. Evaluá la rotación de stock.`)
+  if (valorInventario > totals.income * 0.5 && valorInventario > 0) {
+    riesgos.push(`El inventario (${fmt(valorInventario, cur)}) representa más del 50% de tu facturación. Capital inmovilizado en stock.`)
+    proximosPasos.push('Activá promociones para productos de baja rotación y optimizá los niveles de reposición por categoría.')
   }
-  if (riesgos.length === 0) riesgos.push('Sin alertas críticas identificadas en el período actual.')
-  if (oportunidades.length === 0) oportunidades.push('Registrá más transacciones para identificar oportunidades de optimización.')
-  if (proximosPasos.length === 0) proximosPasos.push('Mantener el monitoreo mensual de KPIs para detectar tendencias a tiempo.')
+  if (topProductosPorStock.length > 0 && valorInventario > 0) {
+    oportunidades.push(`"${topProductosPorStock[0].nombre}" es tu producto de mayor valor en stock (${fmt(topProductosPorStock[0].valorTotal, cur)}). Asegurate de mantenerlo bien posicionado.`)
+  }
+  if (riesgos.length === 0) riesgos.push('Sin alertas críticas para el período. Mantené el monitoreo semanal del stock y márgenes.')
+  if (oportunidades.length === 0) oportunidades.push('Registrá más ventas y movimientos de stock para obtener análisis de rentabilidad por producto.')
+  if (proximosPasos.length === 0) proximosPasos.push('Revisá el catálogo mensualmente y actualizá precios según variación de costos de proveedores.')
 
   return (
-    <div className="p-8 max-w-[1920px] mx-auto font-sans text-gray-800 min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
 
-      <header className="mb-8 flex flex-col md:flex-row justify-between items-end gap-4 pb-6">
-        <div>
-          <p className="text-xs font-medium text-brand-gold mb-1">Conta Go</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Dashboard de Reportes</h1>
-          <p className="text-sm text-gray-500 mt-1 font-medium">
-            {MONTH_NAMES[now.getMonth()]} {now.getFullYear()} &middot; Moneda base: {cur}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
-          <Suspense fallback={null}>
-            <PeriodFilter />
-          </Suspense>
-          <Link href="/" className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-brand-military transition-colors px-4 py-2.5 bg-white rounded-xl no-print"
-            style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.02)' }}>
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-            </svg>
-            Panel Principal
-          </Link>
-          <PrintButton />
-        </div>
-      </header>
+      <AppHeader
+        title="Informes"
+        sessionContext={sessionContext}
+        icon={
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
+          </svg>
+        }
+        actions={
+          <>
+            <Suspense fallback={null}>
+              <PeriodFilter />
+            </Suspense>
+            <PrintButton />
+          </>
+        }
+      />
 
       {/* Sección 1: Hook (Atmósfera A) */}
-      <section className="mb-6 rounded-2xl bg-brand-carbon text-white p-6"
-        style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.02)' }}>
+      {/* Hero · Resumen de ventas */}
+      <section className="mb-6 rounded-2xl bg-brand-military text-white p-6 ring-1 ring-brand-military-dark/30"
+        style={{ boxShadow: '0 2px 8px rgba(58,77,57,0.15), 0 8px 32px rgba(58,77,57,0.10)' }}>
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
-            <p className="text-sm text-gray-400">Resumen ejecutivo</p>
-            <h2 className="text-2xl font-medium">Cierre financiero del período</h2>
+            <p className="text-xs text-brand-military-light/80 font-medium tracking-wide uppercase">Ventas · {cur}</p>
+            <h2 className="text-2xl font-medium mt-1">Resumen de ventas del período</h2>
           </div>
-          <p className="text-sm text-gray-400">{MONTH_NAMES[now.getMonth()]} {now.getFullYear()} · {cur}</p>
+          <p className="text-sm text-brand-military-light/70">{MONTH_NAMES[now.getMonth()]} {now.getFullYear()}</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-          <div className="rounded-2xl bg-white/[0.04] p-5">
-            <p className="text-xs text-gray-400">Ganancia neta</p>
-            <p className={`text-4xl font-mono font-light mt-2 ${gananciaNeta >= 0 ? 'text-white' : 'text-red-300'}`}>
-              {gananciaNeta >= 0 ? '+' : ''}{fmt(gananciaNeta, cur)}
-            </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+          <div className="rounded-xl bg-white/10 p-3 md:p-4 min-w-0 overflow-hidden">
+            <p className="text-[10px] text-brand-military-light/70 uppercase tracking-wide font-medium">Facturación</p>
+              <p className="text-base font-mono font-normal num-tabular mt-2 text-white break-all leading-tight">{fmt(totals.income, cur)}</p>
+            <p className="text-[10px] text-brand-military-light/60 mt-1">{allTx.filter(t => t.type === 'INCOME').length} ventas</p>
           </div>
-          <div className="rounded-2xl bg-white/[0.04] p-5">
-            <p className="text-xs text-gray-400">Flujo neto</p>
-            <p className={`text-4xl font-mono font-light mt-2 ${balance >= 0 ? 'text-white' : 'text-red-300'}`}>
-              {balance >= 0 ? '+' : ''}{fmt(balance, cur)}
+          <div className="rounded-xl bg-white/10 p-3 md:p-4 min-w-0 overflow-hidden">
+            <p className="text-[10px] text-brand-military-light/70 uppercase tracking-wide font-medium">Costo vendido</p>
+              <p className="text-base font-mono font-normal num-tabular mt-2 text-white break-all leading-tight">−{fmt(cmvTotal || 0, cur)}</p>
+            <p className="text-[10px] text-brand-military-light/60 mt-1">Mercadería (CMV)</p>
+          </div>
+          <div className="rounded-xl bg-white/10 p-3 md:p-4 min-w-0 overflow-hidden">
+            <p className="text-[10px] text-brand-military-light/70 uppercase tracking-wide font-medium">Ganancia bruta</p>
+              <p className={`text-base font-mono font-normal num-tabular mt-2 break-all leading-tight ${gananciaBruta >= 0 ? 'text-white' : 'text-red-300'}`}>
+              {gananciaBruta >= 0 ? '+' : ''}{fmt(gananciaBruta, cur)}
             </p>
+            <p className="text-[10px] text-brand-military-light/60 mt-1">Facturación − CMV</p>
+          </div>
+          <div className="rounded-xl bg-white/10 p-3 md:p-4 min-w-0 overflow-hidden">
+            <p className="text-[10px] text-brand-military-light/70 uppercase tracking-wide font-medium">Margen bruto</p>
+              <p className={`text-base font-mono font-normal num-tabular mt-2 break-all leading-tight ${margenBrutoPct >= 30 ? 'text-white' : 'text-amber-300'}`}>
+              {margenBrutoPct.toFixed(1)}%
+            </p>
+            <p className="text-[10px] text-brand-military-light/60 mt-1">{margenBrutoPct >= 50 ? 'Excelente' : margenBrutoPct >= 30 ? 'Saludable' : 'Revisar precios'}</p>
           </div>
         </div>
       </section>
@@ -282,14 +292,14 @@ export default async function ReportsPage({
       {/* EXECUTIVE BRIEFING — 3 columnas */}
       <div className="mb-6 bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.02)' }}>
         {/* Header */}
-        <div className="px-6 py-3.5 bg-brand-slate flex items-center justify-between">
+        <div className="px-6 py-3.5 bg-brand-military-light/50 flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-brand-military/70">ContaGo · Informe ejecutivo</p>
+            <p className="text-xs font-semibold text-brand-military uppercase tracking-wide">ContaGo · Análisis de ventas</p>
             <p className="text-sm font-medium text-gray-700 mt-0.5">
               {MONTH_NAMES[now.getMonth()]} {now.getFullYear()} &middot; {cur}
             </p>
           </div>
-          <span className="text-xs font-medium text-gray-500 px-2.5 py-1 rounded-full bg-white">Análisis automático</span>
+          <span className="text-xs font-medium text-brand-military px-2.5 py-1 rounded-full bg-brand-military-light">Análisis automático</span>
         </div>
         {/* 3 columnas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-1 bg-gray-50/40 p-1">
@@ -303,7 +313,7 @@ export default async function ReportsPage({
             </div>
             <ul className="space-y-2.5">
               {riesgos.map((r, i) => (
-                <li key={i} className="text-sm text-gray-600 font-normal leading-relaxed">{r}</li>
+                <li key={i} className="text-sm text-gray-700 font-normal leading-relaxed pl-3 border-l-2 border-red-400/50">{r}</li>
               ))}
             </ul>
           </div>
@@ -317,7 +327,7 @@ export default async function ReportsPage({
             </div>
             <ul className="space-y-2.5">
               {oportunidades.map((o, i) => (
-                <li key={i} className="text-sm text-gray-600 font-normal leading-relaxed">{o}</li>
+                <li key={i} className="text-sm text-gray-700 font-normal leading-relaxed pl-3 border-l-2 border-brand-military/50">{o}</li>
               ))}
             </ul>
           </div>
@@ -331,42 +341,52 @@ export default async function ReportsPage({
             </div>
             <ul className="space-y-2.5">
               {proximosPasos.map((p, i) => (
-                <li key={i} className="text-sm text-gray-500 font-normal leading-relaxed">{p}</li>
+                <li key={i} className="text-sm text-gray-700 font-normal leading-relaxed pl-3 border-l-2 border-brand-gold/60">{p}</li>
               ))}
             </ul>
           </div>
         </div>
       </div>
 
-      {/* KPI TILES — con deltas vs mes anterior */}
+      {/* KPI TILES */}
       <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         <KpiTile
-          label={`Ingresos Totales ${cur}`}
+          label={`Facturación Total ${cur}`}
           value={fmt(totals.income, cur)}
-          sub={`${allTx.filter(t => t.type === 'INCOME').length} transacciones`}
+          sub={`${allTx.filter(t => t.type === 'INCOME').length} ventas registradas`}
           trend={incomeSpark}
           delta={deltaIncomeTotal}
           highlight
         />
         <KpiTile
-          label={`Gastos Totales ${cur}`}
-          value={fmt(totals.expense, cur)}
-          sub={`${allTx.filter(t => t.type === 'EXPENSE').length} transacciones`}
+          label="CMV · Costo de Ventas"
+          value={fmt(cmvTotal || 0, cur)}
+          sub="Mercadería vendida (salidas)"
           trend={expenseSpark}
-          delta={deltaExpenseTotal !== undefined ? -deltaExpenseTotal : undefined}
         />
         <KpiTile
-          label={`Balance Neto ${cur}`}
-          value={(balance >= 0 ? '+' : '') + fmt(balance, cur)}
-          sub={balance >= 0 ? 'Resultado positivo' : 'Resultado negativo'}
+          label={`Ganancia Bruta ${cur}`}
+          value={(gananciaBruta >= 0 ? '+' : '') + fmt(gananciaBruta, cur)}
+          sub={gananciaBruta >= 0 ? 'Facturación − CMV' : 'CMV supera ventas'}
           trend={balanceSpark}
           delta={deltaBalance}
         />
         <KpiTile
-          label="Margen de Utilidad"
-          value={(marginPct >= 0 ? '+' : '') + marginPct.toFixed(1) + '%'}
-          sub={marginPct >= 60 ? 'Excelente' : marginPct >= 30 ? 'Saludable' : marginPct >= 0 ? 'Ajustado' : 'En rojo'}
+          label="Margen Bruto"
+          value={margenBrutoPct.toFixed(1) + '%'}
+          sub={margenBrutoPct >= 60 ? 'Excelente' : margenBrutoPct >= 30 ? 'Saludable' : margenBrutoPct >= 0 ? 'Revisar precios' : 'En rojo'}
           gold
+        />
+        <KpiTile
+          label="Inventario Disponible"
+          value={fmt(valorInventario, cur)}
+          sub={valorInventario > 0 ? `Venta potencial: ${fmt(valorInventarioVenta, cur)}` : 'Sin stock registrado'}
+        />
+        <KpiTile
+          label="Ventas del Mes"
+          value={fmt(cmARS.income, cur)}
+          sub={`Costos: ${fmt(cmARS.expense, cur)}`}
+          delta={deltaIncome}
         />
         <KpiTile
           label="Runway (supervivencia)"
@@ -382,38 +402,38 @@ export default async function ReportsPage({
       </section>
 
       {/* TRAYECTORIA — Flujo de Fondos Hero (66%) + Distribución (33%) */}
-      <div className="grid grid-cols-1 xl:grid-cols-[7fr_3fr] gap-6 mb-6">
-        <Panel title={`Flujo de Fondos · Evolución Mensual (${cur})`} accent="light" variant="hero" className="xl:col-span-2">
+      <div className="grid grid-cols-1 xl:grid-cols-[7fr_3fr] gap-6 mb-6 print-page-break">
+        <Panel title={`Evolución de Ventas Mensual (${cur})`} accent="light" variant="standard">
           <div className="p-5">
             <div className="flex items-center gap-5 mb-2">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
-                <span className="w-3 h-1.5 rounded-full inline-block" style={{ background: MILITARY }} /> Ingresos
+              <span className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                <span className="w-3 h-1.5 rounded-full inline-block" style={{ background: MILITARY }} /> Ventas
               </span>
               <span className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                <span className="w-3 h-1.5 rounded-full inline-block bg-gray-300" /> Gastos
+                <span className="w-3 h-1.5 rounded-full inline-block bg-gray-300" /> Costos
               </span>
               <span className="ml-auto flex items-center gap-1.5 text-xs font-medium text-brand-gold">
                 <span className="w-2.5 h-2.5 rounded-full inline-block bg-brand-gold" />
-                Pico máximo de ingresos
+                Pico máximo de ventas
               </span>
             </div>
             <CashFlowAreaChart data={monthlyData} symbol={sym} />
           </div>
         </Panel>
 
-        <Panel title="Distribución Total" accent="dark" variant="stat">
+        <Panel title="Ingresos vs Costos" accent="military" variant="stat">
           <div className="p-5 flex flex-col gap-4">
             <DonutChart slices={donutSlices} symbol={sym} centerLabel="Total" />
             <div className="px-1">
               <DonutLegend
-                label="Ingresos"
+                label="Ventas"
                 color={MILITARY}
                 value={fmt(totals.income, cur)}
                 pct={totals.income + totals.expense > 0 ? (totals.income / (totals.income + totals.expense)) * 100 : 0}
               />
               <DonutLegend
-                label="Gastos"
-                color="#d1d5db"
+                label="Costos totales"
+                color="#9ca3af"
                 value={fmt(totals.expense, cur)}
                 pct={totals.income + totals.expense > 0 ? (totals.expense / (totals.income + totals.expense)) * 100 : 0}
               />
@@ -430,17 +450,17 @@ export default async function ReportsPage({
 
       {/* CATEGORÍAS + CONTACTOS */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
-        <Panel title="Top Categorías" accent="dark" variant="stat">
+        <Panel title="Categorías de Productos" accent="military" variant="stat">
           {topCategories.length === 0
-            ? <div className="p-8 text-center text-sm text-gray-300 font-medium">Sin datos</div>
+            ? <div className="p-8 text-center text-sm text-gray-400 font-medium">Sin datos</div>
             : (
               <>
-                <div className="px-5 py-2.5 flex gap-4 bg-gray-50">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                    <span className="w-2 h-2 rounded-full bg-brand-military inline-block" /> Ingresos
+                <div className="px-5 py-2.5 flex gap-4 bg-brand-military-light/30">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                    <span className="w-2 h-2 rounded-full bg-brand-military inline-block" /> Ventas
                   </span>
                   <span className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                    <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> Gastos
+                    <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> Costos
                   </span>
                 </div>
                 <HorizontalBars items={topCategories} max={catMax} symbol={sym} />
@@ -448,17 +468,17 @@ export default async function ReportsPage({
             )}
         </Panel>
 
-        <Panel title="Top Contactos" accent="light">
+        <Panel title="Clientes y Proveedores" accent="military">
           {topContacts.length === 0
-            ? <div className="p-8 text-center text-sm text-gray-300 font-medium">Sin datos</div>
+            ? <div className="p-8 text-center text-sm text-gray-400 font-medium">Sin datos</div>
             : (
               <>
-                <div className="px-5 py-2.5 flex gap-4 bg-gray-50">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                    <span className="w-2 h-2 rounded-full bg-brand-military inline-block" /> Ingresos
+                <div className="px-5 py-2.5 flex gap-4 bg-brand-military-light/30">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                    <span className="w-2 h-2 rounded-full bg-brand-military inline-block" /> Ventas
                   </span>
                   <span className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
-                    <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> Gastos
+                    <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> Costos
                   </span>
                 </div>
                 <HorizontalBars items={topContacts} max={conMax} symbol={sym} />
@@ -468,7 +488,7 @@ export default async function ReportsPage({
       </div>
 
       {/* TABLA */}
-      <Panel title="Movimientos Detallados" accent="military">
+      <Panel title="Registro de Ventas y Compras" accent="military" className="print-page-break">
         {/* cast: Prisma include types se pierden en el spread de getReportDataExtended */}
         <ReportTable transactions={allTx as unknown as Parameters<typeof ReportTable>[0]['transactions']} />
       </Panel>
@@ -476,7 +496,7 @@ export default async function ReportsPage({
       {/* ÁREAS DE NEGOCIO */}
       {topAreas.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
-          <Panel title="Top Áreas de Negocio" accent="military" variant="hero">
+          <Panel title="Áreas de Negocio" accent="military" variant="standard">
             <div className="divide-y divide-gray-100">
               {topAreas.map((a, i) => {
                 const total = a.income + a.expense
@@ -501,19 +521,19 @@ export default async function ReportsPage({
           </Panel>
 
           {/* COMPARATIVA ANUAL */}
-          <Panel title="Comparativa Anual" accent="dark" variant="stat">
+          <Panel title="Comparativa Anual de Ventas" accent="military" variant="stat">
             <div className="p-5 space-y-4">
               {Object.entries(anualMap).map(([year, byCur]) => (
-                <div key={year} className="rounded-2xl overflow-hidden bg-gray-50/60">
-                  <div className="bg-gray-50 px-4 py-2.5">
-                    <span className="text-sm font-medium text-gray-500">{year}</span>
+                <div key={year} className="rounded-2xl overflow-hidden bg-brand-military-light/20">
+                  <div className="bg-brand-military-light/40 px-4 py-2.5">
+                    <span className="text-sm font-semibold text-brand-military-dark">{year}</span>
                   </div>
                   {Object.keys(byCur).length === 0 ? (
-                    <div className="px-4 py-3 text-[10px] text-gray-300 font-medium">Sin datos</div>
+                    <div className="px-4 py-3 text-[10px] text-gray-400 font-medium">Sin datos</div>
                   ) : Object.entries(byCur).map(([c, d]) => (
                     <div key={c} className="px-4 py-3 grid grid-cols-3 gap-2">
                       <div>
-                        <p className="text-xs text-gray-400 mb-0.5">{c} — Ingresos</p>
+                        <p className="text-xs text-gray-400 mb-0.5">{c} — Ventas</p>
                         <p className="text-sm font-light font-mono text-brand-military-dark">{fmt(d.income, c)}</p>
                       </div>
                       <div>
@@ -537,18 +557,18 @@ export default async function ReportsPage({
 
       {/* BENTO NIVEL 4: Patrimonial + Flujo de Fondos */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
-        <Panel title="Estado de Situación Patrimonial" accent="military" variant="stat">
+        <Panel title="Situación Patrimonial" accent="military" variant="stat">
           <div className="p-5 space-y-3">
             {Object.keys(activosPorMoneda).length === 0 ? (
-              <div className="text-sm text-gray-300 text-center py-6 font-medium">Sin datos de cuentas</div>
+              <div className="text-sm text-gray-400 text-center py-6 font-medium">Sin datos de cuentas</div>
             ) : Object.entries(activosPorMoneda).map(([c, activos]) => {
               const pasivos = pasivosPorMoneda[c] || 0
               const cxc = cxcPorMoneda[c] || 0
               const patrimonioNeto = activos + cxc - pasivos
               return (
-                <div key={c} className="rounded-2xl overflow-hidden bg-gray-50/60">
-                  <div className="bg-gray-50 px-4 py-2.5 flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-600">{c}</span>
+                <div key={c} className="rounded-2xl overflow-hidden bg-brand-military-light/20">
+                  <div className="bg-brand-military-light/40 px-4 py-2.5 flex items-center gap-2">
+                    <span className="text-sm font-semibold text-brand-military-dark">{c}</span>
                   </div>
 
                   <div className="divide-y divide-gray-50">
@@ -577,7 +597,7 @@ export default async function ReportsPage({
                         <p className="font-light font-mono text-brand-gold-dark">−{fmt(pasivos, c)}</p>
                       </div>
                     )}
-                    <div className="px-4 py-4 flex justify-between items-center bg-brand-carbon">
+                    <div className="px-4 py-4 flex justify-between items-center bg-brand-military">
                       <p className="text-sm font-medium text-brand-gold">Patrimonio neto</p>
                       <p className={`font-light font-mono text-lg ${patrimonioNeto >= 0 ? 'text-white' : 'text-red-400'}`}>
                         {patrimonioNeto >= 0 ? '+' : ''}{fmt(patrimonioNeto, c)}
@@ -591,16 +611,16 @@ export default async function ReportsPage({
         </Panel>
 
         {/* FLUJO DE FONDOS */}
-        <Panel title="Estado de Flujo de Fondos" accent="dark" variant="stat">
+        <Panel title="Flujo de Fondos" accent="military" variant="stat">
           <div className="p-5 space-y-3">
             {Object.keys(flujo).length === 0 ? (
-              <div className="text-sm text-gray-300 text-center py-6 font-medium">Sin transacciones</div>
+              <div className="text-sm text-gray-400 text-center py-6 font-medium">Sin transacciones</div>
             ) : Object.entries(flujo).map(([c, { operativo, inversion, financiero }]) => {
               const flujoTotal = operativo + inversion + financiero
               return (
-                <div key={c} className="rounded-2xl overflow-hidden bg-gray-50/60">
-                  <div className="bg-gray-50 px-4 py-2.5">
-                    <span className="text-sm font-medium text-gray-600">{c}</span>
+                <div key={c} className="rounded-2xl overflow-hidden bg-brand-military-light/20">
+                  <div className="bg-brand-military-light/40 px-4 py-2.5">
+                    <span className="text-sm font-semibold text-brand-military-dark">{c}</span>
                   </div>
                   <div className="divide-y divide-gray-50">
                     <div className="px-4 py-3 flex justify-between items-center">
@@ -630,7 +650,7 @@ export default async function ReportsPage({
                         {financiero >= 0 ? '+' : ''}{fmt(financiero, c)}
                       </p>
                     </div>
-                    <div className="px-4 py-4 flex justify-between items-center bg-brand-carbon">
+                    <div className="px-4 py-4 flex justify-between items-center bg-brand-military">
                       <p className="text-sm font-medium text-brand-gold">Flujo neto total</p>
                       <p className={`font-light font-mono text-lg ${flujoTotal >= 0 ? 'text-white' : 'text-red-400'}`}>
                         {flujoTotal >= 0 ? '+' : ''}{fmt(flujoTotal, c)}
@@ -648,7 +668,7 @@ export default async function ReportsPage({
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
 
         {/* ESTADO DE RESULTADOS — hero: col izquierda full height */}
-        <Panel title="Estado de Resultados" accent="light" variant="hero">
+        <Panel title="Estado de Resultados" accent="military" variant="standard">
           <div className="p-5">
             {(() => {
               const ventas = totals.income
@@ -701,10 +721,10 @@ export default async function ReportsPage({
                       <p className={`text-xl font-light font-mono ${margenNetoPct >= 0 ? 'text-brand-military-dark' : 'text-red-500'}`}>{margenNetoPct.toFixed(1)}%</p>
                     </div>
                   </div>
-                  <div className="flex justify-between items-center py-4 bg-brand-carbon px-4 -mx-5 -mb-5 rounded-b-2xl mt-1">
+                  <div className="flex justify-between items-center py-4 bg-brand-military px-4 -mx-5 -mb-5 rounded-b-2xl mt-1">
                     <div>
                       <p className="text-sm font-medium text-brand-gold">Ganancia neta</p>
-                      <p className="text-[9px] text-gray-500">Margen neto: {margenNetoPct.toFixed(1)}%</p>
+                      <p className="text-[9px] text-brand-military-light/70">Margen neto: {margenNetoPct.toFixed(1)}%</p>
                     </div>
                     <p className={`font-light font-mono text-xl ${gananciaNeta >= 0 ? 'text-white' : 'text-red-400'}`}>
                       {gananciaNeta >= 0 ? '+' : ''}{fmt(gananciaNeta, cur)}
@@ -717,7 +737,7 @@ export default async function ReportsPage({
         </Panel>
 
         {/* PUNTO DE EQUILIBRIO — ancho: 2 columnas, bg slate para efecto overlap */}
-        <div className="xl:col-span-2 bg-brand-slate rounded-2xl overflow-hidden" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.02)' }}>
+        <div className="xl:col-span-2 bg-brand-military-light/30 rounded-2xl overflow-hidden ring-1 ring-brand-military/10" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 6px 24px rgba(0,0,0,0.06)' }}>
           <PuntoEquilibrio ventas={totals.income} cmv={cmvTotal || 0} cur={cur} />
         </div>
       </div>
@@ -725,7 +745,7 @@ export default async function ReportsPage({
       {/* STOCK EN REPORTES */}
       {(valorInventario > 0 || topProductosPorStock.length > 0) && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
-          <Panel title="Inventario en Reportes" accent="dark">
+          <Panel title="Inventario de Productos" accent="military">
             <div className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl p-3 bg-brand-military-light/40">
@@ -758,9 +778,9 @@ export default async function ReportsPage({
             </div>
           </Panel>
 
-          <Panel title="Top Productos por Valor de Stock" accent="light">
+          <Panel title="Stock Valorizado · Top Productos" accent="military">
             {topProductosPorStock.length === 0 ? (
-              <div className="p-8 text-center text-sm text-gray-300 font-medium">Sin productos registrados</div>
+              <div className="p-8 text-center text-sm text-gray-400 font-medium">Sin productos registrados</div>
             ) : (
               <div className="divide-y divide-gray-50">
                 {topProductosPorStock.map((p, i) => {

@@ -75,7 +75,7 @@ export default function PuntoEquilibrio({ ventas, cmv, cur = 'ARS' }: Props) {
         {/* Resultado del PE */}
         {costosFijos > 0 ? (
           <div className="border border-gray-200 rounded-sm overflow-hidden">
-            <div className="bg-[#1A1A1A] px-4 py-3 flex justify-between items-center">
+            <div className="bg-brand-military px-4 py-3 flex justify-between items-center">
               <p className="text-[10px] font-black uppercase tracking-widest text-brand-gold">Punto de Equilibrio</p>
               <p className="text-xl font-black font-mono text-white">
                 {puntoEquilibrio !== null ? fmt(puntoEquilibrio, cur) : 'N/A'}
@@ -117,7 +117,7 @@ export default function PuntoEquilibrio({ ventas, cmv, cur = 'ARS' }: Props) {
           </div>
         ) : (
           <div className="border border-dashed border-gray-200 rounded-sm p-4 text-center">
-            <p className="text-[10px] text-gray-300 font-black uppercase tracking-widest">
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">
               Ingresá los costos fijos para calcular
             </p>
           </div>

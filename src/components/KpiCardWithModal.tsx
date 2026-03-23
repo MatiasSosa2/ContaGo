@@ -35,7 +35,7 @@ export default function KpiCardWithModal({ children, title, categories, total }:
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-[#D8E2D6] bg-[#F0F4EF] flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
               <button
                 onClick={() => setOpen(false)}
@@ -63,7 +63,7 @@ export default function KpiCardWithModal({ children, title, categories, total }:
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="text-sm font-medium text-gray-700 truncate">{cat.name}</span>
-                            <span className="text-sm font-mono text-gray-800 num-tabular shrink-0">
+                            <span className="text-sm font-mono font-normal num-tabular text-gray-800 shrink-0">
                               ${cat.value.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
                             </span>
                           </div>
@@ -83,9 +83,9 @@ export default function KpiCardWithModal({ children, title, categories, total }:
             </div>
 
             {/* Footer total */}
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-              <p className="text-xs font-medium text-gray-500">Total</p>
-              <p className="text-base font-mono font-semibold text-gray-800 num-tabular">
+            <div className="px-6 py-3 bg-[#F0F4EF] border-t border-[#D8E2D6] flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#4A6741]">Total</p>
+              <p className="text-base font-mono font-normal num-tabular text-[#1B4332]">
                 ${total.toLocaleString('es-AR', { minimumFractionDigits: 0 })}
               </p>
             </div>

@@ -86,21 +86,21 @@ export default function TransactionSection({
   return (
     <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
         {/* COLUMNA 1: FORMULARIO - Serio y Funcional */}
-        <div className="bg-white border-2 border-slate-200 shadow-sm flex flex-col h-full">
-            <div className="bg-slate-50 p-4 border-b-2 border-slate-200 flex justify-between items-center">
-                 <h2 className="font-bold text-slate-700 uppercase text-xs tracking-wider">
+        <div className="bg-white border border-[#D8E2D6] shadow-sm flex flex-col h-full rounded-sm overflow-hidden">
+            <div className="bg-[#F0F4EF] px-4 py-3.5 border-b border-[#D8E2D6] flex justify-between items-center">
+                 <h2 className="font-semibold text-[#3A4D39] uppercase text-xs tracking-wider">
                     {activeTab === 'INCOME' ? 'Registrar Ingreso' : 'Registrar Gasto'}
                 </h2>
-                <div className="flex bg-slate-200 p-0.5">
+                <div className="flex bg-[#D8E2D6] p-0.5 rounded-sm">
                     <button 
                         onClick={() => setActiveTab('INCOME')}
-                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'INCOME' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all rounded-[2px] ${activeTab === 'INCOME' ? 'bg-[#1B4332] text-white shadow-sm' : 'text-[#4A6741] hover:text-[#1B4332]'}`}
                     >
                         Ingreso
                     </button>
                     <button 
                         onClick={() => setActiveTab('EXPENSE')}
-                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'EXPENSE' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all rounded-[2px] ${activeTab === 'EXPENSE' ? 'bg-[#1A1A1A] text-white shadow-sm' : 'text-[#4A6741] hover:text-[#1B4332]'}`}
                     >
                         Gasto
                     </button>
@@ -121,18 +121,18 @@ export default function TransactionSection({
         </div>
 
         {/* COLUMNA 2: HISTORIAL - Serio y Ordenado */}
-        <div className="bg-white border-2 border-slate-200 shadow-sm flex flex-col h-[600px]">
-             <div className="bg-slate-50 p-4 border-b-2 border-slate-200 flex justify-between items-center">
-                 <h2 className="font-bold text-slate-700 uppercase text-xs tracking-wider">Últimos Movimientos</h2>
-                 <div className="w-2 h-2 bg-slate-300 rounded-full"></div>
+        <div className="bg-white border border-stone-200 shadow-sm flex flex-col h-[600px] overflow-hidden rounded-sm">
+             <div className="bg-[#111827] px-4 py-3.5 border-b border-white/[0.07] flex justify-between items-center shrink-0">
+                 <h2 className="font-semibold text-stone-300 uppercase text-xs tracking-wider">Últimos Movimientos</h2>
+                 <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
              </div>
              
              <div className="flex-1 overflow-y-auto p-0 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                  <TransactionList transactions={optimisticTxs} onDelete={handleDelete} />
              </div>
              
-             <div className="p-3 border-t-2 border-slate-100 bg-slate-50/50 text-center">
-                <button className="text-xs font-bold text-slate-500 uppercase tracking-widest hover:text-slate-800">
+             <div className="p-3 border-t border-stone-100 bg-[#F0F4EF] text-center shrink-0">
+                <button className="text-xs font-bold text-[#3A4D39] uppercase tracking-widest hover:text-brand-military-dark">
                     Ver Historial Completo
                 </button>
              </div>

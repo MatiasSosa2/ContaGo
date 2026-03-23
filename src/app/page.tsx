@@ -1,7 +1,7 @@
 ﻿import { getDashboardStats } from '@/app/actions'
 import { KpiSparkline, FinancialOverviewChart, ProfitabilityDonut } from '@/components/DashboardCharts'
 import KpiCardWithModal from '@/components/KpiCardWithModal'
-import DashboardUserMenu from '@/components/DashboardUserMenu'
+import AppHeader from '@/components/AppHeader'
 import PeriodTabs from '@/components/PeriodTabs'
 import type { PeriodKey } from '@/components/PeriodTabs'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
@@ -53,7 +53,7 @@ async function DashboardContent({
 
         {/* Card 1 — Ingresos del período */}
         <KpiCardWithModal title="Detalle de ingresos" categories={incomeCategoryBreakdown} total={kpis.income}>
-          <div className="h-full rounded-2xl p-2.5 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%)' }}>
+          <div className="h-full rounded-2xl p-2.5 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #1B4332 0%, #0F2419 100%)' }}>
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-emerald-200">Ingresos</p>
               {incomeGrowth !== null && (
@@ -74,7 +74,7 @@ async function DashboardContent({
 
         {/* Card 2 — Egresos del período */}
         <KpiCardWithModal title="Detalle de egresos" categories={categoryBreakdown} total={kpis.expense}>
-          <div className="h-full rounded-2xl p-1 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #B91C1C 0%, #7F1D1D 100%)' }}>
+          <div className="h-full rounded-2xl p-1 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #7C2D2D 0%, #4C1616 100%)' }}>
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-red-200">Egresos</p>
               {expenseGrowth !== null && (
@@ -94,9 +94,9 @@ async function DashboardContent({
         </KpiCardWithModal>
 
         {/* Card 3 — Ganancia del período */}
-        <div className="rounded-2xl p-2.5 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #1E40AF 0%, #1E3A5F 100%)' }}>
+        <div className="rounded-2xl p-2.5 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #52A875 0%, #3A7D5A 100%)' }}>
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-blue-200">Ganancia</p>
+            <p className="text-xs font-medium text-emerald-100">Ganancia</p>
             {gainGrowth !== null && (
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white">
                 {gainGrowth >= 0 ? '▲' : '▼'} {Math.abs(gainGrowth).toFixed(1)}%
@@ -106,20 +106,20 @@ async function DashboardContent({
           <p className="text-2xl sm:text-3xl md:text-[2.5rem] font-mono font-normal text-white num-tabular leading-none">
             {kpis.gain >= 0 ? '' : '−'}{fmtARS(kpis.gain)}
           </p>
-          <p className="text-xs text-blue-300">{periodLabel}</p>
+          <p className="text-xs text-emerald-100">{periodLabel}</p>
           <div className="my-auto">
-            <KpiSparkline data={sparklines.balance} color="#93c5fd" height={38} />
+            <KpiSparkline data={sparklines.balance} color="#bbf7d0" height={38} />
           </div>
         </div>
 
         {/* Card 4 — Rentabilidad (donut egresos vs ganancia) */}
-        <div className="executive-card p-2.5 sm:p-4 flex flex-col items-center">
-          <p className="text-xs font-semibold text-gray-800 mb-0.5 self-start">Rentabilidad</p>
+        <div className="rounded-2xl p-2.5 sm:p-4 flex flex-col items-center bg-[#0f0f0f] border border-white/[0.07]" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.30)' }}>
+          <p className="text-xs font-semibold text-stone-400 mb-0.5 self-start">Rentabilidad</p>
           <div className="w-full flex-1 flex items-center justify-center">
             <ProfitabilityDonut expense={kpis.expense} gain={kpis.gain} height={140} />
           </div>
-          <p className="text-[10px] text-gray-400 leading-none">Ingresos totales</p>
-          <p className="text-lg font-mono font-semibold text-gray-800 leading-tight mt-0.5">
+          <p className="text-[10px] text-stone-600 leading-none">Ingresos totales</p>
+          <p className="text-lg font-mono font-semibold text-white leading-tight mt-0.5">
             {fmtARS(kpis.income)}
           </p>
         </div>
@@ -128,8 +128,8 @@ async function DashboardContent({
 
       {/* ══ FILA 2 — GRÁFICO PRINCIPAL (ancho completo) ══════════════════════ */}
       <div className="mb-4 md:mb-5">
-        <div className="executive-card flex flex-col overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-black/[0.05] flex justify-between items-center flex-wrap gap-2">
+        <div className="executive-card-accent flex flex-col overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-black/[0.05] flex justify-between items-center flex-wrap gap-2 bg-[#F0F4EF]">
             <div>
               <h2 className="text-sm font-semibold text-gray-700">Resumen financiero</h2>
               <p className="text-xs text-gray-400">Ingresos · Egresos · Ganancia — {periodLabel}</p>
@@ -214,32 +214,18 @@ export default async function Home({
   const businessId = sessionContext.activeBusiness.id
 
   return (
-    <div className="p-3 sm:p-5 lg:p-6 max-w-[1920px] mx-auto font-sans text-gray-800 min-h-screen bg-gray-50">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
 
-      {/* ══ FILA 0 — HEADER EJECUTIVO (renders immediately) ══════════════════ */}
-      <header className="mb-4 border border-stone-200 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.05)] md:mb-6 lg:-mx-6 lg:-mt-6 lg:mb-6 lg:border-x-0 lg:border-t-0 lg:shadow-none">
-        <div className="px-4 py-4 sm:px-5 lg:min-h-[88px] lg:px-6 lg:py-0">
-          <div className="flex flex-col gap-4 lg:h-full lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">
-              <span>Inicio</span>
-              <span className="h-1 w-1 rounded-full bg-stone-300" />
-              <span>{sessionContext.activeBusiness.name}</span>
-              <span className="inline-flex items-center border border-[#d9cfba] bg-[#f6efe2] px-2 py-1 text-[10px] font-medium normal-case tracking-normal text-[#7a6850]">
-                {sessionContext.activeBusiness.role === 'ADMIN' ? 'Administrador' : sessionContext.activeBusiness.role === 'COLLABORATOR' ? 'Colaborador' : 'Visualizador'}
-              </span>
-            </div>
-
-            <DashboardUserMenu
-              user={sessionContext.user}
-              business={{
-                name: sessionContext.activeBusiness.name,
-                role: sessionContext.activeBusiness.role,
-              }}
-              authProvider={sessionContext.auth.provider}
-            />
-          </div>
-        </div>
-      </header>
+      {/* ══ FILA 0 — HEADER ══════════════════════════════════════════════════ */}
+      <AppHeader
+        title="Inicio"
+        sessionContext={sessionContext}
+        icon={
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        }
+      />
 
       {/* FILTRO DE PERÍODO (renders immediately) */}
       <div className="mb-3 md:mb-4 flex items-center justify-between gap-3">

@@ -3,6 +3,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTransition } from 'react'
+import { signOut } from 'next-auth/react'
 import ThemeToggle from '@/components/ThemeToggle'
 
 const NAV_ITEMS = [
@@ -68,7 +70,13 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const [isSigningOut, startSignOut] = useTransition()
 
+  function handleSignOut() {
+    startSignOut(async () => {
+      await signOut({ callbackUrl: '/auth/login' })
+    })
+  }
   if (pathname.startsWith('/auth') || pathname.startsWith('/select-business')) {
     return null
   }
@@ -142,8 +150,22 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className="px-3 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="px-3 py-3 flex flex-col gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <ThemeToggle />
+        <button
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.12)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.22)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.12)' }}
+        >
+          <svg className="w-[18px] h-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
+          </svg>
+          {isSigningOut ? 'Cerrando...' : 'Cerrar sesión'}
+        </button>
       </div>
     </aside>
 
@@ -178,6 +200,20 @@ export default function Sidebar() {
           </Link>
         )
       })}
+      {/* Botón cerrar sesión mobile */}
+      <button
+        onClick={handleSignOut}
+        disabled={isSigningOut}
+        className="flex-1 relative flex flex-col items-center justify-center py-2 gap-0.5 min-w-0 active:opacity-70 transition-opacity disabled:opacity-50"
+      >
+        <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#FCA5A5" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
+        </svg>
+        <span className="text-[10px] font-medium leading-none" style={{ color: '#FCA5A5' }}>
+          {isSigningOut ? '...' : 'Salir'}
+        </span>
+      </button>
     </nav>
     </>
   )
