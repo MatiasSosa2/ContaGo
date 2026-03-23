@@ -12,29 +12,11 @@ export default async function CajasPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
 
-      {/* ══ HEADER ═══════════════════════════════════════════════════════════ */}
-      <header className="mb-5 border border-stone-200 dark:border-white/10 bg-white dark:bg-[#141414] shadow-[0_16px_40px_rgba(15,23,42,0.05)] md:mb-6 lg:-mx-8 lg:-mt-8 lg:mb-6 lg:border-x-0 lg:border-t-0 lg:shadow-none">
-        <div className="px-4 py-4 sm:px-5 lg:min-h-[88px] lg:px-6 lg:py-0">
-          <div className="flex flex-col gap-4 lg:h-full lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">
-              <span>Cajas</span>
-              <span className="h-1 w-1 rounded-full bg-stone-300" />
-              <span>{sessionContext.activeBusiness.name}</span>
-              <span className="inline-flex items-center border border-[#d9cfba] bg-[#f6efe2] px-2 py-1 text-[10px] font-medium normal-case tracking-normal text-[#7a6850]">
-                {sessionContext.activeBusiness.role === 'ADMIN' ? 'Administrador' : sessionContext.activeBusiness.role === 'COLLABORATOR' ? 'Colaborador' : 'Visualizador'}
-              </span>
-            </div>
-            <DashboardUserMenu
-              user={sessionContext.user}
-              business={{
-                name: sessionContext.activeBusiness.name,
-                role: sessionContext.activeBusiness.role,
-              }}
-              authProvider={sessionContext.auth.provider}
-            />
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        title="Cajas"
+        icon={<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
+        sessionContext={sessionContext}
+      />
 
       {/* ══ BARRA DE CONSEJO GENERAL ═════════════════════════════════════════ */}
       <div className="mb-6 flex items-center gap-3 rounded-xl px-4 py-3 bg-[#EAF7F0] dark:bg-[#0D1F14]">
