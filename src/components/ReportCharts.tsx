@@ -15,7 +15,7 @@ const GRAY_MID = '#9ca3af'
 function CustomTooltip({ active, payload, label, symbol = '$' }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-gray-900 px-4 py-3 text-white rounded-xl shadow-xl">
+    <div className="bg-[#1A1A1A] px-4 py-3 text-white rounded-xl shadow-xl">
       <p className="text-xs font-medium text-gray-400 mb-2">{label}</p>
       {payload.map((p: any) => (
         <p key={p.name} className="text-xs font-medium flex items-center gap-2">
@@ -173,7 +173,7 @@ export function StackedAreaChart({ data, symbol = '$' }: { data: StackedMonth[];
             const ing = payload.find((p: any) => p.dataKey === 'ingresos')?.value as number || 0
             const eg = payload.find((p: any) => p.dataKey === 'egresos')?.value as number || 0
             return (
-              <div className="bg-gray-900 px-4 py-3 text-white rounded-xl shadow-xl min-w-[160px]">
+              <div className="bg-[#1A1A1A] px-4 py-3 text-white rounded-xl shadow-xl min-w-[160px]">
                 <p className="text-xs text-gray-400 mb-2 font-medium">{label}</p>
                 <p className="text-xs flex justify-between gap-4">
                   <span className="text-emerald-300">Ingresos</span>
@@ -229,7 +229,7 @@ export function DonutChart({ slices, symbol = '$', centerLabel = '' }: { slices:
               const rawValue = Array.isArray(val) ? val[0] : val
               return [`${symbol}${Number(rawValue ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`, '']
             }}
-            contentStyle={{ background: '#111827', border: '1px solid #374151', color: '#fff', fontSize: 11, fontWeight: 700 }}
+            contentStyle={{ background: '#1A1A1A', border: '1px solid #2a2a2a', color: '#fff', fontSize: 11, fontWeight: 700 }}
             itemStyle={{ color: '#fff' }}
           />
         </PieChart>
@@ -249,12 +249,12 @@ interface HBarItem { name: string; income: number; expense: number }
 export function HorizontalBars({ items, max, symbol = '$' }: { items: HBarItem[]; max: number; symbol?: string }) {
   if (!items.length) return <EmptyState />
   return (
-    <div className="flex flex-col gap-1 bg-gray-50/50 p-1 rounded-2xl">
+    <div className="flex flex-col divide-y divide-gray-100 dark:divide-white/[0.06]">
       {items.map(item => {
         const incPct = max > 0 ? (item.income / max) * 100 : 0
         const expPct = max > 0 ? (item.expense / max) * 100 : 0
         return (
-          <div key={item.name} className="px-5 py-3 rounded-xl bg-white hover:bg-gray-50 transition-colors">
+          <div key={item.name} className="px-5 py-3 hover:bg-gray-50/50 dark:hover:bg-white/[0.03] transition-colors">
             <div className="flex justify-between items-center mb-1.5">
               <span className="text-sm font-medium text-gray-700 truncate max-w-[140px]">{item.name}</span>
               <span className="text-xs font-light text-gray-400 font-mono">

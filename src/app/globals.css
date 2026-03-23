@@ -293,6 +293,14 @@ body {
   background-color: rgba(20,28,20,0.85) !important;
 }
 
+/* ── Fondos slate/gray claros → oscuros ── */
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-slate-100,
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-gray-100 {
+  background-color: #1a1a1a !important;
+}
+
 /* ── Inputs, selects, textareas ── */
 [data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
 [data-theme="dark"] textarea,

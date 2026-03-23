@@ -76,7 +76,7 @@ export default function ReportTable({ transactions }: { transactions: Tx[] }) {
   return (
     <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.02)' }}>
       {/* Toolbar */}
-      <div className="bg-gray-900 px-5 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="bg-[#1A1A1A] px-5 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-sm font-medium text-white">Registro completo</h2>
         <button
           onClick={() => exportCSV(filtered)}
@@ -118,7 +118,7 @@ export default function ReportTable({ transactions }: { transactions: Tx[] }) {
           <div className="flex p-1 bg-white rounded-xl shrink-0">
             {currencies.map(c => (
               <button key={c} onClick={() => { setFilterCurrency(c); setPage(1) }}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${filterCurrency === c ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-800'}`}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${filterCurrency === c ? 'bg-[#3A4D39] text-white' : 'text-gray-500 hover:text-gray-800'}`}
               >
                 {c === 'ALL' ? 'Todas' : c}
               </button>

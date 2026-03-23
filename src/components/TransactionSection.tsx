@@ -122,7 +122,7 @@ export default function TransactionSection({
 
         {/* COLUMNA 2: HISTORIAL - Serio y Ordenado */}
         <div className="bg-white border border-stone-200 shadow-sm flex flex-col h-[600px] overflow-hidden rounded-sm">
-             <div className="bg-[#111827] px-4 py-3.5 border-b border-white/[0.07] flex justify-between items-center shrink-0">
+             <div className="bg-[#1A1A1A] px-4 py-3.5 border-b border-white/[0.07] flex justify-between items-center shrink-0">
                  <h2 className="font-semibold text-stone-300 uppercase text-xs tracking-wider">Últimos Movimientos</h2>
                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
              </div>

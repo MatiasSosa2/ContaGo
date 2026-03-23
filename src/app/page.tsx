@@ -113,13 +113,13 @@ async function DashboardContent({
         </div>
 
         {/* Card 4 — Rentabilidad (donut egresos vs ganancia) */}
-        <div className="rounded-2xl p-2.5 sm:p-4 flex flex-col items-center bg-[#0f0f0f] border border-white/[0.07]" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.30)' }}>
-          <p className="text-xs font-semibold text-stone-400 mb-0.5 self-start">Rentabilidad</p>
+        <div className="executive-card rounded-2xl p-2.5 sm:p-4 flex flex-col items-center">
+          <p className="text-xs font-semibold text-stone-500 mb-0.5 self-start">Rentabilidad</p>
           <div className="w-full flex-1 flex items-center justify-center">
             <ProfitabilityDonut expense={kpis.expense} gain={kpis.gain} height={140} />
           </div>
-          <p className="text-[10px] text-stone-600 leading-none">Ingresos totales</p>
-          <p className="text-lg font-mono font-semibold text-white leading-tight mt-0.5">
+          <p className="text-[10px] text-stone-400 leading-none">Ingresos totales</p>
+          <p className="text-lg font-mono font-semibold text-stone-800 dark:text-white leading-tight mt-0.5">
             {fmtARS(kpis.income)}
           </p>
         </div>
@@ -128,13 +128,13 @@ async function DashboardContent({
 
       {/* ══ FILA 2 — GRÁFICO PRINCIPAL (ancho completo) ══════════════════════ */}
       <div className="mb-4 md:mb-5">
-        <div className="executive-card-accent flex flex-col overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-black/[0.05] flex justify-between items-center flex-wrap gap-2 bg-[#F0F4EF]">
+        <div className="executive-card flex flex-col overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-black/[0.05] dark:border-white/[0.06] flex justify-between items-center flex-wrap gap-2 bg-slate-50 dark:bg-[#1a1a1a]">
             <div>
-              <h2 className="text-sm font-semibold text-gray-700">Resumen financiero</h2>
-              <p className="text-xs text-gray-400">Ingresos · Egresos · Ganancia — {periodLabel}</p>
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-stone-300">Resumen financiero</h2>
+              <p className="text-xs text-gray-400 dark:text-stone-500">Ingresos · Egresos · Ganancia — {periodLabel}</p>
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-400">
+            <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-stone-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm bg-[#2D6A4F] inline-block" />Ingresos
               </span>

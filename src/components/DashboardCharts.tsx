@@ -2,6 +2,20 @@
 
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
+import { useState, useEffect } from 'react'
+
+// ── Hook de detección de tema ──────────────────────────────────────────────────
+function useDarkMode() {
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => {
+    const read = () => setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
+    read()
+    const obs = new MutationObserver(read)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+  return isDark
+}
 
 // ── Paleta del sistema ─────────────────────────────────────────────────────────
 const C = {
@@ -16,7 +30,14 @@ const C = {
   green:      '#10B981',
   axis:       '#d1d5db',
   label:      '#9ca3af',
-  tooltip:    '#111827',
+  tooltip:    '#1A1A1A',
+}
+
+const DARK = {
+  axis:    '#2a2a2a',
+  label:   '#6b7280',
+  track:   '#2a2a2a',
+  bg:      '#1a1a1a',
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -74,8 +95,10 @@ interface MarginGaugeProps {
 }
 
 export function MarginGauge({ value, height = 130 }: MarginGaugeProps) {
+  const isDark = useDarkMode()
   const clamped = Math.max(0, Math.min(100, value))
   const color = clamped >= 30 ? C.income : clamped >= 10 ? C.net : C.red
+  const trackColor = isDark ? DARK.track : '#f3f4f6'
   const option: EChartsOption = {
     animation: true,
     series: [{
@@ -87,7 +110,7 @@ export function MarginGauge({ value, height = 130 }: MarginGaugeProps) {
       radius: '100%',
       center: ['50%', '72%'],
       progress: { show: true, width: 14, itemStyle: { color } },
-      axisLine: { lineStyle: { width: 14, color: [[1, '#f3f4f6']] } },
+      axisLine: { lineStyle: { width: 14, color: [[1, trackColor]] } },
       axisTick: { show: false },
       splitLine: { show: false },
       axisLabel: { show: false },
@@ -129,6 +152,9 @@ interface FinancialOverviewProps {
 }
 
 export function FinancialOverviewChart({ data, height = 240 }: FinancialOverviewProps) {
+  const isDark = useDarkMode()
+  const axisColor  = isDark ? DARK.axis  : C.axis
+  const labelColor = isDark ? DARK.label : C.label
   const labels  = data.map(d => d.label)
   const incomes  = data.map(d => d.income)
   const expenses = data.map(d => d.expense)
@@ -136,6 +162,7 @@ export function FinancialOverviewChart({ data, height = 240 }: FinancialOverview
 
   const option: EChartsOption = {
     animation: true,
+    backgroundColor: 'transparent',
     grid: { top: 12, bottom: 36, left: 16, right: 16, containLabel: true },
     tooltip: {
       trigger: 'axis',
@@ -162,22 +189,22 @@ export function FinancialOverviewChart({ data, height = 240 }: FinancialOverview
       icon: 'circle',
       itemWidth: 8,
       itemHeight: 8,
-      textStyle: { color: C.label, fontSize: 11 },
+      textStyle: { color: labelColor, fontSize: 11 },
     },
     xAxis: {
       type: 'category',
       data: labels,
-      axisLine: { lineStyle: { color: C.axis } },
+      axisLine: { lineStyle: { color: axisColor } },
       axisTick: { show: false },
-      axisLabel: { color: C.label, fontSize: 10, fontWeight: 500 },
+      axisLabel: { color: labelColor, fontSize: 10, fontWeight: 500 },
     },
     yAxis: {
       type: 'value',
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { lineStyle: { color: C.axis, type: 'dashed' } },
+      splitLine: { lineStyle: { color: axisColor, type: 'dashed' } },
       axisLabel: {
-        color: C.label,
+        color: labelColor,
         fontSize: 10,
         formatter: (v: number) => {
           const abs = Math.abs(v)
@@ -281,7 +308,7 @@ export function ExpenseCategoryDonut({ data, totalLabel = '', height = 220 }: Ex
         top: '44%',
         style: {
           text: fmtARS(data.reduce((s, d) => s + d.value, 0)),
-          fill: '#111827',
+          fill: '#1A1A1A',
           fontSize: 17,
           fontFamily: 'ui-monospace, monospace',
           fontWeight: 300,

@@ -61,27 +61,27 @@ function KpiTile({
   const bg = dark
     ? 'bg-brand-military'
     : gold
-    ? 'bg-brand-gold-light'
+    ? 'bg-brand-gold-light dark:bg-[#1a1200]'
     : highlight
-    ? 'bg-brand-military-light'
-    : 'bg-white'
-  const labelColor = dark ? 'text-gray-400' : gold ? 'text-gray-500' : highlight ? 'text-gray-500' : 'text-gray-500'
-  const valueColor = dark ? 'text-white' : gold ? 'text-[#1A1A1A]' : highlight ? 'text-[#1A1A1A]' : 'text-[#1A1A1A]'
-  const subColor = dark ? 'text-gray-500' : 'text-gray-500'
+    ? 'bg-brand-military-light dark:bg-[#0d1f14]'
+    : 'bg-white dark:bg-[#141414]'
+  const labelColor = 'text-gray-500 dark:text-stone-400'
+  const valueColor = dark ? 'text-white' : 'text-[#1A1A1A] dark:text-stone-100'
+  const subColor = 'text-gray-400 dark:text-stone-500'
   const deltaPositive = delta !== undefined && delta >= 0
   const deltaColor = dark
     ? (deltaPositive ? 'text-brand-military-light' : 'text-red-300')
-    : (deltaPositive ? 'text-brand-military-dark' : 'text-red-500')
+    : (deltaPositive ? 'text-brand-military-dark dark:text-emerald-400' : 'text-red-500 dark:text-red-400')
   return (
     <div
-      className={`${bg} rounded-2xl flex flex-col justify-between min-h-[120px] p-4 md:p-5 ring-1 ring-black/[0.06] min-w-0 overflow-hidden`}
+      className={`${bg} rounded-2xl flex flex-col justify-between min-h-[120px] p-4 md:p-5 ring-1 ring-black/[0.06] dark:ring-white/[0.08] min-w-0 overflow-hidden`}
       style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06), 0 6px 24px rgba(0,0,0,0.06)' }}
     >
       <div className="min-w-0">
         <div className="flex items-start justify-between mb-2 gap-1">
           <p className={`text-xs font-medium leading-relaxed ${labelColor} min-w-0`}>{label}</p>
           {delta !== undefined && (
-            <span className={`text-[10px] font-medium font-mono ${deltaColor} shrink-0 px-1.5 py-0.5 rounded-full bg-black/[0.04] whitespace-nowrap`}>
+            <span className={`text-[10px] font-medium font-mono ${deltaColor} shrink-0 px-1.5 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.06] whitespace-nowrap`}>
               {deltaPositive ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}%
             </span>
           )}
@@ -302,9 +302,9 @@ export default async function ReportsPage({
           <span className="text-xs font-medium text-brand-military px-2.5 py-1 rounded-full bg-brand-military-light">Análisis automático</span>
         </div>
         {/* 3 columnas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-1 bg-gray-50/40 p-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-white/[0.06]">
           {/* RIESGOS */}
-          <div className="px-6 py-5 bg-white rounded-2xl">
+          <div className="px-6 py-5">
             <div className="flex items-center gap-2 mb-3">
               <svg className="w-3.5 h-3.5 text-brand-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
@@ -318,7 +318,7 @@ export default async function ReportsPage({
             </ul>
           </div>
           {/* OPORTUNIDADES */}
-          <div className="px-6 py-5 bg-white rounded-2xl">
+          <div className="px-6 py-5">
             <div className="flex items-center gap-2 mb-3">
               <svg className="w-3.5 h-3.5 text-brand-gold shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
@@ -332,7 +332,7 @@ export default async function ReportsPage({
             </ul>
           </div>
           {/* PRÓXIMOS PASOS */}
-          <div className="px-6 py-5 bg-white rounded-2xl">
+          <div className="px-6 py-5">
             <div className="flex items-center gap-2 mb-3">
               <svg className="w-3.5 h-3.5 text-brand-military shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />

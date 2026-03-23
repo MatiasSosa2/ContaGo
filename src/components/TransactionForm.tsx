@@ -116,7 +116,7 @@ export default function TransactionForm({ accounts, categories, contacts, areas,
           <button type="button" onClick={() => handleTypeChange('EXPENSE')}
             className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${
               type === 'EXPENSE'
-                ? 'bg-gray-800 text-white shadow-sm'
+                ? 'bg-[#1A1A1A] text-white shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}>
             Gasto
@@ -378,7 +378,7 @@ export default function TransactionForm({ accounts, categories, contacts, areas,
         className={`mt-4 w-full py-4 px-6 text-sm font-medium rounded-xl transition-all active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white ${
           type === 'INCOME'
             ? 'bg-brand-military hover:bg-brand-military-dark'
-            : 'bg-gray-900 hover:bg-gray-800'
+            : 'bg-[#1A1A1A] hover:bg-[#2a2a2a]'
         }`}
       >
         {submitting ? 'Guardando...' : type === 'INCOME' ? '↑ Registrar ingreso' : '↓ Registrar gasto'}

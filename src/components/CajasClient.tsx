@@ -66,11 +66,13 @@ function CajaGroupColumn({
   icon,
   group,
   aiTip,
+  variant = 'military',
 }: {
   label: string
   icon: React.ReactNode
   group: CajasGroupData
   aiTip: string
+  variant?: 'military' | 'gold'
 }) {
   // Agrupar cuentas por moneda para dropdowns
   const currencies = [...new Set(group.accounts.map(a => a.currency))]
@@ -85,9 +87,17 @@ function CajaGroupColumn({
       <div className="bg-white dark:bg-[#141414] rounded-2xl border border-[#E5E7EB] dark:border-white/10 overflow-hidden" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}>
 
         {/* Header + monto total */}
-        <div className="px-5 pt-5 pb-4 bg-[#F0F4EF] dark:bg-[#0D1F14] border-b border-[#D8E2D6] dark:border-white/[0.07]">
+        <div className={`px-5 pt-5 pb-4 border-b ${
+          variant === 'gold'
+            ? 'bg-[#FBF8F2] dark:bg-[#1C1812] border-[#E8DFC6] dark:border-white/[0.07]'
+            : 'bg-[#F0F4EF] dark:bg-[#0D1F14] border-[#D8E2D6] dark:border-white/[0.07]'
+        }`}>
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-brand-military-light flex items-center justify-center text-brand-military">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+              variant === 'gold'
+                ? 'bg-brand-gold/15 text-brand-gold'
+                : 'bg-brand-military-light text-brand-military'
+            }`}>
               {icon}
             </div>
             <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
@@ -181,7 +191,7 @@ function CajaGroupColumn({
           </div>
           <span className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Consejos de la IA</span>
         </div>
-        <div className="rounded-xl border border-white/[0.07] px-4 py-4 relative overflow-hidden bg-[#111827]" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
+        <div className="rounded-xl border border-white/[0.07] px-4 py-4 relative overflow-hidden bg-[#1A1A1A]" style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.25)' }}>
           <div className="absolute inset-y-0 left-0 w-[3px] bg-brand-gold rounded-l-xl" />
           <p className="text-sm text-stone-300 leading-relaxed pl-1">{aiTip}</p>
         </div>
@@ -199,12 +209,14 @@ export default function CajasClient({ data }: { data: CajasData }) {
         icon={<CashIcon />}
         group={data.efectivo}
         aiTip={data.aiTipEfectivo}
+        variant="military"
       />
       <CajaGroupColumn
         label="Virtual"
         icon={<VirtualIcon />}
         group={data.virtual}
         aiTip={data.aiTipVirtual}
+        variant="gold"
       />
     </div>
   )

@@ -19,13 +19,13 @@ export default async function CajasPage() {
       />
 
       {/* ══ BARRA DE CONSEJO GENERAL ═════════════════════════════════════════ */}
-      <div className="mb-6 flex items-center gap-3 rounded-xl px-4 py-3 bg-[#EAF7F0] dark:bg-[#0D1F14]">
-        <div className="w-7 h-7 rounded-lg bg-[#D1FAE5] flex items-center justify-center shrink-0">
-          <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div className="mb-6 flex items-center gap-3 rounded-xl px-4 py-3 bg-white dark:bg-[#141414] border border-stone-200 dark:border-white/[0.07]">
+        <div className="w-7 h-7 rounded-lg bg-[#F0F4EF] dark:bg-white/[0.06] flex items-center justify-center shrink-0">
+          <svg className="w-4 h-4 text-[#3A4D39] dark:text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
         </div>
-        <p className="text-sm text-[#374151] leading-snug">{data.summaryMessage}</p>
+        <p className="text-sm text-stone-600 dark:text-stone-400 leading-snug">{data.summaryMessage}</p>
       </div>
 
       {/* ══ CONTENIDO PRINCIPAL — Client Component ═══════════════════════════ */}
