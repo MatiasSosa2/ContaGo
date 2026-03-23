@@ -251,13 +251,58 @@ export async function getDailyStats() {
   return databaseActions.getDailyStats();
 }
 
-export async function getDashboardStats(period: string, customFrom?: string, customTo?: string, preBusinessId?: string) {
+export async function getDashboardStats(period: string, customFrom?: string, customTo?: string, preBusinessId?: string, selectedYear?: number, selectedMonth?: number) {
   if (USE_MOCK) {
     const { getMockDashboardStats } = await import('@/lib/mock');
     return getMockDashboardStats(period, customFrom, customTo);
   }
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getDashboardStats(period as any, customFrom, customTo, preBusinessId);
+  return databaseActions.getDashboardStats(period as any, customFrom, customTo, preBusinessId, selectedYear, selectedMonth);
+}
+
+export async function getMonthlyDashboardStats(preBusinessId?: string) {
+  if (USE_MOCK) {
+    const { getMockDashboardStats } = await import('@/lib/mock');
+    return getMockDashboardStats('mensual');
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getMonthlyDashboardStats(preBusinessId);
+}
+
+export async function getAvailableDashboardMonths(preBusinessId?: string) {
+  if (USE_MOCK) {
+    const now = new Date();
+    return Array.from({ length: 4 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      return {
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        label: date.toLocaleDateString('es-AR', { month: 'short' }).replace('.', ''),
+        shortYear: String(date.getFullYear()).slice(2),
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+      };
+    });
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getAvailableDashboardMonths(preBusinessId);
+}
+
+export async function getDashboardPresetSummaries(preBusinessId?: string) {
+  if (USE_MOCK) {
+    const periods = ['diario', 'ayer', 'semanal', 'mensual', 'trimestral', 'semestral', 'anual'] as const;
+    return periods.map((period) => ({
+      period,
+      periodLabel: period,
+      income: 500000,
+      expense: 320000,
+      gain: 180000,
+      incomeChangePct: 12.5,
+      expenseChangePct: -4.2,
+      gainChangePct: 18.1,
+    }));
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getDashboardPresetSummaries(preBusinessId);
 }
 
 export async function getBienesDeUso() {

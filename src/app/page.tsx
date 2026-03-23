@@ -1,4 +1,4 @@
-﻿import { getDashboardStats } from '@/app/actions'
+﻿import { getAvailableDashboardMonths, getDashboardPresetSummaries, getDashboardStats } from '@/app/actions'
 import { KpiSparkline, FinancialOverviewChart, ProfitabilityDonut } from '@/components/DashboardCharts'
 import KpiCardWithModal from '@/components/KpiCardWithModal'
 import AppHeader from '@/components/AppHeader'
@@ -31,13 +31,17 @@ async function DashboardContent({
   periodo,
   customFrom,
   customTo,
+  selectedYear,
+  selectedMonth,
 }: {
   businessId: string
   periodo: PeriodKey
   customFrom?: string
   customTo?: string
+  selectedYear?: number
+  selectedMonth?: number
 }) {
-  const stats = await getDashboardStats(periodo, customFrom, customTo, businessId)
+  const stats = await getDashboardStats(periodo, customFrom, customTo, businessId, selectedYear, selectedMonth)
   const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, sparklines, periodLabel } = stats
 
   const incomeGrowth = prevKpis.income > 0 ? ((kpis.income - prevKpis.income) / prevKpis.income) * 100 : null
@@ -201,17 +205,26 @@ async function DashboardContent({
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; from?: string; to?: string }>
+  searchParams: Promise<{ periodo?: string; from?: string; to?: string; year?: string; month?: string; monthOffset?: string }>
 }) {
-  // Auth + searchParams resolve in parallel — both are needed for the shell
   const [sessionContext, sp] = await Promise.all([
     requireBusinessContext(),
     searchParams,
   ])
+  const businessId = sessionContext.activeBusiness.id
+  const [availableMonths, presetSummaries] = await Promise.all([
+    getAvailableDashboardMonths(businessId),
+    getDashboardPresetSummaries(businessId),
+  ])
   const periodo = (sp.periodo ?? 'mensual') as PeriodKey
   const customFrom = sp.from
   const customTo = sp.to
-  const businessId = sessionContext.activeBusiness.id
+  const fallbackMonth = availableMonths[0]
+  const selectedYear = sp.year ? Number.parseInt(sp.year, 10) : (periodo === 'mensual' ? fallbackMonth?.year : undefined)
+  const selectedMonth = sp.month ? Number.parseInt(sp.month, 10) : (periodo === 'mensual' ? fallbackMonth?.month : undefined)
+  const selectedIndex = availableMonths.findIndex((month) => month.year === selectedYear && month.month === selectedMonth)
+  const derivedOffset = selectedIndex >= 0 ? Math.floor(selectedIndex / 4) * 4 : 0
+  const monthOffset = sp.monthOffset ? Number.parseInt(sp.monthOffset, 10) : derivedOffset
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
@@ -227,10 +240,18 @@ export default async function Home({
         }
       />
 
-      {/* FILTRO DE PERÍODO (renders immediately) */}
       <div className="mb-3 md:mb-4 flex items-center justify-between gap-3">
         <Suspense fallback={null}>
-          <PeriodTabs active={periodo} customFrom={customFrom} customTo={customTo} />
+          <PeriodTabs
+            active={periodo}
+            customFrom={customFrom}
+            customTo={customTo}
+            selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
+            monthOffset={monthOffset}
+            availableMonths={availableMonths}
+            presetSummaries={presetSummaries}
+          />
         </Suspense>
       </div>
 
@@ -241,6 +262,8 @@ export default async function Home({
           periodo={periodo}
           customFrom={customFrom}
           customTo={customTo}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
         />
       </Suspense>
 

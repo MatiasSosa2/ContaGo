@@ -877,7 +877,7 @@ export async function getDailyStats() {
 
 // ---- Dashboard Stats (Período dinámico) ----
 
-export type DashboardPeriodKey = 'diario' | 'semanal' | 'mensual' | 'semestral' | 'anual' | 'custom'
+export type DashboardPeriodKey = 'diario' | 'ayer' | 'semanal' | 'mensual' | 'trimestral' | 'semestral' | 'anual' | 'custom'
 
 export interface DashboardStatsResult {
   kpis: { income: number; expense: number; gain: number; marginPct: number }
@@ -901,7 +901,34 @@ export interface DashboardStatsResult {
   periodLabel: string
 }
 
-function computePeriodRange(period: DashboardPeriodKey, customFrom?: string, customTo?: string): { from: Date; to: Date; prevFrom: Date; prevTo: Date; label: string } {
+export interface DashboardMonthOption {
+  year: number
+  month: number
+  label: string
+  shortYear: string
+  key: string
+}
+
+export interface DashboardPresetSummary {
+  period: Exclude<DashboardPeriodKey, 'custom'>
+  periodLabel: string
+  income: number
+  expense: number
+  gain: number
+  incomeChangePct: number | null
+  expenseChangePct: number | null
+  gainChangePct: number | null
+}
+
+const DASHBOARD_MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
+function computePeriodRange(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+): { from: Date; to: Date; prevFrom: Date; prevTo: Date; label: string } {
   const now = new Date()
   let from: Date, to: Date, prevFrom: Date, prevTo: Date, label: string
 
@@ -915,6 +942,18 @@ function computePeriodRange(period: DashboardPeriodKey, customFrom?: string, cus
       label = 'Hoy'
       break
     }
+    case 'ayer': {
+      const yesterday = new Date(now)
+      yesterday.setDate(yesterday.getDate() - 1)
+      from = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0)
+      to = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999)
+      const twoDaysAgo = new Date(yesterday)
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 1)
+      prevFrom = new Date(twoDaysAgo.getFullYear(), twoDaysAgo.getMonth(), twoDaysAgo.getDate(), 0, 0, 0)
+      prevTo = new Date(twoDaysAgo.getFullYear(), twoDaysAgo.getMonth(), twoDaysAgo.getDate(), 23, 59, 59, 999)
+      label = 'Ayer'
+      break
+    }
     case 'semanal': {
       const dayOfWeek = now.getDay()
       const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
@@ -926,12 +965,38 @@ function computePeriodRange(period: DashboardPeriodKey, customFrom?: string, cus
       break
     }
     case 'mensual': {
-      from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
-      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-      prevFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0)
-      prevTo = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+      const targetYear = selectedYear ?? now.getFullYear()
+      const targetMonthIndex = (selectedMonth ?? (now.getMonth() + 1)) - 1
+      const isCurrentMonth = targetYear === now.getFullYear() && targetMonthIndex === now.getMonth()
+
+      from = new Date(targetYear, targetMonthIndex, 1, 0, 0, 0)
+      to = isCurrentMonth
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        : new Date(targetYear, targetMonthIndex + 1, 0, 23, 59, 59, 999)
+      prevFrom = new Date(targetYear, targetMonthIndex - 1, 1, 0, 0, 0)
+      prevTo = isCurrentMonth
+        ? new Date(
+            targetYear,
+            targetMonthIndex - 1,
+            Math.min(now.getDate(), new Date(targetYear, targetMonthIndex, 0).getDate()),
+            23,
+            59,
+            59,
+            999,
+          )
+        : new Date(targetYear, targetMonthIndex, 0, 23, 59, 59, 999)
       label = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+      label = from.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
       label = label.charAt(0).toUpperCase() + label.slice(1)
+      break
+    }
+    case 'trimestral': {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3
+      from = new Date(now.getFullYear(), quarterStartMonth, 1, 0, 0, 0)
+      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      prevFrom = new Date(now.getFullYear(), quarterStartMonth - 3, 1, 0, 0, 0)
+      prevTo = new Date(now.getFullYear(), quarterStartMonth, 0, 23, 59, 59, 999)
+      label = 'Trimestre actual'
       break
     }
     case 'semestral': {
@@ -979,10 +1044,10 @@ function groupTransactions(
   // Decide grouping based on period or range duration
   const durationDays = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24))
   let mode: 'hour' | 'day' | 'month'
-  if (period === 'diario') mode = 'hour'
+  if (period === 'diario' || period === 'ayer') mode = 'hour'
   else if (period === 'semanal') mode = 'day'
   else if (period === 'mensual') mode = 'day'
-  else if (period === 'semestral' || period === 'anual') mode = 'month'
+  else if (period === 'trimestral' || period === 'semestral' || period === 'anual') mode = 'month'
   else {
     // custom
     if (durationDays <= 2) mode = 'hour'
@@ -1090,18 +1155,131 @@ export async function getDashboardStats(
   customTo?: string,
   /** Pre-resolved businessId — avoids redundant requireBusinessContext() calls */
   preBusinessId?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
 ): Promise<DashboardStatsResult> {
   const businessId = preBusinessId ?? await getBusinessId()
 
   // Cache key includes businessId + period params → safe per-tenant isolation.
   // Revalidates every 15 s so rapid tab switches hit memory, not Turso.
-  const cacheKey = `dashboard:${businessId}:${period}:${customFrom ?? ''}:${customTo ?? ''}`
+  const cacheKey = `dashboard:${businessId}:${period}:${customFrom ?? ''}:${customTo ?? ''}:${selectedYear ?? ''}:${selectedMonth ?? ''}`
   const cached = unstable_cache(
-    async () => _fetchDashboardStats(businessId, period, customFrom, customTo),
+    async () => _fetchDashboardStats(businessId, period, customFrom, customTo, selectedYear, selectedMonth),
     [cacheKey],
     { revalidate: 15, tags: [`dashboard:${businessId}`] },
   )
   return cached()
+}
+
+export async function getMonthlyDashboardStats(
+  preBusinessId?: string,
+): Promise<DashboardStatsResult> {
+  return getDashboardStats('mensual', undefined, undefined, preBusinessId)
+}
+
+export async function getAvailableDashboardMonths(
+  preBusinessId?: string,
+): Promise<DashboardMonthOption[]> {
+  const businessId = preBusinessId ?? await getBusinessId()
+  const txs = await prisma.transaction.findMany({
+    where: { businessId },
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    select: { date: true },
+    take: 2000,
+  })
+
+  const seen = new Set<string>()
+  const months: DashboardMonthOption[] = []
+
+  for (const tx of txs) {
+    const date = new Date(tx.date)
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const key = `${year}-${String(month).padStart(2, '0')}`
+
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    months.push({
+      year,
+      month,
+      key,
+      label: DASHBOARD_MONTH_LABELS[month - 1],
+      shortYear: String(year).slice(2),
+    })
+
+    if (months.length >= 24) {
+      break
+    }
+  }
+
+  if (months.length === 0) {
+    const now = new Date()
+    months.push({
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      key: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      label: DASHBOARD_MONTH_LABELS[now.getMonth()],
+      shortYear: String(now.getFullYear()).slice(2),
+    })
+  }
+
+  while (months.length < 4) {
+    const last = months[months.length - 1]
+    const previousDate = new Date(last.year, last.month - 2, 1)
+    const year = previousDate.getFullYear()
+    const month = previousDate.getMonth() + 1
+    const key = `${year}-${String(month).padStart(2, '0')}`
+
+    if (!seen.has(key)) {
+      seen.add(key)
+      months.push({
+        year,
+        month,
+        key,
+        label: DASHBOARD_MONTH_LABELS[month - 1],
+        shortYear: String(year).slice(2),
+      })
+    }
+  }
+
+  return months
+}
+
+export async function getDashboardPresetSummaries(
+  preBusinessId?: string,
+): Promise<DashboardPresetSummary[]> {
+  const businessId = preBusinessId ?? await getBusinessId()
+  const periods: Array<Exclude<DashboardPeriodKey, 'custom'>> = [
+    'diario',
+    'ayer',
+    'semanal',
+    'mensual',
+    'trimestral',
+    'semestral',
+    'anual',
+  ]
+
+  const entries = await Promise.all(
+    periods.map(async (period) => {
+      const stats = await getDashboardStats(period, undefined, undefined, businessId)
+
+      return {
+        period,
+        periodLabel: stats.periodLabel,
+        income: stats.kpis.income,
+        expense: stats.kpis.expense,
+        gain: stats.kpis.gain,
+        incomeChangePct: stats.prevKpis.income > 0 ? ((stats.kpis.income - stats.prevKpis.income) / stats.prevKpis.income) * 100 : null,
+        expenseChangePct: stats.prevKpis.expense > 0 ? ((stats.kpis.expense - stats.prevKpis.expense) / stats.prevKpis.expense) * 100 : null,
+        gainChangePct: stats.prevKpis.gain !== 0 ? ((stats.kpis.gain - stats.prevKpis.gain) / Math.abs(stats.prevKpis.gain)) * 100 : null,
+      } satisfies DashboardPresetSummary
+    }),
+  )
+
+  return entries
 }
 
 async function _fetchDashboardStats(
@@ -1109,9 +1287,11 @@ async function _fetchDashboardStats(
   period: DashboardPeriodKey,
   customFrom?: string,
   customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
 ): Promise<DashboardStatsResult> {
   const now = new Date()
-  const { from, to, prevFrom, prevTo, label: periodLabel } = computePeriodRange(period, customFrom, customTo)
+  const { from, to, prevFrom, prevTo, label: periodLabel } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth)
 
   // ── Fetch current + previous period transactions in parallel ──
   // prevTxs only needs aggregates; creditosDeudas only needs amounts + status
