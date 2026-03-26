@@ -40,20 +40,6 @@ export default function TransactionForm({ accounts, categories, contacts, areas,
   const [esCredito, setEsCredito] = useState(false)
   const [estadoCredito, setEstadoCredito] = useState('PENDIENTE')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
-  // Bien de Uso
-  const [esBienDeUso, setEsBienDeUso] = useState(false)
-  const [bienCategoria, setBienCategoria] = useState('TECNOLOGIA')
-  const [bienVidaUtil, setBienVidaUtil] = useState(60)
-  const [bienValorResidual, setBienValorResidual] = useState('')
-
-  const BIEN_CATEGORIAS = [
-    { value: 'TECNOLOGIA', label: 'Tecnología', icon: '💻' },
-    { value: 'MOBILIARIO', label: 'Mobiliario', icon: '🪑' },
-    { value: 'VEHICULO', label: 'Vehículo', icon: '🚗' },
-    { value: 'HERRAMIENTA', label: 'Herramienta', icon: '🔧' },
-    { value: 'INMUEBLE', label: 'Inmueble', icon: '🏢' },
-    { value: 'OTRO', label: 'Otro', icon: '📦' },
-  ]
 
   const handleTypeChange = (newType: 'INCOME' | 'EXPENSE') => {
       setType(newType)
@@ -276,96 +262,6 @@ export default function TransactionForm({ accounts, categories, contacts, areas,
                 </div>
               )}
             </div>
-
-            {/* Bien de Uso toggle — solo para gastos */}
-            {type === 'EXPENSE' && (
-              <div className="border-t border-black/[0.05] pt-3">
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={esBienDeUso}
-                    onChange={e => { setEsBienDeUso(e.target.checked); if (esCredito) setEsCredito(false) }}
-                    className="w-4 h-4 cursor-pointer"
-                    style={{ accentColor: '#1B4332' }}
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-gray-500 group-hover:text-[#1B4332] transition">
-                      Es un bien de uso
-                    </span>
-                    <span className="ml-2 text-xs text-gray-400">PC, mueble, vehículo...</span>
-                  </div>
-                </label>
-
-                {esBienDeUso && (
-                  <div className="mt-3 pl-6 border-l-2 space-y-3" style={{ borderColor: '#2D6A4F' }}>
-                    <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1.5">
-                      ✓ El gasto se registra normalmente <strong>y</strong> el bien queda en seguimiento con depreciación automática
-                    </p>
-
-                    {/* Categoría del bien */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">Categoría del bien</label>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {BIEN_CATEGORIAS.map(c => (
-                          <button
-                            key={c.value}
-                            type="button"
-                            onClick={() => setBienCategoria(c.value)}
-                            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all"
-                            style={
-                              bienCategoria === c.value
-                                ? { background: '#D8F3DC', borderColor: '#2D6A4F', color: '#1B4332' }
-                                : { borderColor: '#e5e7eb', color: '#6b7280' }
-                            }
-                          >
-                            <span>{c.icon}</span> {c.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Vida útil */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1.5">Vida útil estimada</label>
-                      <div className="flex gap-1.5">
-                        {[{ m: 24, l: '2 años' }, { m: 36, l: '3 años' }, { m: 60, l: '5 años' }, { m: 120, l: '10 años' }].map(({ m, l }) => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setBienVidaUtil(m)}
-                            className="flex-1 py-1.5 rounded-lg border text-xs font-medium transition-all"
-                            style={
-                              bienVidaUtil === m
-                                ? { background: '#1B4332', color: 'white', borderColor: '#1B4332' }
-                                : { borderColor: '#e5e7eb', color: '#6b7280' }
-                            }
-                          >
-                            {l}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Valor residual */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1.5">
-                        Valor residual
-                        <span className="font-normal text-gray-400 ml-1">(opcional, lo que vale al final)</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={bienValorResidual}
-                        onChange={e => setBienValorResidual(e.target.value)}
-                        placeholder="0"
-                        className="w-full border border-black/[0.08] bg-white py-2 px-3 rounded-xl outline-none text-sm font-medium text-gray-700 focus:border-[#2D6A4F] transition"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
@@ -393,14 +289,6 @@ export default function TransactionForm({ accounts, categories, contacts, areas,
       <input type="hidden" name="esCredito" value={esCredito ? 'true' : 'false'} />
       <input type="hidden" name="estado" value={esCredito ? estadoCredito : (type === 'INCOME' ? 'COBRADO' : 'PAGADO')} />
       {esCredito && fechaVencimiento && <input type="hidden" name="fechaVencimiento" value={fechaVencimiento} />}
-      <input type="hidden" name="esBienDeUso" value={type === 'EXPENSE' && esBienDeUso ? 'true' : 'false'} />
-      {type === 'EXPENSE' && esBienDeUso && (
-        <>
-          <input type="hidden" name="bienCategoria" value={bienCategoria} />
-          <input type="hidden" name="bienVidaUtil" value={bienVidaUtil} />
-          <input type="hidden" name="bienValorResidual" value={bienValorResidual || '0'} />
-        </>
-      )}
     </form>
   )
 }

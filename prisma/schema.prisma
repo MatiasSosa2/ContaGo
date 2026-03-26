@@ -138,7 +138,6 @@ model Business {
   contacts    Contact[]
   areas       AreaNegocio[]
   productos   Producto[]
-  bienes      BienDeUso[]
   defaultUsers User[] @relation("UserDefaultBusiness")
 
   createdAt   DateTime @default(now())
@@ -304,23 +303,3 @@ model Contact {
   updatedAt    DateTime      @updatedAt
 }
 
-model BienDeUso {
-  id            String   @id @default(uuid())
-  nombre        String
-  descripcion   String?
-  categoria     String   // TECNOLOGIA | MOBILIARIO | VEHICULO | HERRAMIENTA | INMUEBLE | OTRO
-  fechaCompra   DateTime
-  valorCompra   Float
-  currency      String   @default("ARS")
-  vidaUtilMeses Int      @default(60)  // Meses de vida útil estimada (default 5 años)
-  valorResidual Float    @default(0)   // Valor residual al final de vida útil
-  estado        String   @default("EN_USO") // EN_USO | VENDIDO | DADO_DE_BAJA
-  notas         String?
-  activo        Boolean  @default(true)
-
-  businessId     String
-  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}

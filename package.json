@@ -7,7 +7,8 @@
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:zod": "tsx scripts/zod-smoke.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
@@ -18,7 +19,7 @@
     "date-fns": "^4.1.0",
     "echarts": "^6.0.0",
     "echarts-for-react": "^3.0.6",
-    "next": "16.1.6",
+    "next": "^16.1.7",
     "next-auth": "^4.24.13",
     "react": "19.2.3",
     "react-day-picker": "^9.14.0",
@@ -34,7 +35,7 @@
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "^16.1.7",
     "prisma": "7.4.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",

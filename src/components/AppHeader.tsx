@@ -29,11 +29,12 @@ export default function AppHeader({ title, icon, sessionContext, actions }: AppH
     <header className="
       sticky top-0 z-20
       mb-5 md:mb-6
-      border border-stone-200 dark:border-white/[0.07]
-      bg-white/95 dark:bg-[#0f0f0f]/95
+      border border-stone-200 dark:border-white/[0.05]
+      bg-white/95 dark:bg-[#11171d]/95
       backdrop-blur-md
-      shadow-[0_1px_0_0_rgba(0,0,0,0.05)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.04)]
-      lg:-mx-8 lg:-mt-8 lg:mb-6 lg:border-x-0 lg:border-t-0
+      shadow-[0_1px_0_0_rgba(0,0,0,0.05)] dark:shadow-[0_10px_24px_rgba(0,0,0,0.22)]
+      overflow-x-clip
+      lg:-mt-8 lg:mb-6
     ">
       <div className="px-4 py-3 sm:px-5 lg:px-8 lg:min-h-[72px] flex items-center justify-between gap-4 lg:h-[72px]">
 

@@ -50,8 +50,6 @@ export const MOCK_PRODUCTOS = [
   { id: '1', nombre: 'Producto Demo A', descripcion: null, categoria: null, marca: null, unidad: 'unidad', metodoCosteo: 'PROMEDIO', currency: 'ARS', precioVenta: 100, precioCosto: 50, stockActual: 100, enTransito: 0, activo: true, businessId: 'demo', createdAt: new Date(), updatedAt: new Date(), movimientos: [] },
 ]
 
-export const MOCK_BIENES = []
-
 // ── Mock getDashboardStats ──
 export function getMockDashboardStats(_period?: string, _customFrom?: string, _customTo?: string) {
   const CAT_COLORS = ['#3A4D39', '#C5A065', '#5A7A57', '#d4ae84', '#6b8f65', '#c49a6c']

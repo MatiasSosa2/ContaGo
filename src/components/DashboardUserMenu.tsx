@@ -248,6 +248,20 @@ export default function DashboardUserMenu({ user, business, authProvider }: Dash
                 </svg>
               </button>
 
+              <button
+                type="button"
+                disabled
+                className="mt-2 flex w-full items-center justify-between rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-left text-stone-500 transition disabled:cursor-not-allowed disabled:opacity-80 lg:mt-0"
+              >
+                <span>
+                  <span className="block text-sm font-semibold">Configuración</span>
+                  <span className="block text-xs text-stone-400">Preferencias y ajustes de la cuenta</span>
+                </span>
+                <span className="rounded-md bg-stone-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-stone-500">
+                  Pronto
+                </span>
+              </button>
+
               <div className="mt-2 border-t border-stone-200 pt-2 lg:mt-0 lg:pt-3">
                 <button
                   type="button"

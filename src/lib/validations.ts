@@ -83,21 +83,6 @@ export const createAreaNegocioSchema = z.object({
   descripcion: z.string().max(200, 'Máximo 200 caracteres').optional().or(z.literal('')),
 })
 
-// ---- Bien de Uso ----
-export const createBienDeUsoSchema = z.object({
-  nombre: z.string().min(1, 'El nombre es obligatorio').max(150),
-  descripcion: z.string().max(500).optional().or(z.literal('')),
-  categoria: z.enum(['TECNOLOGIA', 'MOBILIARIO', 'VEHICULO', 'HERRAMIENTA', 'INMUEBLE', 'OTRO'],
-    { message: 'Categoría inválida' }),
-  fechaCompra: z.string().min(1, 'La fecha de compra es obligatoria'),
-  valorCompra: z.number({ message: 'El valor debe ser un número' }).positive('El valor debe ser mayor a 0'),
-  currency: z.enum(['ARS', 'USD']).default('ARS'),
-  vidaUtilMeses: z.number().int().min(1).max(600).default(60),
-  valorResidual: z.number().min(0).default(0),
-  estado: z.enum(['EN_USO', 'VENDIDO', 'DADO_DE_BAJA']).default('EN_USO'),
-  notas: z.string().max(500).optional().or(z.literal('')),
-})
-
 // ---- Account ----
 export const createAccountSchema = z.object({
   name: z

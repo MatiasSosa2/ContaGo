@@ -32,7 +32,6 @@ async function main() {
   await prisma.transaction.deleteMany()
   await prisma.movimientoStock.deleteMany()
   await prisma.producto.deleteMany()
-  await prisma.bienDeUso.deleteMany()
   await prisma.contact.deleteMany()
   await prisma.areaNegocio.deleteMany()
   await prisma.category.deleteMany()

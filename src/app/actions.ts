@@ -305,30 +305,6 @@ export async function getDashboardPresetSummaries(preBusinessId?: string) {
   return databaseActions.getDashboardPresetSummaries(preBusinessId);
 }
 
-export async function getBienesDeUso() {
-  if (USE_MOCK) return MOCK.MOCK_BIENES;
-  const databaseActions = await getDatabaseActions();
-  return databaseActions.getBienesDeUso();
-}
-
-export async function createBienDeUso(formData: FormData): Promise<ActionResult> {
-  if (USE_MOCK) return { success: true };
-  const databaseActions = await getDatabaseActions();
-  return databaseActions.createBienDeUso(formData);
-}
-
-export async function updateBienDeUso(id: string, formData: FormData): Promise<ActionResult> {
-  if (USE_MOCK) return { success: true };
-  const databaseActions = await getDatabaseActions();
-  return databaseActions.updateBienDeUso(id, formData);
-}
-
-export async function deleteBienDeUso(id: string) {
-  if (USE_MOCK) { revalidatePath('/bienes'); return; }
-  const databaseActions = await getDatabaseActions();
-  return databaseActions.deleteBienDeUso(id);
-}
-
 export async function getCajasData() {
   if (USE_MOCK) {
     const { getMockCajasData } = await import('@/lib/mock');

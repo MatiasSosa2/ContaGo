@@ -11,7 +11,6 @@ import {
   createAreaNegocioSchema,
   createProductoSchema,
   createMovimientoStockSchema,
-  createBienDeUsoSchema,
   type ActionResult,
 } from '@/lib/validations'
 
@@ -174,27 +173,6 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
       where: { id: accountId },
       data: { currentBalance: account.currentBalance + balanceChange }
     })
-  }
-
-  // Si es un bien de uso: crear el registro de activo fijo
-  const esBienDeUso = formData.get('esBienDeUso') === 'true'
-  if (type === 'EXPENSE' && esBienDeUso) {
-    const bienCategoria = (formData.get('bienCategoria') as string) || 'OTRO'
-    const bienVidaUtil = parseInt(formData.get('bienVidaUtil') as string) || 60
-    const bienValorResidual = parseFloat(formData.get('bienValorResidual') as string) || 0
-    await prisma.bienDeUso.create({
-      data: {
-        nombre: description,
-        categoria: bienCategoria,
-        fechaCompra: date,
-        valorCompra: amount,
-        currency,
-        vidaUtilMeses: bienVidaUtil,
-        valorResidual: bienValorResidual,
-        estado: 'EN_USO',
-      },
-    })
-    revalidatePath('/bienes')
   }
 
   revalidatePath('/')
@@ -920,7 +898,7 @@ export interface DashboardPresetSummary {
   gainChangePct: number | null
 }
 
-const DASHBOARD_MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+const DASHBOARD_MONTH_LABELS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 function computePeriodRange(
   period: DashboardPeriodKey,
@@ -1183,7 +1161,7 @@ export async function getAvailableDashboardMonths(
   const businessId = preBusinessId ?? await getBusinessId()
   const txs = await prisma.transaction.findMany({
     where: { businessId },
-    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
     select: { date: true },
     take: 2000,
   })
@@ -1210,9 +1188,6 @@ export async function getAvailableDashboardMonths(
       shortYear: String(year).slice(2),
     })
 
-    if (months.length >= 24) {
-      break
-    }
   }
 
   if (months.length === 0) {
@@ -1227,15 +1202,15 @@ export async function getAvailableDashboardMonths(
   }
 
   while (months.length < 4) {
-    const last = months[months.length - 1]
-    const previousDate = new Date(last.year, last.month - 2, 1)
+    const first = months[0]
+    const previousDate = new Date(first.year, first.month - 2, 1)
     const year = previousDate.getFullYear()
     const month = previousDate.getMonth() + 1
     const key = `${year}-${String(month).padStart(2, '0')}`
 
     if (!seen.has(key)) {
       seen.add(key)
-      months.push({
+      months.unshift({
         year,
         month,
         key,
@@ -1245,7 +1220,7 @@ export async function getAvailableDashboardMonths(
     }
   }
 
-  return months
+  return months.slice(-24)
 }
 
 export async function getDashboardPresetSummaries(
@@ -1447,141 +1422,6 @@ async function _fetchDashboardStats(
     alerts,
     periodLabel,
   }
-}
-
-// ---- Bienes de Uso ----
-
-export async function getBienesDeUso() {
-  const businessId = await getBusinessId()
-  return await prisma.bienDeUso.findMany({
-    where: { businessId, activo: true },
-    orderBy: { fechaCompra: 'desc' },
-  })
-}
-
-export async function createBienDeUso(formData: FormData): Promise<ActionResult> {
-  const raw = {
-    nombre: (formData.get('nombre') as string)?.trim(),
-    descripcion: (formData.get('descripcion') as string)?.trim(),
-    categoria: formData.get('categoria') as string,
-    fechaCompra: formData.get('fechaCompra') as string,
-    valorCompra: parseFloat(formData.get('valorCompra') as string),
-    currency: (formData.get('currency') as string) || 'ARS',
-    vidaUtilMeses: parseInt(formData.get('vidaUtilMeses') as string) || 60,
-    valorResidual: parseFloat(formData.get('valorResidual') as string) || 0,
-    estado: (formData.get('estado') as string) || 'EN_USO',
-    notas: (formData.get('notas') as string)?.trim(),
-  }
-  const accountId = (formData.get('accountId') as string)?.trim() || ''
-
-  const parsed = createBienDeUsoSchema.safeParse(raw)
-  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
-
-  const businessId = await getBusinessId()
-
-  const { fechaCompra, descripcion, notas, nombre, valorCompra, currency, ...rest } = parsed.data
-  const fechaDate = new Date(fechaCompra)
-
-  await prisma.bienDeUso.create({
-    data: {
-      ...rest,
-      nombre,
-      valorCompra,
-      currency,
-      fechaCompra: fechaDate,
-      descripcion: descripcion || null,
-      notas: notas || null,
-      businessId,
-    },
-  })
-
-  // Si se seleccionó una cuenta: crear el movimiento de egreso y descontar saldo
-  if (accountId) {
-    const account = await prisma.account.findFirst({ where: { id: accountId, businessId } })
-    if (!account) return { success: false, error: 'La cuenta seleccionada no existe' }
-
-    // Buscar o crear categoría "Bienes de Uso"
-    let cat = await prisma.category.findFirst({
-      where: { name: 'Bienes de Uso', type: 'EXPENSE', businessId },
-    })
-    if (!cat) {
-      cat = await prisma.category.create({ 
-        data: { 
-          name: 'Bienes de Uso', 
-          type: 'EXPENSE',
-          business: { connect: { id: businessId } },
-        } 
-      })
-    }
-
-    await prisma.transaction.create({
-      data: {
-        amount: valorCompra,
-        description: `Compra de bien: ${nombre}`,
-        type: 'EXPENSE',
-        date: fechaDate,
-        currency,
-        esCredito: false,
-        estado: 'PAGADO',
-        account: { connect: { id: accountId } },
-        category: { connect: { id: cat.id } },
-        business: { connect: { id: businessId } },
-      },
-    })
-
-    await prisma.account.update({
-      where: { id: accountId },
-      data: { currentBalance: account.currentBalance - valorCompra },
-    })
-
-    revalidatePath('/')
-  }
-
-  revalidatePath('/bienes')
-  return { success: true }
-}
-
-export async function updateBienDeUso(id: string, formData: FormData): Promise<ActionResult> {
-  const businessId = await getBusinessId()
-  const raw = {
-    nombre: (formData.get('nombre') as string)?.trim(),
-    descripcion: (formData.get('descripcion') as string)?.trim(),
-    categoria: formData.get('categoria') as string,
-    fechaCompra: formData.get('fechaCompra') as string,
-    valorCompra: parseFloat(formData.get('valorCompra') as string),
-    currency: (formData.get('currency') as string) || 'ARS',
-    vidaUtilMeses: parseInt(formData.get('vidaUtilMeses') as string) || 60,
-    valorResidual: parseFloat(formData.get('valorResidual') as string) || 0,
-    estado: (formData.get('estado') as string) || 'EN_USO',
-    notas: (formData.get('notas') as string)?.trim(),
-  }
-
-  const parsed = createBienDeUsoSchema.safeParse(raw)
-  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
-
-  const { fechaCompra, descripcion, notas, ...rest } = parsed.data
-  const result = await prisma.bienDeUso.updateMany({
-    where: { id, businessId },
-    data: {
-      ...rest,
-      fechaCompra: new Date(fechaCompra),
-      descripcion: descripcion || null,
-      notas: notas || null,
-    },
-  })
-
-  if (result.count === 0) {
-    return { success: false, error: 'El bien no existe o no pertenece al negocio activo' }
-  }
-
-  revalidatePath('/bienes')
-  return { success: true }
-}
-
-export async function deleteBienDeUso(id: string) {
-  const businessId = await getBusinessId()
-  await prisma.bienDeUso.updateMany({ where: { id, businessId }, data: { activo: false } })
-  revalidatePath('/bienes')
 }
 
 // ---- Cajas: datos completos para la pestaña Cajas ----

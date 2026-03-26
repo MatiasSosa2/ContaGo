@@ -1,5 +1,5 @@
-﻿import { getAvailableDashboardMonths, getDashboardPresetSummaries, getDashboardStats } from '@/app/actions'
-import { KpiSparkline, FinancialOverviewChart, ProfitabilityDonut } from '@/components/DashboardCharts'
+﻿import { getDashboardStats } from '@/app/actions'
+import { FinancialOverviewChart, ProfitabilityDonut } from '@/components/DashboardCharts'
 import KpiCardWithModal from '@/components/KpiCardWithModal'
 import AppHeader from '@/components/AppHeader'
 import PeriodTabs from '@/components/PeriodTabs'
@@ -13,15 +13,74 @@ export const dynamic = 'force-dynamic'
 function DashboardSkeleton() {
   return (
     <>
-      <section className="mb-4 md:mb-5 grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-        {[0, 1, 2, 3].map(i => (
-          <div key={i} className="h-[180px] rounded-2xl bg-gray-200 animate-pulse" />
-        ))}
+      <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] lg:items-stretch">
+        <div className="flex flex-col gap-4">
+          <div className="h-[176px] rounded-[20px] bg-gray-200 animate-pulse" />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {[0, 1].map(i => (
+              <div key={i} className="h-[132px] rounded-[20px] bg-gray-200 animate-pulse" />
+            ))}
+          </div>
+        </div>
+        <div className="h-[320px] rounded-[20px] bg-gray-100 animate-pulse" />
       </section>
       <div className="mb-4 md:mb-5">
         <div className="executive-card h-[340px] animate-pulse bg-gray-100 rounded-2xl" />
       </div>
     </>
+  )
+}
+
+function formatCompactCurrency(value: number) {
+  return '$' + Math.abs(value).toLocaleString('es-AR', { minimumFractionDigits: 0 })
+}
+
+function formatVariation(value: number | null, trend: 'direct' | 'inverse' = 'direct') {
+  if (value === null) {
+    return {
+      label: 'Sin datos anteriores',
+      state: 'neutral' as const,
+    }
+  }
+
+  const positive = value >= 0
+  const favorable = trend === 'inverse' ? !positive : positive
+  return {
+    label: `${positive ? '▲' : '▼'} ${positive ? '+' : '-'}${Math.abs(value).toFixed(1)}% vs período anterior`,
+    state: favorable ? 'positive' as const : 'negative' as const,
+  }
+}
+
+function SummaryRowContent({
+  label,
+  amount,
+  variation,
+  tone,
+  prominent = false,
+}: {
+  label: string
+  amount: string
+  variation: { label: string; state: 'positive' | 'negative' | 'neutral' }
+  tone: 'profit-positive' | 'profit-negative' | 'income' | 'expense'
+  prominent?: boolean
+}) {
+  return (
+    <div
+      className={`kpi-card kpi-card-${tone} h-full rounded-[14px] border transition-all duration-200 ${prominent ? 'p-7 shadow-[0_12px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.34)] -translate-y-[2px]' : 'p-5'}`}
+    >
+      <div className="flex h-full flex-col justify-between gap-4">
+        <div>
+          <p className="kpi-card-label text-[13px] font-medium">{label}</p>
+          <p className={`kpi-card-value kpi-card-value-${tone} ${prominent ? 'mt-3 text-[36px] md:text-[40px]' : 'mt-2 text-[28px] md:text-[32px]'} font-mono font-bold num-tabular leading-none tracking-[-0.04em]`}>
+            {amount}
+          </p>
+        </div>
+
+        <p className={`kpi-card-variation kpi-card-variation-${variation.state} text-[13px] font-medium`}>
+          {variation.label}
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -42,105 +101,83 @@ async function DashboardContent({
   selectedMonth?: number
 }) {
   const stats = await getDashboardStats(periodo, customFrom, customTo, businessId, selectedYear, selectedMonth)
-  const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, sparklines, periodLabel } = stats
+  const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, periodLabel } = stats
 
   const incomeGrowth = prevKpis.income > 0 ? ((kpis.income - prevKpis.income) / prevKpis.income) * 100 : null
   const expenseGrowth = prevKpis.expense > 0 ? ((kpis.expense - prevKpis.expense) / prevKpis.expense) * 100 : null
   const gainGrowth = prevKpis.gain !== 0 ? ((kpis.gain - prevKpis.gain) / Math.abs(prevKpis.gain)) * 100 : null
 
-  const fmtARS = (v: number) => '$' + Math.abs(v).toLocaleString('es-AR', { minimumFractionDigits: 0 })
+  const gainIsPositive = kpis.gain >= 0
 
   return (
     <>
-      {/* ══ FILA 1 — 4 KPI CARDS PROTAGONISTAS ══════════════════════════════ */}
-      <section className="mb-4 md:mb-5 grid grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-
-        {/* Card 1 — Ingresos del período */}
-        <KpiCardWithModal title="Detalle de ingresos" categories={incomeCategoryBreakdown} total={kpis.income}>
-          <div className="h-full rounded-2xl p-2.5 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #1B4332 0%, #0F2419 100%)' }}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-emerald-200">Ingresos</p>
-              {incomeGrowth !== null && (
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white">
-                  {incomeGrowth >= 0 ? '▲' : '▼'} {Math.abs(incomeGrowth).toFixed(1)}%
-                </span>
-              )}
-            </div>
-            <p className="text-2xl sm:text-3xl md:text-[2.5rem] font-mono font-normal text-white num-tabular leading-none">
-              {fmtARS(kpis.income)}
-            </p>
-            <p className="text-xs text-emerald-300">{periodLabel}</p>
-            <div className="my-auto">
-              <KpiSparkline data={sparklines.income} color="#6ee7b7" height={38} />
-            </div>
+      <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] lg:items-stretch">
+        <div className="flex h-full flex-col gap-4 lg:min-w-0">
+          <div className="min-h-[176px]">
+            <SummaryRowContent
+              label="Ganancia"
+              amount={`${gainIsPositive ? '' : '−'}${formatCompactCurrency(kpis.gain)}`}
+              variation={formatVariation(gainGrowth)}
+              tone={gainIsPositive ? 'profit-positive' : 'profit-negative'}
+              prominent
+            />
           </div>
-        </KpiCardWithModal>
 
-        {/* Card 2 — Egresos del período */}
-        <KpiCardWithModal title="Detalle de egresos" categories={categoryBreakdown} total={kpis.expense}>
-          <div className="h-full rounded-2xl p-1 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #7C2D2D 0%, #4C1616 100%)' }}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-red-200">Egresos</p>
-              {expenseGrowth !== null && (
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white">
-                  {expenseGrowth >= 0 ? '▲' : '▼'} {Math.abs(expenseGrowth).toFixed(1)}%
-                </span>
-              )}
-            </div>
-            <p className="text-2xl sm:text-3xl md:text-[2.5rem] font-mono font-normal text-white num-tabular leading-none">
-              {fmtARS(kpis.expense)}
-            </p>
-            <p className="text-xs text-red-300">{periodLabel}</p>
-            <div className="my-auto">
-              <KpiSparkline data={sparklines.expense} color="#fca5a5" height={38} />
-            </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <KpiCardWithModal title="Detalle de ingresos" categories={incomeCategoryBreakdown} total={kpis.income}>
+              <SummaryRowContent
+                label="Ingreso"
+                amount={formatCompactCurrency(kpis.income)}
+                variation={formatVariation(incomeGrowth)}
+                tone="income"
+              />
+            </KpiCardWithModal>
+
+            <KpiCardWithModal title="Detalle de egresos" categories={categoryBreakdown} total={kpis.expense}>
+              <SummaryRowContent
+                label="Egreso"
+                amount={formatCompactCurrency(kpis.expense)}
+                variation={formatVariation(expenseGrowth, 'inverse')}
+                tone="expense"
+              />
+            </KpiCardWithModal>
           </div>
-        </KpiCardWithModal>
+        </div>
 
-        {/* Card 3 — Ganancia del período */}
-        <div className="rounded-2xl p-2.5 sm:p-4 flex flex-col gap-1.5" style={{ background: 'linear-gradient(135deg, #52A875 0%, #3A7D5A 100%)' }}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-emerald-100">Ganancia</p>
-            {gainGrowth !== null && (
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white/15 text-white">
-                {gainGrowth >= 0 ? '▲' : '▼'} {Math.abs(gainGrowth).toFixed(1)}%
+        <div className="executive-card home-dashboard-panel flex h-full min-h-[320px] flex-col overflow-hidden rounded-[20px] dark:bg-[#111315]">
+          <div className="border-b border-black/[0.05] bg-slate-50 px-5 py-4 dark:border-white/[0.05] dark:bg-[#181a1d]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-stone-300">Rentabilidad</h2>
+                <p className="text-xs text-gray-400 dark:text-stone-500">Distribución entre egresos y ganancia del período</p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700 dark:border dark:border-emerald-400/10 dark:bg-[#13251d] dark:text-emerald-300">
+                {kpis.income > 0 ? `${Math.max(0, (kpis.gain / kpis.income) * 100).toFixed(1)}% margen` : 'Sin ventas'}
               </span>
-            )}
+            </div>
           </div>
-          <p className="text-2xl sm:text-3xl md:text-[2.5rem] font-mono font-normal text-white num-tabular leading-none">
-            {kpis.gain >= 0 ? '' : '−'}{fmtARS(kpis.gain)}
-          </p>
-          <p className="text-xs text-emerald-100">{periodLabel}</p>
-          <div className="my-auto">
-            <KpiSparkline data={sparklines.balance} color="#bbf7d0" height={38} />
+
+          <div className="flex flex-1 items-center justify-center p-4 sm:p-5">
+            <div className="flex flex-1 items-center justify-center">
+              <div className="w-full max-w-[420px]">
+                <ProfitabilityDonut expense={kpis.expense} gain={Math.max(kpis.gain, 0)} height={220} />
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Card 4 — Rentabilidad (donut egresos vs ganancia) */}
-        <div className="executive-card rounded-2xl p-2.5 sm:p-4 flex flex-col items-center">
-          <p className="text-xs font-semibold text-stone-500 mb-0.5 self-start">Rentabilidad</p>
-          <div className="w-full flex-1 flex items-center justify-center">
-            <ProfitabilityDonut expense={kpis.expense} gain={kpis.gain} height={140} />
-          </div>
-          <p className="text-[10px] text-stone-400 leading-none">Ingresos totales</p>
-          <p className="text-lg font-mono font-semibold text-stone-800 dark:text-white leading-tight mt-0.5">
-            {fmtARS(kpis.income)}
-          </p>
-        </div>
-
       </section>
 
       {/* ══ FILA 2 — GRÁFICO PRINCIPAL (ancho completo) ══════════════════════ */}
-      <div className="mb-4 md:mb-5">
-        <div className="executive-card flex flex-col overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-black/[0.05] dark:border-white/[0.06] flex justify-between items-center flex-wrap gap-2 bg-slate-50 dark:bg-[#1a1a1a]">
+      <div className="mb-5">
+        <div className="executive-card home-dashboard-panel flex flex-col overflow-hidden dark:bg-[#111315]">
+          <div className="px-5 py-4 border-b border-black/[0.05] dark:border-white/[0.05] flex justify-between items-center flex-wrap gap-2 bg-slate-50 dark:bg-[#181a1d]">
             <div>
               <h2 className="text-sm font-semibold text-gray-700 dark:text-stone-300">Resumen financiero</h2>
               <p className="text-xs text-gray-400 dark:text-stone-500">Ingresos · Egresos · Ganancia — {periodLabel}</p>
             </div>
             <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-stone-500">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-sm bg-[#2D6A4F] inline-block" />Ingresos
+                <span className="w-2.5 h-2.5 rounded-sm bg-[#7A9485] inline-block" />Ingresos
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm bg-[#B91C1C] inline-block" />Egresos
@@ -150,7 +187,7 @@ async function DashboardContent({
               </span>
             </div>
           </div>
-          <div className="p-4 flex-1">
+          <div className="p-4 flex-1 dark:bg-[#111315]">
             {chartData.some(d => d.income > 0 || d.expense > 0) ? (
               <FinancialOverviewChart data={chartData} height={280} />
             ) : (
@@ -164,37 +201,37 @@ async function DashboardContent({
 
       {/* ══ INSIGHTS IA — 3 tarjetas preparadas para mensajes inteligentes ══ */}
       <div className="mb-4 md:mb-5 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] border border-black/[0.04]">
-          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-            <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl border border-black/[0.04] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border-white/[0.05] dark:bg-[#121416] dark:shadow-none">
+          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 dark:bg-[#173326]">
+            <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none mb-0.5">Ingresos</p>
-            <p className="text-[11px] text-gray-600 truncate leading-tight">Análisis disponible próximamente</p>
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none dark:text-stone-500">Ingresos</p>
+            <p className="truncate text-[11px] leading-tight text-gray-600 dark:text-stone-300">Análisis disponible próximamente</p>
           </div>
         </div>
-        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] border border-black/[0.04]">
-          <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-            <svg className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl border border-black/[0.04] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border-white/[0.05] dark:bg-[#121416] dark:shadow-none">
+          <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 dark:bg-[#241818]">
+            <svg className="w-3.5 h-3.5 text-gray-500 dark:text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none mb-0.5">Egresos</p>
-            <p className="text-[11px] text-gray-600 truncate leading-tight">Análisis disponible próximamente</p>
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none dark:text-stone-500">Egresos</p>
+            <p className="truncate text-[11px] leading-tight text-gray-600 dark:text-stone-300">Análisis disponible próximamente</p>
           </div>
         </div>
-        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] border border-black/[0.04]">
-          <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-            <svg className="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl border border-black/[0.04] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border-white/[0.05] dark:bg-[#121416] dark:shadow-none">
+          <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center shrink-0 dark:bg-[#222016]">
+            <svg className="w-3.5 h-3.5 text-amber-600 dark:text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09ZM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456Z" />
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none mb-0.5">Rentabilidad</p>
-            <p className="text-[11px] text-gray-600 truncate leading-tight">Análisis disponible próximamente</p>
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none dark:text-stone-500">Rentabilidad</p>
+            <p className="truncate text-[11px] leading-tight text-gray-600 dark:text-stone-300">Análisis disponible próximamente</p>
           </div>
         </div>
       </div>
@@ -212,22 +249,17 @@ export default async function Home({
     searchParams,
   ])
   const businessId = sessionContext.activeBusiness.id
-  const [availableMonths, presetSummaries] = await Promise.all([
-    getAvailableDashboardMonths(businessId),
-    getDashboardPresetSummaries(businessId),
-  ])
   const periodo = (sp.periodo ?? 'mensual') as PeriodKey
   const customFrom = sp.from
   const customTo = sp.to
-  const fallbackMonth = availableMonths[0]
-  const selectedYear = sp.year ? Number.parseInt(sp.year, 10) : (periodo === 'mensual' ? fallbackMonth?.year : undefined)
-  const selectedMonth = sp.month ? Number.parseInt(sp.month, 10) : (periodo === 'mensual' ? fallbackMonth?.month : undefined)
-  const selectedIndex = availableMonths.findIndex((month) => month.year === selectedYear && month.month === selectedMonth)
-  const derivedOffset = selectedIndex >= 0 ? Math.floor(selectedIndex / 4) * 4 : 0
-  const monthOffset = sp.monthOffset ? Number.parseInt(sp.monthOffset, 10) : derivedOffset
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth() + 1
+  const selectedYear = sp.year ? Number.parseInt(sp.year, 10) : (periodo === 'mensual' ? currentYear : undefined)
+  const selectedMonth = sp.month ? Number.parseInt(sp.month, 10) : (periodo === 'mensual' ? currentMonth : undefined)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
+    <div className="p-3 sm:p-5 lg:p-6 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-[#0a0b0d]">
 
       {/* ══ FILA 0 — HEADER ══════════════════════════════════════════════════ */}
       <AppHeader
@@ -248,9 +280,6 @@ export default async function Home({
             customTo={customTo}
             selectedYear={selectedYear}
             selectedMonth={selectedMonth}
-            monthOffset={monthOffset}
-            availableMonths={availableMonths}
-            presetSummaries={presetSummaries}
           />
         </Suspense>
       </div>

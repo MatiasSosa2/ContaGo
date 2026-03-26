@@ -1,4 +1,4 @@
-import { getCajasData } from '@/app/actions'
+import { getAllTransactions, getCajasData } from '@/app/actions'
 import AppHeader from '@/components/AppHeader'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
 import CajasClient from '@/components/CajasClient'
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function CajasPage() {
   const sessionContext = await requireBusinessContext()
-  const data = await getCajasData()
+  const [data, movements] = await Promise.all([getCajasData(), getAllTransactions()])
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
@@ -18,18 +18,8 @@ export default async function CajasPage() {
         sessionContext={sessionContext}
       />
 
-      {/* ══ BARRA DE CONSEJO GENERAL ═════════════════════════════════════════ */}
-      <div className="mb-6 flex items-center gap-3 rounded-xl px-4 py-3 bg-white dark:bg-[#141414] border border-stone-200 dark:border-white/[0.07]">
-        <div className="w-7 h-7 rounded-lg bg-[#F0F4EF] dark:bg-white/[0.06] flex items-center justify-center shrink-0">
-          <svg className="w-4 h-4 text-[#3A4D39] dark:text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-          </svg>
-        </div>
-        <p className="text-sm text-stone-600 dark:text-stone-400 leading-snug">{data.summaryMessage}</p>
-      </div>
-
       {/* ══ CONTENIDO PRINCIPAL — Client Component ═══════════════════════════ */}
-      <CajasClient data={data} />
+      <CajasClient data={data} movements={movements} />
     </div>
   )
 }

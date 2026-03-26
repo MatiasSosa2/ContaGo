@@ -4,8 +4,21 @@
 @variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #080808;
+  --background: #F7F8F9;
+  --foreground: #111827;
+  --bg: #F7F8F9;
+  --card: #FFFFFF;
+  --border: #E5E7EB;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --success: #15803D;
+  --danger: #B91C1C;
+  --neutral: #374151;
+  --sidebar: #1F3D2B;
+  --sidebar-hover: #2A4D38;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.06);
+  --radius: 14px;
   
   /* Brand Colors — Tactical Executive Warmth */
   --color-military: #3A4D39;       /* Deep Olive Green — Authority */
@@ -65,7 +78,7 @@
 body {
   color: var(--foreground);
   font-family: var(--font-sans);
-  background-color: var(--color-bone);
+  background-color: var(--bg);
   background-image: none;
   transition: background-color 0.3s ease, color 0.3s ease;
   font-size: 15px;
@@ -75,19 +88,19 @@ body {
 
 /* Base executive card */
 .executive-card {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.06);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Variante con acento lateral militar (análisis/gráficos) */
 .executive-card-accent {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.06);
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
   border-left: 3px solid #3A4D39;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Acento lateral — colores semánticos */
@@ -194,6 +207,70 @@ body {
   letter-spacing: 0.15em;
 }
 
+/* KPI cards - dashboard home */
+.kpi-card {
+  background: var(--card);
+  border-color: var(--border);
+}
+
+.kpi-card-label {
+  color: var(--text-secondary);
+}
+
+.kpi-card-value-income {
+  color: #166534;
+}
+
+.kpi-card-value-expense,
+.kpi-card-value-profit-negative {
+  color: #991B1B;
+}
+
+.kpi-card-value-profit-positive {
+  color: #166534;
+}
+
+.kpi-card-variation-positive {
+  color: #166534;
+}
+
+.kpi-card-variation-negative {
+  color: #991B1B;
+}
+
+.kpi-card-variation-neutral {
+  color: #6B7280;
+}
+
+.kpi-card-income {
+  background: #F0FDF4;
+  border-color: #BBF7D0;
+}
+
+.kpi-card-income .kpi-card-label {
+  color: #166534;
+}
+
+.kpi-card-expense {
+  background: #FEF2F2;
+  border-color: #FECACA;
+}
+
+.kpi-card-expense .kpi-card-label {
+  color: #991B1B;
+}
+
+.kpi-card-profit-positive,
+.kpi-card-profit-negative {
+  background: #F8FAFC;
+  border-color: #E5E7EB;
+}
+
+.kpi-card-profit-positive .kpi-card-label,
+.kpi-card-profit-negative .kpi-card-label {
+  color: #6B7280;
+}
+
 /* ────────────────────────────────────────────────────────────────
    DARK MODE — data-theme="dark" en <html>
    ──────────────────────────────────────────────────────────────── */
@@ -231,8 +308,10 @@ body {
 /* ── Cards y superficies blancas ── */
 [data-theme="dark"] .bg-white,
 [data-theme="dark"] .executive-card {
-  background-color: #141414 !important;
-  outline: 1px solid rgba(255,255,255,0.10) !important;
+  background-color: #111315 !important;
+  outline: none !important;
+  border: 1px solid rgba(255,255,255,0.05) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26) !important;
 }
 [data-theme="dark"] .bg-brand-slate,
 [data-theme="dark"] .bg-brand-bone {
@@ -241,9 +320,9 @@ body {
 
 /* ── ring-1 y box-shadow en dark: reemplazar por borde visible ── */
 [data-theme="dark"] .ring-1 {
-  --tw-ring-color: rgba(255,255,255,0.12) !important;
-  --tw-ring-shadow: 0 0 0 1px rgba(255,255,255,0.12) !important;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.12) !important;
+  --tw-ring-color: rgba(255,255,255,0.07) !important;
+  --tw-ring-shadow: 0 0 0 1px rgba(255,255,255,0.07) !important;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.07) !important;
 }
 
 /* ── Textos ── */
@@ -279,6 +358,84 @@ body {
 [data-theme="dark"] .divide-black\/\[0\.05\] > * + * {
   border-color: rgba(255,255,255,0.08) !important;
 }
+
+[data-theme="dark"] .kpi-card {
+  background: #151515;
+  border-color: rgba(255,255,255,0.05);
+}
+
+[data-theme="dark"] .kpi-card-label {
+  color: rgba(220,220,220,0.72);
+}
+
+[data-theme="dark"] .kpi-card-income {
+  background: #102017;
+  border-color: #1b3a2a;
+}
+
+[data-theme="dark"] .kpi-card-income .kpi-card-label {
+  color: #98d4ad;
+}
+
+[data-theme="dark"] .kpi-card-expense {
+  background: #241515;
+  border-color: #5f2a2a;
+}
+
+[data-theme="dark"] .kpi-card-expense .kpi-card-label {
+  color: #f0b4b4;
+}
+
+[data-theme="dark"] .kpi-card-profit-positive,
+[data-theme="dark"] .kpi-card-profit-negative {
+  background: #17191c;
+  border-color: rgba(255,255,255,0.05);
+}
+
+[data-theme="dark"] .kpi-card-profit-positive .kpi-card-label,
+[data-theme="dark"] .kpi-card-profit-negative .kpi-card-label {
+  color: rgba(220,220,220,0.72);
+}
+
+[data-theme="dark"] .home-dashboard-panel {
+  background: #111315 !important;
+  outline: none !important;
+  border: 1px solid rgba(255,255,255,0.05) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26) !important;
+}
+
+[data-theme="dark"] .home-dashboard-panel .bg-slate-50,
+[data-theme="dark"] .home-dashboard-panel .bg-gray-50,
+[data-theme="dark"] .home-dashboard-panel .bg-gray-100,
+[data-theme="dark"] .home-dashboard-panel .bg-slate-100 {
+  background-color: #181a1d !important;
+}
+
+[data-theme="dark"] .home-dashboard-panel .border-black\/\[0\.05\] {
+  border-color: rgba(148,163,184,0.08) !important;
+}
+
+[data-theme="dark"] .kpi-card-value-income,
+[data-theme="dark"] .kpi-card-value-profit-positive {
+  color: #c9f1d8;
+}
+
+[data-theme="dark"] .kpi-card-value-expense,
+[data-theme="dark"] .kpi-card-value-profit-negative {
+  color: #ffd2cc;
+}
+
+[data-theme="dark"] .kpi-card-variation-positive {
+  color: #9fdfb8;
+}
+
+[data-theme="dark"] .kpi-card-variation-negative {
+  color: #f3b7b0;
+}
+
+[data-theme="dark"] .kpi-card-variation-neutral {
+  color: rgba(220,220,220,0.62);
+}
 [data-theme="dark"] .divide-x > * + *,
 [data-theme="dark"] .divide-y > * + * {
   border-color: rgba(255,255,255,0.08) !important;
@@ -298,7 +455,7 @@ body {
 [data-theme="dark"] .bg-slate-100,
 [data-theme="dark"] .bg-gray-50,
 [data-theme="dark"] .bg-gray-100 {
-  background-color: #1a1a1a !important;
+  background-color: #182028 !important;
 }
 
 /* ── Inputs, selects, textareas ── */
