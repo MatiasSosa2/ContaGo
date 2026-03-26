@@ -43,6 +43,8 @@ type ModalSelection = {
   to?: string
 }
 
+type ModalCompatiblePeriodKey = 'ayer' | 'semanal' | 'mensual' | 'semestral' | 'anual' | 'custom'
+
 interface PeriodTabsProps {
   active: PeriodKey
   customFrom?: string
@@ -73,6 +75,14 @@ function formatCustomRange(from: string, to: string) {
   }
 
   return `${formatDate(from)} – ${formatDate(to)}`
+}
+
+function getModalInitialPeriod(active: PeriodKey): ModalCompatiblePeriodKey {
+  if (active === 'ayer' || active === 'semanal' || active === 'mensual' || active === 'semestral' || active === 'anual' || active === 'custom') {
+    return active
+  }
+
+  return 'mensual'
 }
 
 export default function PeriodTabs({
@@ -309,7 +319,7 @@ export default function PeriodTabs({
             onConfirm={handleModalConfirm}
             initialFrom={customFrom}
             initialTo={customTo}
-            initialPeriod={active === 'custom' ? 'custom' : active}
+            initialPeriod={getModalInitialPeriod(active)}
           />
         </Suspense>
       )}
