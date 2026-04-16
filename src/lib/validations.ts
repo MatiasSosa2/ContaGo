@@ -38,16 +38,32 @@ export const createTransactionSchema = z.object({
   type: z.enum(['INCOME', 'EXPENSE'], {
     message: 'El tipo debe ser INCOME o EXPENSE',
   }),
+  subType: z.enum(['SALE', 'COBRO', 'PURCHASE', 'PAGO']).optional(),
   accountId: z.string().uuid('Cuenta inválida'),
   categoryId: z.string().uuid('Categoría inválida').optional().or(z.literal('')),
   contactId: z.string().uuid('Contacto inválido').optional().or(z.literal('')),
   areaNegocioId: z.string().uuid('Área de negocio inválida').optional().or(z.literal('')),
+  empleadoId: z.string().uuid('Empleado inválido').optional().or(z.literal('')),
+  productoId: z.string().uuid('Producto inválido').optional().or(z.literal('')),
+  cantidad: z.number().positive('La cantidad debe ser mayor a 0').optional(),
+  precioUnitario: z.number().min(0).optional(),
   date: z.string().optional(),
   currency: z.enum(['ARS', 'USD']).default('ARS'),
   // Créditos y Deudas
   esCredito: z.boolean().default(false),
   estado: z.enum(['COBRADO', 'PAGADO', 'PENDIENTE', 'VENCIDO']).default('COBRADO'),
   fechaVencimiento: z.string().optional(),
+})
+
+// ---- Empleado ----
+export const createEmpleadoSchema = z.object({
+  nombre: z
+    .string()
+    .min(1, 'El nombre es obligatorio')
+    .max(100, 'Máximo 100 caracteres'),
+  cargo: z.string().max(80).optional().or(z.literal('')),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
+  phone: z.string().max(30).optional().or(z.literal('')),
 })
 
 // ---- Producto (Stock) ----

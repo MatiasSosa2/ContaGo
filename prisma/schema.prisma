@@ -138,6 +138,7 @@ model Business {
   contacts    Contact[]
   areas       AreaNegocio[]
   productos   Producto[]
+  empleados   Empleado[]
   defaultUsers User[] @relation("UserDefaultBusiness")
 
   createdAt   DateTime @default(now())
@@ -228,6 +229,19 @@ model Transaction {
   areaNegocioId String?
   areaNegocio   AreaNegocio? @relation(fields: [areaNegocioId], references: [id])
 
+  // Subtipo de movimiento
+  subType String? // SALE | COBRO | PURCHASE | PAGO
+
+  // Producto (para ventas y compras)
+  productoId     String?
+  producto       Producto? @relation(fields: [productoId], references: [id])
+  cantidad       Float?
+  precioUnitario Float?
+
+  // Empleado (tracking de rendimiento)
+  empleadoId String?
+  empleado   Empleado? @relation(fields: [empleadoId], references: [id])
+
   businessId     String
   business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -252,6 +266,7 @@ model Producto {
   enTransito    Float             @default(0)
   activo        Boolean           @default(true)
   movimientos   MovimientoStock[]
+  transactions  Transaction[]
 
   businessId     String
   business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -298,6 +313,22 @@ model Contact {
 
   businessId     String
   business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Empleado {
+  id           String        @id @default(uuid())
+  nombre       String
+  cargo        String?
+  email        String?
+  phone        String?
+  activo       Boolean       @default(true)
+  transactions Transaction[]
+
+  businessId   String
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt

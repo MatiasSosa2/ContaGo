@@ -119,65 +119,110 @@ export async function createContact(formData: FormData): Promise<ActionResult> {
 }
 
 export async function createTransaction(formData: FormData): Promise<ActionResult> {
-  void formData
-  // TODO: Implementar con Auth (businessId)
-  return { success: false, error: "Función deshabilitada temporalmente hasta configurar Auth." }
-  /*
   const esCreditoRaw = formData.get('esCredito') as string
+  const cantidadRaw = parseFloat(formData.get('cantidad') as string)
+  const precioUnitarioRaw = parseFloat(formData.get('precioUnitario') as string)
   const raw = {
     amount: parseFloat(formData.get('amount') as string),
     description: (formData.get('description') as string)?.trim(),
     type: formData.get('type') as string,
+    subType: (formData.get('subType') as string) || undefined,
     accountId: formData.get('accountId') as string,
     categoryId: formData.get('categoryId') as string,
     contactId: formData.get('contactId') as string,
     areaNegocioId: formData.get('areaNegocioId') as string,
+    empleadoId: formData.get('empleadoId') as string,
+    productoId: formData.get('productoId') as string,
+    cantidad: isNaN(cantidadRaw) ? undefined : cantidadRaw,
+    precioUnitario: isNaN(precioUnitarioRaw) ? undefined : precioUnitarioRaw,
     date: formData.get('date') as string,
-    currency: formData.get('currency') as string || 'ARS',
+    currency: (formData.get('currency') as string) || 'ARS',
     esCredito: esCreditoRaw === 'true' || esCreditoRaw === '1',
     estado: (formData.get('estado') as string) || 'COBRADO',
     fechaVencimiento: (formData.get('fechaVencimiento') as string) || undefined,
   }
 
+  const { createTransactionSchema } = await import('@/lib/validations')
   const parsed = createTransactionSchema.safeParse(raw)
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message }
   }
 
-  const { amount, description, type, accountId, categoryId, contactId, areaNegocioId, date: dateStr, currency, esCredito, estado, fechaVencimiento } = parsed.data
+  const {
+    amount, description, type, subType, accountId, categoryId, contactId,
+    areaNegocioId, empleadoId, productoId, cantidad, precioUnitario,
+    date: dateStr, currency, esCredito, estado, fechaVencimiento,
+  } = parsed.data
+
+  const businessId = await getBusinessId()
+  const account = await getScopedAccount(accountId, businessId)
+  if (!account) return { success: false, error: 'Cuenta no encontrada' }
+
   const date = dateStr ? new Date(dateStr) : new Date()
   const fVenc = fechaVencimiento ? new Date(fechaVencimiento) : null
 
-  await prisma.transaction.create({
-    data: {
-      amount,
-      description,
-      type,
-      date,
-      currency,
-      esCredito,
-      estado: esCredito ? estado : (type === 'INCOME' ? 'COBRADO' : 'PAGADO'),
-      fechaVencimiento: fVenc,
-      account: { connect: { id: accountId } },
-      category: categoryId && categoryId !== "" ? { connect: { id: categoryId } } : undefined,
-      contact: contactId && contactId !== "" ? { connect: { id: contactId } } : undefined,
-      areaNegocio: areaNegocioId && areaNegocioId !== "" ? { connect: { id: areaNegocioId } } : undefined,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.create({
+      data: {
+        amount,
+        description,
+        type,
+        subType: subType || null,
+        date,
+        currency,
+        esCredito,
+        estado: esCredito ? estado : (type === 'INCOME' ? 'COBRADO' : 'PAGADO'),
+        fechaVencimiento: fVenc,
+        cantidad: cantidad ?? null,
+        precioUnitario: precioUnitario ?? null,
+        account: { connect: { id: accountId } },
+        business: { connect: { id: businessId } },
+        category: categoryId && categoryId !== '' ? { connect: { id: categoryId } } : undefined,
+        contact: contactId && contactId !== '' ? { connect: { id: contactId } } : undefined,
+        areaNegocio: areaNegocioId && areaNegocioId !== '' ? { connect: { id: areaNegocioId } } : undefined,
+        empleado: empleadoId && empleadoId !== '' ? { connect: { id: empleadoId } } : undefined,
+        producto: productoId && productoId !== '' ? { connect: { id: productoId } } : undefined,
+      },
+    })
+
+    // Actualizar balance de la cuenta
+    const balanceChange = type === 'INCOME' ? amount : -amount
+    await tx.account.update({
+      where: { id: accountId },
+      data: { currentBalance: account.currentBalance + balanceChange },
+    })
+
+    // Actualizar stock si hay producto vinculado
+    if (productoId && productoId !== '' && cantidad && cantidad > 0) {
+      const tipoMovimiento = subType === 'SALE' ? 'SALIDA' : subType === 'PURCHASE' ? 'ENTRADA' : null
+      if (tipoMovimiento) {
+        const producto = await getScopedProducto(productoId, businessId)
+        if (producto) {
+          const nuevoStock = tipoMovimiento === 'SALIDA'
+            ? producto.stockActual - cantidad
+            : producto.stockActual + cantidad
+          await tx.producto.update({
+            where: { id: productoId },
+            data: { stockActual: nuevoStock },
+          })
+          await tx.movimientoStock.create({
+            data: {
+              tipo: tipoMovimiento,
+              cantidad,
+              precio: precioUnitario ?? 0,
+              motivo: description,
+              fecha: date,
+              producto: { connect: { id: productoId } },
+            },
+          })
+        }
+      }
+    }
   })
 
-  // Update account balance
-  const account = await prisma.account.findUnique({ where: { id: accountId } })
-  if (account) {
-    const balanceChange = type === 'INCOME' ? amount : -amount
-    await prisma.account.update({
-      where: { id: accountId },
-      data: { currentBalance: account.currentBalance + balanceChange }
-    })
-  }
-
   revalidatePath('/')
+  revalidatePath('/stock')
   return { success: true }
-  */
 }
 
 export async function deleteTransaction(id: string) {
@@ -617,6 +662,16 @@ export async function marcarEstadoCredito(id: string, estado: string): Promise<A
   return { success: true }
 }
 
+// ---- Empleados ----
+
+export async function getEmpleados(preBusinessId?: string) {
+  const businessId = preBusinessId ?? await getBusinessId()
+  return await prisma.empleado.findMany({
+    where: { businessId, activo: true },
+    orderBy: { nombre: 'asc' },
+  })
+}
+
 // ---- Stock: Productos ----
 
 export async function getProductos() {
@@ -809,7 +864,18 @@ export async function getReportDataExtended(range?: DateRange) {
 
   // CMV: Costo de Mercadería Vendida = suma de salidas de stock * precio
   const salidasStock = await prisma.movimientoStock.findMany({
-    where: { tipo: 'SALIDA', producto: { businessId } },
+    where: {
+      tipo: 'SALIDA',
+      producto: { businessId },
+      ...(range?.from || range?.to
+        ? {
+            fecha: {
+              ...(range.from ? { gte: range.from } : {}),
+              ...(range.to ? { lte: range.to } : {}),
+            },
+          }
+        : {}),
+    },
   })
   const cmvTotal = salidasStock.reduce((acc, m) => acc + m.cantidad * m.precio, 0)
 

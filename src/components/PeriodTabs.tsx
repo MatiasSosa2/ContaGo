@@ -18,23 +18,12 @@ export const PERIODS = [
 
 export type PeriodKey = typeof PERIODS[number]['key']
 
-type DashboardMonthOption = {
+export type DashboardMonthOption = {
   year: number
   month: number
   label: string
   shortYear: string
   key: string
-}
-
-type DashboardPresetSummary = {
-  period: Exclude<PeriodKey, 'custom'>
-  periodLabel: string
-  income: number
-  expense: number
-  gain: number
-  incomeChangePct: number | null
-  expenseChangePct: number | null
-  gainChangePct: number | null
 }
 
 type ModalSelection = {
@@ -51,21 +40,40 @@ interface PeriodTabsProps {
   customTo?: string
   selectedYear?: number
   selectedMonth?: number
+  availableMonths: DashboardMonthOption[]
 }
 
-const MONTH_WINDOW_SIZE = 6
 const YEAR_MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
-function clampWindowStart(startMonth: number) {
-  return Math.min(Math.max(1, startMonth), YEAR_MONTHS.length - MONTH_WINDOW_SIZE + 1)
+function makeMonthKey(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, '0')}`
 }
 
-function shiftYearMonth(year: number, month: number, delta: number) {
-  const shiftedDate = new Date(year, month - 1 + delta, 1)
-  return {
-    year: shiftedDate.getFullYear(),
-    month: shiftedDate.getMonth() + 1,
+function normalizeMonths(months: DashboardMonthOption[], currentYear: number, currentMonth: number) {
+  const byKey = new Map<string, DashboardMonthOption>()
+
+  for (const month of months) {
+    byKey.set(month.key, month)
   }
+
+  const currentKey = makeMonthKey(currentYear, currentMonth)
+  if (!byKey.has(currentKey)) {
+    byKey.set(currentKey, {
+      year: currentYear,
+      month: currentMonth,
+      label: YEAR_MONTHS[currentMonth - 1],
+      shortYear: String(currentYear).slice(2),
+      key: currentKey,
+    })
+  }
+
+  return Array.from(byKey.values()).sort((left, right) => {
+    if (left.year !== right.year) {
+      return left.year - right.year
+    }
+
+    return left.month - right.month
+  })
 }
 
 function formatCustomRange(from: string, to: string) {
@@ -91,6 +99,7 @@ export default function PeriodTabs({
   customTo,
   selectedYear,
   selectedMonth,
+  availableMonths,
 }: PeriodTabsProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -103,52 +112,25 @@ export default function PeriodTabs({
   const currentMonth = now.getMonth() + 1
   const effectiveYear = selectedYear ?? currentYear
   const effectiveMonth = selectedMonth ?? currentMonth
-  const displayYear = active === 'mensual' ? effectiveYear : currentYear
-  const yearMonths = useMemo<DashboardMonthOption[]>(() => (
-    YEAR_MONTHS.map((label, index) => ({
-      year: displayYear,
-      month: index + 1,
-      label,
-      shortYear: String(displayYear).slice(2),
-      key: `${displayYear}-${String(index + 1).padStart(2, '0')}`,
-    }))
-  ), [displayYear])
-
-  const visibleStartMonth = useMemo(() => {
-    const anchorMonth = active === 'mensual' && displayYear === effectiveYear ? effectiveMonth : (displayYear === currentYear ? currentMonth : 1)
-    return clampWindowStart(anchorMonth - (MONTH_WINDOW_SIZE - 1))
-  }, [active, currentMonth, currentYear, displayYear, effectiveMonth, effectiveYear])
-
-  const visibleMonths = useMemo(
-    () => yearMonths.slice(visibleStartMonth - 1, visibleStartMonth - 1 + MONTH_WINDOW_SIZE),
-    [yearMonths, visibleStartMonth],
+  const normalizedMonths = useMemo(
+    () => normalizeMonths(availableMonths, currentYear, currentMonth),
+    [availableMonths, currentMonth, currentYear],
+  )
+  const dropdownYear = active === 'mensual' ? effectiveYear : currentYear
+  const dropdownMonth = active === 'mensual' ? effectiveMonth : currentMonth
+  const availableYears = useMemo(
+    () => Array.from(new Set(normalizedMonths.map((month) => month.year))).sort((left, right) => right - left),
+    [normalizedMonths],
+  )
+  const availableMonthsForYear = useMemo(
+    () => normalizedMonths.filter((month) => month.year === dropdownYear),
+    [dropdownYear, normalizedMonths],
   )
 
   function replaceWithParams(mutator: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams.toString())
     mutator(params)
     startTransition(() => router.replace(`${pathname}?${params.toString()}`))
-  }
-
-  function changeYear(nextYear: number) {
-    replaceWithParams((params) => {
-      params.set('year', String(nextYear))
-
-      if (active === 'mensual') {
-        params.set('month', String(Math.min(effectiveMonth, 12)))
-      }
-    })
-  }
-
-  function navigateMonth(direction: 'prev' | 'next') {
-    replaceWithParams((params) => {
-      const next = shiftYearMonth(effectiveYear, effectiveMonth, direction === 'next' ? 1 : -1)
-      params.set('periodo', 'mensual')
-      params.set('year', String(next.year))
-      params.set('month', String(next.month))
-      params.delete('from')
-      params.delete('to')
-    })
   }
 
   function selectMonth(month: DashboardMonthOption) {
@@ -159,6 +141,26 @@ export default function PeriodTabs({
       params.delete('from')
       params.delete('to')
     })
+  }
+
+  function selectYearFromDropdown(nextYear: number) {
+    const monthsForYear = normalizedMonths.filter((month) => month.year === nextYear)
+    const fallbackMonth = monthsForYear.find((month) => month.month === dropdownMonth) ?? monthsForYear[monthsForYear.length - 1]
+
+    if (!fallbackMonth) {
+      return
+    }
+
+    selectMonth(fallbackMonth)
+  }
+
+  function selectMonthFromDropdown(nextMonth: number) {
+    const match = normalizedMonths.find((month) => month.year === dropdownYear && month.month === nextMonth)
+    if (!match) {
+      return
+    }
+
+    selectMonth(match)
   }
 
   function handleModalConfirm(selection: ModalSelection) {
@@ -178,13 +180,8 @@ export default function PeriodTabs({
       params.delete('from')
       params.delete('to')
 
-      if (selection.period !== 'mensual') {
-        params.delete('year')
-        params.delete('month')
-      } else {
-        params.set('year', String(currentYear))
-        params.set('month', String(currentMonth))
-      }
+      params.delete('year')
+      params.delete('month')
     })
   }
 
@@ -195,89 +192,35 @@ export default function PeriodTabs({
   return (
     <>
       <div className="w-full rounded-2xl border border-stone-200 bg-white p-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-white/[0.04] dark:bg-[#101113] dark:shadow-none sm:p-3">
-        <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center">
-            <div className="flex min-w-0 flex-wrap items-center gap-3 xl:shrink-0">
-              <div className="inline-flex items-center gap-1 rounded-2xl border border-stone-200 bg-stone-50 p-0.5 dark:border-white/[0.04] dark:bg-[#17191c]">
-                <button
-                  type="button"
-                  onClick={() => changeYear(displayYear - 1)}
+        <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-2 py-1.5 dark:border-white/[0.04] dark:bg-[#17191c]">
+              <div className="min-w-[112px]">
+                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Año</label>
+                <select
+                  value={dropdownYear}
+                  onChange={(event) => selectYearFromDropdown(Number(event.target.value))}
                   disabled={pending}
-                  className="flex h-7 w-7 items-center justify-center rounded-xl text-stone-500 transition hover:bg-white hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-stone-400 dark:hover:bg-[#101113] dark:hover:text-stone-100"
-                  aria-label="Año anterior"
+                  className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none transition focus:border-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.05] dark:bg-[#0d0e10] dark:text-stone-200"
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <span className="rounded-xl bg-white px-3 py-1 text-sm font-semibold text-stone-800 ring-1 ring-stone-200/80 dark:bg-[#0d0e10] dark:text-stone-100 dark:ring-white/[0.05]">
-                  {displayYear}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => changeYear(displayYear + 1)}
-                  disabled={pending}
-                  className="flex h-7 w-7 items-center justify-center rounded-xl text-stone-500 transition hover:bg-white hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-stone-400 dark:hover:bg-[#101113] dark:hover:text-stone-100"
-                  aria-label="Año siguiente"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
               </div>
-            </div>
 
-            <div className="flex min-w-0 flex-wrap items-center gap-2 xl:ml-4 xl:mr-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-1 rounded-2xl border border-stone-200 bg-stone-50 p-1 dark:border-white/[0.04] dark:bg-[#17191c]">
-                <button
-                  type="button"
-                  onClick={() => navigateMonth('prev')}
-                  disabled={pending}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-500 transition hover:border-stone-300 hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.05] dark:bg-[#0d0e10] dark:text-stone-400 dark:hover:border-white/[0.10] dark:hover:text-stone-100"
-                  aria-label="Mes anterior"
-                  title="Mes anterior"
+              <div className="min-w-[144px]">
+                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Mes</label>
+                <select
+                  value={dropdownMonth}
+                  onChange={(event) => selectMonthFromDropdown(Number(event.target.value))}
+                  disabled={pending || availableMonthsForYear.length === 0}
+                  className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm capitalize text-stone-700 outline-none transition focus:border-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.05] dark:bg-[#0d0e10] dark:text-stone-200"
                 >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-
-                {visibleMonths.map((month) => {
-                  const isActive = active === 'mensual' && selectedYear === month.year && selectedMonth === month.month
-                  const isCurrentCalendarMonth = month.year === currentYear && month.month === currentMonth
-
-                  return (
-                    <button
-                      key={month.key}
-                      type="button"
-                      onClick={() => selectMonth(month)}
-                      disabled={pending}
-                      className={
-                        isActive
-                          ? 'rounded-xl border px-3 py-1.5 text-xs font-semibold capitalize transition-all duration-150 bg-[#1B4332] text-[#D8F3DC] border-[#1B4332]'
-                          : isCurrentCalendarMonth
-                            ? 'rounded-xl border px-3 py-1.5 text-xs font-semibold capitalize transition-all duration-150 border-[#CFE2D5] text-[#5a7e69] dark:border-[#2c4335] dark:text-[#9cc8ae]'
-                            : 'rounded-xl border px-3 py-1.5 text-xs font-semibold capitalize transition-all duration-150 border-transparent text-stone-500 dark:text-stone-400'
-                      }
-                      aria-current={isActive ? 'date' : undefined}
-                      title={isCurrentCalendarMonth && !isActive ? 'Mes actual' : month.label}
-                    >
-                      {month.label}
-                    </button>
-                  )
-                })}
-
-                <button
-                  type="button"
-                  onClick={() => navigateMonth('next')}
-                  disabled={pending}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-500 transition hover:border-stone-300 hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.05] dark:bg-[#0d0e10] dark:text-stone-400 dark:hover:border-white/[0.10] dark:hover:text-stone-100"
-                  aria-label="Mes siguiente"
-                  title="Mes siguiente"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                  {availableMonthsForYear.map((month) => (
+                    <option key={month.key} value={month.month}>{month.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -308,6 +251,7 @@ export default function PeriodTabs({
                 {selectorLabel}
               </button>
             </div>
+          </div>
         </div>
       </div>
 

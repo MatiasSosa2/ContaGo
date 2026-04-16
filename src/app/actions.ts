@@ -194,6 +194,12 @@ export async function getProductos() {
   return databaseActions.getProductos();
 }
 
+export async function getEmpleados(preBusinessId?: string) {
+  if (USE_MOCK) return [];
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getEmpleados(preBusinessId);
+}
+
 export async function createProducto(formData: FormData): Promise<ActionResult> {
   if (USE_MOCK) return { success: true };
   const databaseActions = await getDatabaseActions();

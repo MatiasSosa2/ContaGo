@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import TransactionForm from './TransactionForm'
-import { getAccounts, getCategories, getContacts, getAreasNegocio, createTransaction } from '@/app/actions'
-import type { Account, Category, Contact, AreaNegocio } from './TransactionForm'
+import { getAccounts, getCategories, getContacts, getAreasNegocio, getProductos, getEmpleados, createTransaction } from '@/app/actions'
+import type { Account, Category, Contact, AreaNegocio, Producto, Empleado } from './TransactionForm'
 
 export default function FloatingActionButton() {
   const pathname = usePathname()
@@ -16,17 +16,51 @@ export default function FloatingActionButton() {
     categories: Category[]
     contacts: Contact[]
     areas: AreaNegocio[]
+    productos: Producto[]
+    empleados: Empleado[]
   } | null>(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [accounts, categories, contacts, areas] = await Promise.all([
+    const [accounts, categories, contacts, areas, productosRaw, empleadosRaw] = await Promise.all([
       getAccounts(),
       getCategories(),
       getContacts(),
       getAreasNegocio(),
+      getProductos(),
+      getEmpleados(),
     ])
-    setData({ accounts, categories, contacts, areas })
+    const productos: Producto[] = productosRaw.map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      categoria: p.categoria ?? null,
+      marca: p.marca ?? null,
+      precioVenta: p.precioVenta,
+      precioCosto: p.precioCosto,
+      stockActual: p.stockActual,
+    }))
+    const empleados: Empleado[] = empleadosRaw.map((e) => ({
+      id: e.id,
+      nombre: e.nombre,
+      cargo: e.cargo ?? null,
+    }))
+    const mappedAccounts: Account[] = accounts.map((a) => ({
+      id: a.id,
+      name: a.name,
+      currency: a.currency,
+      type: a.type,
+    }))
+    const mappedCategories: Category[] = categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+    }))
+    const mappedContacts: Contact[] = contacts.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+    }))
+    setData({ accounts: mappedAccounts, categories: mappedCategories, contacts: mappedContacts, areas, productos, empleados })
     setLoading(false)
   }, [])
 
@@ -40,7 +74,6 @@ export default function FloatingActionButton() {
     setActiveTab('INCOME')
   }
 
-  // Cerrar con Escape
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
@@ -48,7 +81,6 @@ export default function FloatingActionButton() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  // Bloquear scroll del body
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
     else document.body.style.overflow = ''
@@ -58,8 +90,6 @@ export default function FloatingActionButton() {
   if (pathname.startsWith('/auth') || pathname.startsWith('/select-business')) {
     return null
   }
-
-  const headerBg = activeTab === 'INCOME' ? 'bg-brand-military' : 'bg-[#1A1A1A]'
 
   const handleCreate = async (formData: FormData) => {
     const result = await createTransaction(formData)
@@ -72,50 +102,57 @@ export default function FloatingActionButton() {
       {/* Botón flotante */}
       <button
         onClick={handleOpen}
-        className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl active:scale-95"
-        style={{ background: 'linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%)' }}
+        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl active:scale-95 md:bottom-6 md:right-6"
+        style={{ background: 'linear-gradient(135deg, #3A4D39 0%, #2A3D29 100%)' }}
         aria-label="Registrar movimiento"
       >
-        <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
       </button>
 
       {/* Modal overlay */}
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center md:items-center">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
 
           {/* Panel */}
-          <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-white rounded-t-2xl md:rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 md:mx-4">
+          <div className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom duration-300 dark:bg-zinc-950 md:mx-4 md:rounded-3xl">
             {/* Header */}
-            <div className={`px-5 py-4 flex justify-between items-center shrink-0 ${headerBg} transition-colors duration-200`}>
+            <div className="flex shrink-0 items-start justify-between px-6 pt-5 pb-4">
               <div>
-                <h2 className="text-[10px] font-black text-white uppercase tracking-widest">
-                  {activeTab === 'INCOME' ? 'Registrar Ingreso' : 'Registrar Gasto'}
-                </h2>
-                <p className="text-[9px] text-white/50 font-medium mt-0.5 uppercase tracking-wider">
+                <h2 className="text-base font-bold text-gray-900 dark:text-white">Registrar movimiento</h2>
+                <p className="mt-0.5 text-xs font-medium text-gray-400 dark:text-gray-500">
                   {activeTab === 'INCOME' ? 'Entrada de dinero' : 'Salida de dinero'}
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex border-2 border-white/20 overflow-hidden">
+                {/* Toggle Ingresos / Egresos */}
+                <div className="flex overflow-hidden rounded-xl border border-black/[0.08] bg-gray-100 p-0.5 dark:border-white/10 dark:bg-zinc-800">
                   <button
                     onClick={() => setActiveTab('INCOME')}
-                    className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'INCOME' ? 'bg-white text-brand-military' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      activeTab === 'INCOME'
+                        ? 'bg-brand-military text-white shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                    }`}
                   >
-                    Ingreso
+                    Ingresos
                   </button>
                   <button
                     onClick={() => setActiveTab('EXPENSE')}
-                    className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all border-l-2 border-white/20 ${activeTab === 'EXPENSE' ? 'bg-white text-gray-900' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      activeTab === 'EXPENSE'
+                        ? 'bg-brand-oxide text-white shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                    }`}
                   >
-                    Gasto
+                    Egresos
                   </button>
                 </div>
-                <button onClick={handleClose} className="text-white/60 hover:text-white transition-colors" aria-label="Cerrar">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <button onClick={handleClose} className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-zinc-800" aria-label="Cerrar">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -123,10 +160,10 @@ export default function FloatingActionButton() {
             </div>
 
             {/* Body */}
-            <div className="p-5 flex-1 bg-gray-100/80 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
               {loading || !data ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="w-6 h-6 border-2 border-brand-military border-t-transparent rounded-full animate-spin" />
+                <div className="flex items-center justify-center py-14">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-military border-t-transparent" />
                 </div>
               ) : (
                 <TransactionForm
@@ -134,6 +171,8 @@ export default function FloatingActionButton() {
                   categories={data.categories}
                   contacts={data.contacts}
                   areas={data.areas}
+                  productos={data.productos}
+                  empleados={data.empleados}
                   onSubmit={handleCreate}
                   initialType={activeTab}
                   onTypeChange={setActiveTab}
@@ -146,3 +185,4 @@ export default function FloatingActionButton() {
     </>
   )
 }
+

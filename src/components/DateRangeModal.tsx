@@ -36,6 +36,17 @@ function toISO(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+function formatRangeValue(range?: DateRange) {
+  if (!range?.from) {
+    return null
+  }
+
+  const from = range.from.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const to = range.to?.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+
+  return to ? `${from} → ${to}` : `${from} → ...`
+}
+
 export default function DateRangeModal({
   open,
   onClose,
@@ -54,10 +65,10 @@ export default function DateRangeModal({
       setRange({ from: new Date(initialFrom + 'T12:00:00'), to: new Date(initialTo + 'T12:00:00') })
       setSelectedPreset('custom')
       return
+    } else {
+      setRange(undefined)
+      setSelectedPreset(initialPeriod)
     }
-
-    setRange(undefined)
-    setSelectedPreset(initialPeriod)
   }, [initialFrom, initialPeriod, initialTo, open])
 
   function handleConfirm() {
@@ -72,6 +83,9 @@ export default function DateRangeModal({
   }
 
   if (!open) return null
+
+  const activePresetLabel = QUICK_PRESETS.find((preset) => preset.key === selectedPreset)?.label ?? 'Personalizado'
+  const activeRangeValue = formatRangeValue(range)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-5 sm:p-6">
@@ -91,17 +105,15 @@ export default function DateRangeModal({
         <div className="border-b border-stone-100 px-4 py-3 pr-14 sm:px-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Periodo</p>
           <h3 className="mt-0.5 text-base font-semibold text-stone-900">Seleccionar período</h3>
-          <p className="mt-0.5 text-sm text-stone-500">Elegí un rango manual o aplicá un atajo rápido.</p>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row">
           <div className="min-w-0 flex-1 border-b border-stone-100 bg-stone-50/55 lg:border-b-0 lg:border-r lg:border-stone-100">
             <div className="p-2.5 sm:p-3 lg:p-3.5">
-              <div className="rounded-[18px] border border-stone-200 bg-white p-2 shadow-[0_8px_30px_rgba(15,23,42,0.05)] contago-calendar">
+              <div className="contago-calendar rounded-[18px] border border-stone-200 bg-white p-2 shadow-[0_8px_30px_rgba(15,23,42,0.05)]">
                 <div className="mb-2 flex items-start justify-between gap-2 border-b border-stone-100 pb-2 pr-10">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400">Calendario</p>
-                    <p className="mt-0.5 text-sm text-stone-500">Definí fecha desde y hasta.</p>
                   </div>
                   <button
                     type="button"
@@ -154,21 +166,13 @@ export default function DateRangeModal({
                   />
                 </div>
 
-                <div className="mt-2 rounded-2xl border border-stone-200 bg-stone-50 px-3.5 py-2 text-sm text-stone-600">
-                  {range?.from ? (
-                    <>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">Rango elegido</p>
-                      <p className="mt-1 font-medium text-stone-800">
-                        {range.from.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        {range.to ? ` → ${range.to.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}` : ' → ...'}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">Rango elegido</p>
-                      <p className="mt-1 text-stone-500">Seleccioná un inicio y un fin para aplicar un período personalizado.</p>
-                    </>
-                  )}
+                <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-stone-200 bg-stone-50 p-2.5 text-sm text-stone-600">
+                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-center font-medium text-stone-800">
+                    {range?.from ? range.from.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-- / -- / ----'}
+                  </div>
+                  <div className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-center font-medium text-stone-800">
+                    {range?.to ? range.to.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-- / -- / ----'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -176,12 +180,11 @@ export default function DateRangeModal({
 
           <aside className="w-full bg-white lg:w-[228px] lg:shrink-0">
             <div className="flex h-full flex-col p-2.5 sm:p-3 lg:p-3.5">
-              <div className="mb-2 pr-10">
+              <div className="mb-3 pr-10">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Accesos rápidos</p>
-                <p className="mt-0.5 text-sm text-stone-500">Elegí un período listo para aplicar.</p>
               </div>
 
-              <div className="flex flex-col gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
                 {QUICK_PRESETS.map((preset) => {
                   const isActive = selectedPreset === preset.key
 
@@ -190,7 +193,7 @@ export default function DateRangeModal({
                       key={preset.key}
                       type="button"
                       onClick={() => setSelectedPreset(preset.key)}
-                      className="rounded-xl border px-3 py-1.5 text-left transition-all"
+                      className={`border px-3 py-3 text-left transition-all ${preset.key === 'anual' ? 'col-span-2' : ''}`}
                       style={
                         isActive
                           ? { background: '#1B4332', color: '#D8F3DC', borderColor: '#1B4332', boxShadow: '0 10px 24px rgba(27,67,50,0.16)' }
@@ -203,8 +206,12 @@ export default function DateRangeModal({
                 })}
               </div>
 
-              <div className="mt-2.5 rounded-xl border border-dashed border-stone-200 bg-stone-50 px-3 py-2 text-[11px] leading-4 text-stone-500">
-                El período seleccionado se comparará con los datos del período anterior.
+              <div className="mt-3 rounded-2xl border border-stone-200 bg-stone-50 px-3.5 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Activo</p>
+                <p className="mt-1 text-sm font-semibold text-stone-800">{activePresetLabel}</p>
+                <div className="mt-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[12px] font-medium text-stone-600">
+                  {selectedPreset === 'custom' ? (activeRangeValue ?? '-- / -- / ----') : 'Aplicación inmediata'}
+                </div>
               </div>
 
               <div className="mt-auto flex items-center justify-end gap-2 border-t border-stone-100 pt-3">

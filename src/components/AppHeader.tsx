@@ -7,6 +7,7 @@ type Provider = 'google' | 'apple' | 'credentials' | 'mock'
 type AppHeaderProps = {
   title: string
   icon?: React.ReactNode
+  showRoleBadge?: boolean
   sessionContext: {
     user: { name?: string | null; email: string; image?: string | null; emailVerified: boolean }
     activeBusiness: { name: string; role: Role }
@@ -22,7 +23,7 @@ const ROLE_LABELS: Record<Role, string> = {
   VIEWER: 'Visualizador',
 }
 
-export default function AppHeader({ title, icon, sessionContext, actions }: AppHeaderProps) {
+export default function AppHeader({ title, icon, sessionContext, actions, showRoleBadge = true }: AppHeaderProps) {
   const { user, activeBusiness, auth } = sessionContext
 
   return (
@@ -69,9 +70,11 @@ export default function AppHeader({ title, icon, sessionContext, actions }: AppH
           </div>
 
           {/* Badge de rol */}
-          <span className="hidden md:inline-flex shrink-0 items-center border border-[#d9cfba] dark:border-[#3d3020] bg-[#f6efe2] dark:bg-[#1c1206] px-2 py-1 text-[10px] font-medium text-[#7a6850] dark:text-[#c9a870] rounded-sm select-none">
-            {ROLE_LABELS[activeBusiness.role]}
-          </span>
+          {showRoleBadge && (
+            <span className="hidden md:inline-flex shrink-0 items-center border border-[#d9cfba] dark:border-[#3d3020] bg-[#f6efe2] dark:bg-[#1c1206] px-2 py-1 text-[10px] font-medium text-[#7a6850] dark:text-[#c9a870] rounded-sm select-none">
+              {ROLE_LABELS[activeBusiness.role]}
+            </span>
+          )}
         </div>
 
         {/* ── RIGHT: Acciones opcionales · ThemeToggle · UserMenu ──────────── */}

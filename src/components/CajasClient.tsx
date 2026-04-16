@@ -111,8 +111,8 @@ function CajaDetailsModal({
         className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[#141414]">
-        <div className="flex items-start justify-between border-b border-stone-200 px-5 py-4 dark:border-white/10">
+      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.18)] dark:border-white/10 dark:bg-[#141414] dark:shadow-[0_24px_80px_rgba(0,0,0,0.42)]">
+        <div className="flex items-start justify-between border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 py-4 dark:border-white/10 dark:bg-[#171717]">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">Detalle de cajas</p>
             <h3 className="mt-1 text-lg font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h3>
@@ -123,7 +123,7 @@ function CajaDetailsModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 dark:hover:bg-white/5 dark:hover:text-stone-200"
+            className="rounded-xl border border-stone-200 bg-white p-2 text-stone-400 transition hover:text-stone-700 dark:border-white/10 dark:bg-[#1B1B1B] dark:hover:text-stone-200"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -141,7 +141,7 @@ function CajaDetailsModal({
               {accounts.map((acc) => (
                 <div
                   key={acc.id}
-                  className="flex items-center justify-between rounded-xl border border-stone-200 px-3.5 py-3 dark:border-white/10"
+                  className="flex items-center justify-between rounded-xl border border-[#ECE7E1] px-3.5 py-3 dark:border-white/10"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-[#1F2937] dark:text-[#E8E8E8]">{acc.name}</p>
@@ -160,7 +160,7 @@ function CajaDetailsModal({
           )}
         </div>
 
-        <div className="border-t border-stone-200 bg-stone-50 px-5 py-4 dark:border-white/10 dark:bg-[#101010]">
+        <div className="border-t border-[#ECE7E1] bg-[#FAFBFC] px-5 py-4 dark:border-white/10 dark:bg-[#171717]">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-stone-500 dark:text-stone-400">Total</span>
             <span className="text-sm font-mono font-bold text-[#1F2937] dark:text-[#E8E8E8] num-tabular">
@@ -218,11 +218,11 @@ function MovementsPanel({
   )
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}>
-      <div className="border-b border-[#D8E2D6] bg-[#F3F6F4] px-5 pt-5 pb-4 dark:border-white/10 dark:bg-[#111513]">
+    <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+      <div className="border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 pb-4 pt-5 dark:border-white/10 dark:bg-[#171717]">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#D5E3D8] bg-white text-brand-military dark:border-[#294235] dark:bg-[#162019] dark:text-[#9AC7A8]">
+            <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military dark:bg-[#162019] dark:text-[#9AC7A8]">
               <MovementIcon />
             </div>
             <h3 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Movimientos</h3>
@@ -232,10 +232,10 @@ function MovementsPanel({
             <button
               type="button"
               onClick={() => setActiveFilter('CASH')}
-              className={`flex h-[44px] min-w-[160px] items-center justify-center overflow-hidden rounded-xl border px-5 text-sm font-semibold uppercase tracking-[0.12em] leading-none transition ${
+              className={`flex h-[42px] min-w-[154px] items-center justify-center overflow-hidden border px-5 text-[11px] font-semibold uppercase tracking-[0.14em] leading-none transition ${
                 activeFilter === 'CASH'
-                  ? 'border-[#1B4332] bg-[#1B4332] text-white shadow-sm'
-                  : 'border-[#D8E2D6] bg-[#F0F4EF] text-[#1B4332]'
+                  ? 'border-brand-military bg-brand-military text-white shadow-sm'
+                  : 'border-[#D5E3D8] bg-[#F5FAF7] text-[#2D5A41] dark:border-[#294235] dark:bg-[#162019] dark:text-[#9AC7A8]'
               }`}
               title="Caja Efectivo"
             >
@@ -245,10 +245,10 @@ function MovementsPanel({
             <button
               type="button"
               onClick={() => setActiveFilter('VIRTUAL')}
-              className={`flex h-[44px] min-w-[160px] items-center justify-center overflow-hidden rounded-xl border px-5 text-sm font-semibold uppercase tracking-[0.12em] leading-none transition ${
+              className={`flex h-[42px] min-w-[154px] items-center justify-center overflow-hidden border px-5 text-[11px] font-semibold uppercase tracking-[0.14em] leading-none transition ${
                 activeFilter === 'VIRTUAL'
-                  ? 'border-[#B7791F] bg-[#B7791F] text-white shadow-sm'
-                  : 'border-[#E8DFC6] bg-[#FBF8F2] text-[#8A6118]'
+                  ? 'border-brand-gold bg-brand-gold text-white shadow-sm'
+                  : 'border-[#E6D6B8] bg-[#FFF8EC] text-[#8A6118] dark:border-[#5B4A2F] dark:bg-[#21180F] dark:text-[#D7B36B]'
               }`}
               title="Caja Virtual"
             >
@@ -258,7 +258,7 @@ function MovementsPanel({
         </div>
       </div>
 
-      <div className="border-b border-[#E5E7EB] bg-[#FCFCFD] px-5 py-4 dark:border-white/10 dark:bg-[#101113]">
+      <div className="border-b border-[#ECE7E1] bg-[#FCFCFD] px-5 py-4 dark:border-white/10 dark:bg-[#111214]">
         <div className="flex flex-wrap items-end justify-start gap-3">
           <div className="min-w-[200px]">
             <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">
@@ -267,7 +267,7 @@ function MovementsPanel({
             <select
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
-              className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-stone-700 outline-none transition focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-200"
+              className="w-full border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-stone-700 outline-none transition focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-200"
             >
               <option value="ALL">Todas</option>
               {categories.map((category) => (
@@ -284,7 +284,7 @@ function MovementsPanel({
               <button
                 type="button"
                 onClick={() => setMovementTypeFilter('ALL')}
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                className={`border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition ${
                   movementTypeFilter === 'ALL'
                     ? 'border-stone-900 bg-stone-900 text-white dark:border-stone-200 dark:bg-stone-200 dark:text-stone-900'
                     : 'border-[#E5E7EB] bg-white text-stone-600 dark:border-white/10 dark:bg-[#16181b] dark:text-stone-300'
@@ -295,7 +295,7 @@ function MovementsPanel({
               <button
                 type="button"
                 onClick={() => setMovementTypeFilter('INCOME')}
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                className={`border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition ${
                   movementTypeFilter === 'INCOME'
                     ? 'border-emerald-600 bg-emerald-600 text-white'
                     : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-400'
@@ -306,7 +306,7 @@ function MovementsPanel({
               <button
                 type="button"
                 onClick={() => setMovementTypeFilter('EXPENSE')}
-                className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                className={`border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition ${
                   movementTypeFilter === 'EXPENSE'
                     ? 'border-red-600 bg-red-600 text-white'
                     : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400'
@@ -326,13 +326,13 @@ function MovementsPanel({
                 type="date"
                 value={dateFilter}
                 onChange={(event) => setDateFilter(event.target.value)}
-                className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-stone-700 outline-none transition focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-200"
+                className="w-full border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-stone-700 outline-none transition focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-200"
               />
               {dateFilter ? (
                 <button
                   type="button"
                   onClick={() => setDateFilter('')}
-                  className="shrink-0 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-stone-500 transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-300"
+                  className="shrink-0 border border-[#E5E7EB] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500 transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-300"
                 >
                   Limpiar
                 </button>
@@ -351,7 +351,7 @@ function MovementsPanel({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-xs">
               <thead>
-                <tr className="border-y border-[#D8E2D6] bg-[#F6F8F7] text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280] dark:border-white/10 dark:bg-[#0D0D0D] dark:text-stone-400">
+                <tr className="border-y border-[#ECE7E1] bg-[#FAFBFC] text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280] dark:border-white/10 dark:bg-[#171717] dark:text-stone-400">
                   <th className="px-5 py-3 text-left">Fecha</th>
                   <th className="px-5 py-3 text-left">Movimiento</th>
                   <th className="px-5 py-3 text-left">Categoria</th>
@@ -366,7 +366,7 @@ function MovementsPanel({
                   return (
                     <tr
                       key={movement.id}
-                      className={`border-b border-[#E5E7EB] transition hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] ${
+                      className={`border-b border-[#ECE7E1] transition hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] ${
                         isIncome ? 'border-l-[3px] border-l-[#2D6A4F]' : 'border-l-[3px] border-l-[#B45309]'
                       }`}
                     >
@@ -384,12 +384,12 @@ function MovementsPanel({
                         </div>
                       </td>
                       <td className="px-5 py-3 align-top text-sm text-stone-600 dark:text-stone-300">
-                        <span className="inline-flex rounded-md border border-[#D8E2D6] bg-[#F8FAF8] px-2.5 py-1 text-[11px] font-semibold text-[#3A4D39] dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-300">
+                        <span className="inline-flex border border-[#D8E2D6] bg-[#F8FAF8] px-2.5 py-1 text-[11px] font-semibold text-[#3A4D39] dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-300">
                           {movement.category?.name ?? 'Sin categoria'}
                         </span>
                       </td>
                       <td className="px-5 py-3 align-top text-sm text-stone-600 dark:text-stone-300">
-                        <span className="inline-flex rounded-md border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-semibold text-stone-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-300">
+                        <span className="inline-flex border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-semibold text-stone-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-300">
                           {movement.account?.name ?? 'Sin cuenta'}
                         </span>
                       </td>
@@ -439,21 +439,21 @@ function CajaGroupColumn({
     : 'Abri el detalle para ver el desglose de bancos, billeteras o cajas virtuales.'
   const tone = variant === 'gold'
     ? {
-        card: 'border-[#D9C7A1] bg-[#FFFDF9] dark:border-[#5B4A2F] dark:bg-[#17130D]',
-        header: 'bg-[#F6EFE2] border-[#D9C7A1] dark:bg-[#1E170F] dark:border-[#5B4A2F]',
-        iconWrap: 'bg-[#EEDCB8] text-[#8A6118] dark:bg-[#3B2E1A] dark:text-[#D7B36B]',
+        card: 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]',
+        header: 'bg-[#FAFBFC] border-[#ECE7E1] dark:bg-[#171717] dark:border-white/10',
+        iconWrap: 'bg-brand-gold-light text-brand-gold-dark dark:bg-[#3B2E1A] dark:text-[#D7B36B]',
         selectorWrap: 'border-[#E6D6B8] bg-[#FFF8EC] dark:border-[#5B4A2F] dark:bg-[#21180F]',
-        selectorActive: 'bg-white text-[#5C4315] shadow-sm dark:bg-[#2A2014] dark:text-[#F2D59B]',
+        selectorActive: 'bg-brand-gold text-white shadow-sm dark:bg-[#7A5821] dark:text-[#FFF6E6]',
         selectorIdle: 'text-[#8A6118] hover:text-[#5C4315] dark:text-[#CBA86B] dark:hover:text-[#F2D59B]',
         button: 'border-[#D9C7A1] bg-white text-[#8A6118] hover:border-[#B88A2E] hover:text-[#6E4E14] dark:border-[#5B4A2F] dark:bg-[#221A10] dark:text-[#D7B36B]',
         summary: 'border-[#E6D6B8] bg-[#FFF8EC] dark:border-[#5B4A2F] dark:bg-[#1E170F]',
       }
     : {
-        card: 'border-[#C9D8CC] bg-[#FBFDFC] dark:border-[#294235] dark:bg-[#101612]',
-      header: 'bg-[#E8F0EB] border-[#C9D8CC] dark:bg-[#162019] dark:border-[#294235]',
-        iconWrap: 'bg-[#D7E7DC] text-[#2D5A41] dark:bg-[#1F3428] dark:text-[#9AC7A8]',
+        card: 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]',
+        header: 'bg-[#FAFBFC] border-[#ECE7E1] dark:bg-[#171717] dark:border-white/10',
+        iconWrap: 'bg-brand-military-light text-[#2D5A41] dark:bg-[#1F3428] dark:text-[#9AC7A8]',
         selectorWrap: 'border-[#D5E3D8] bg-[#F5FAF7] dark:border-[#294235] dark:bg-[#131C16]',
-        selectorActive: 'bg-white text-[#1F4D36] shadow-sm dark:bg-[#1A261E] dark:text-[#D7F3DF]',
+        selectorActive: 'bg-brand-military text-white shadow-sm dark:bg-[#244330] dark:text-[#D7F3DF]',
         selectorIdle: 'text-[#4D6E59] hover:text-[#1F4D36] dark:text-[#8CB299] dark:hover:text-[#D7F3DF]',
         button: 'border-[#C9D8CC] bg-white text-[#2D5A41] hover:border-[#2D6A4F] hover:text-[#1F4D36] dark:border-[#294235] dark:bg-[#152019] dark:text-[#9AC7A8]',
         summary: 'border-[#D5E3D8] bg-[#F5FAF7] dark:border-[#294235] dark:bg-[#131C16]',
@@ -462,13 +462,11 @@ function CajaGroupColumn({
   return (
     <>
     <div className="flex h-full flex-col gap-5">
-      {/* Card principal */}
-      <div className={`flex h-full flex-col rounded-2xl border overflow-hidden ${tone.card}`} style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}>
+      <div className={`flex h-full flex-col overflow-hidden rounded-2xl border shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${tone.card}`}>
 
-        {/* Header + monto total */}
-        <div className={`px-5 pt-5 pb-4 border-b ${tone.header}`}>
+        <div className={`border-b px-5 pb-4 pt-5 ${tone.header}`}>
           <div className="flex items-center gap-2.5 mb-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tone.iconWrap}`}>
+            <div className={`flex h-9 w-9 items-center justify-center ${tone.iconWrap}`}>
               {icon}
             </div>
             <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
@@ -480,12 +478,12 @@ function CajaGroupColumn({
             <button
               type="button"
               onClick={() => setDetailsOpen(true)}
-              className={`shrink-0 rounded-xl border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${tone.button}`}
+              className={`shrink-0 border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${tone.button}`}
             >
               {isEfectivo ? 'Ver caja' : 'Ver detalles de cajas'}
             </button>
           </div>
-          <div className={`mt-3 inline-flex w-full items-center gap-1 rounded-xl border p-1 ${tone.selectorWrap}`}>
+          <div className={`mt-3 inline-flex w-full items-center gap-1 border p-1 ${tone.selectorWrap}`}>
             {CAJA_CURRENCIES.map((currency) => {
               const isActive = selectedCurrency === currency
               const isAvailable = availableCurrencies.has(currency)
@@ -495,7 +493,7 @@ function CajaGroupColumn({
                   key={currency}
                   type="button"
                   onClick={() => setSelectedCurrency(currency)}
-                  className={`flex-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition ${
+                  className={`flex-1 px-3 py-2 text-[11px] font-semibold transition ${
                     isActive ? tone.selectorActive : tone.selectorIdle
                   } ${!isAvailable ? 'opacity-55' : ''}`}
                 >
@@ -506,9 +504,8 @@ function CajaGroupColumn({
           </div>
         </div>
 
-        {/* Lista de sub-cajas */}
         <div className="flex flex-1 px-4 pb-4">
-          <div className={`flex w-full flex-col justify-between rounded-xl border border-dashed px-4 py-4 ${tone.summary}`}>
+          <div className={`flex w-full flex-col justify-between border border-dashed px-4 py-4 ${tone.summary}`}>
             <p className="text-sm font-medium text-[#1F2937] dark:text-[#E8E8E8]">
               {detailTitle}
             </p>

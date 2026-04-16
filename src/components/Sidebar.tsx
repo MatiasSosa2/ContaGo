@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useTransition } from 'react'
+import { useTransition, useState, useEffect } from 'react'
 import { signOut } from 'next-auth/react'
 import ThemeToggle from '@/components/ThemeToggle'
 
@@ -61,6 +61,22 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname()
   const [isSigningOut, startSignOut] = useTransition()
+  const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebar-collapsed')
+      if (saved === 'true') setCollapsed(true)
+    } catch {}
+  }, [])
+
+  const toggleCollapse = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      try { localStorage.setItem('sidebar-collapsed', String(next)) } catch {}
+      return next
+    })
+  }
 
   function handleSignOut() {
     startSignOut(async () => {
@@ -73,66 +89,99 @@ export default function Sidebar() {
 
   return (
     <>
-    <aside className="hidden md:flex md:flex-col w-60 h-screen sticky top-0 z-20 shrink-0" style={{ background: '#1B4332', borderRight: '1px solid rgba(0,0,0,0.25)' }}>
+    <aside
+      className={`hidden md:flex md:flex-col h-screen sticky top-0 z-20 shrink-0 transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-60'}`}
+      style={{ background: '#1B4332', borderRight: '1px solid rgba(0,0,0,0.25)' }}
+    >
       {/* LOGOTIPO */}
-      <div className="h-[88px] px-5 flex items-center" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div className="flex items-center justify-start gap-0">
-          <Image
-            src="/contago-wordmark-copy.svg"
-            alt="Conta"
-            width={560}
-            height={180}
-            priority
-            className="h-auto w-[124px]"
-          />
+      <div className={`h-[88px] flex items-center overflow-hidden transition-all duration-300 ${collapsed ? 'px-3 justify-center' : 'px-5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        {collapsed ? (
           <Image
             src="/contago-mark.svg"
-            alt="GO"
+            alt="ContaGo"
             width={355}
             height={355}
             priority
-            className="-ml-[14px] h-[78px] w-[78px] translate-y-[2px]"
+            className="h-10 w-10"
           />
-        </div>
+        ) : (
+          <div className="flex items-center gap-0">
+            <Image
+              src="/contago-wordmark-copy.svg"
+              alt="Conta"
+              width={560}
+              height={180}
+              priority
+              className="h-auto w-[124px]"
+            />
+            <Image
+              src="/contago-mark.svg"
+              alt="GO"
+              width={355}
+              height={355}
+              priority
+              className="-ml-[14px] h-[78px] w-[78px] translate-y-[2px]"
+            />
+          </div>
+        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1.5">
-        <p className="px-3 pb-2 text-[10px] font-semibold tracking-[0.14em] uppercase" style={{ color: 'rgba(255,255,255,0.35)' }}>Menú</p>
+      <nav className="flex-1 overflow-y-auto px-2 py-5 space-y-1.5">
+        {!collapsed && (
+          <p className="px-3 pb-2 text-[10px] font-semibold tracking-[0.14em] uppercase" style={{ color: 'rgba(255,255,255,0.35)' }}>Menú</p>
+        )}
         {NAV_ITEMS.map(item => {
           const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-150"
+              title={collapsed ? item.label : undefined}
+              className={`flex items-center gap-3 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${collapsed ? 'justify-center px-2' : 'px-3'}`}
               style={isActive ? { background: '#2D6A4F', color: '#F0FDF4' } : { color: 'rgba(255,255,255,0.60)' }}
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.11)' }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
             >
-              <span className="scale-[1.08]" style={isActive ? { color: '#6EE7B7' } : { color: 'rgba(255,255,255,0.40)' }}>
+              <span className="shrink-0 scale-[1.08]" style={isActive ? { color: '#6EE7B7' } : { color: 'rgba(255,255,255,0.40)' }}>
                 {item.icon}
               </span>
-              <div className="flex flex-col">
-                <span className="leading-tight">{item.label}</span>
-                {'subLabel' in item && item.subLabel && (
-                  <span className="text-[11px] leading-tight" style={{ color: isActive ? 'rgba(110,231,183,0.7)' : 'rgba(255,255,255,0.30)' }}>
-                    {item.subLabel}
-                  </span>
-                )}
-              </div>
-              {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#6EE7B7' }} />}
+              {!collapsed && (
+                <div className="flex flex-col overflow-hidden">
+                  <span className="leading-tight truncate">{item.label}</span>
+                  {'subLabel' in item && item.subLabel && (
+                    <span className="text-[11px] leading-tight" style={{ color: isActive ? 'rgba(110,231,183,0.7)' : 'rgba(255,255,255,0.30)' }}>
+                      {item.subLabel}
+                    </span>
+                  )}
+                </div>
+              )}
+              {!collapsed && isActive && <div className="ml-auto shrink-0 w-1.5 h-1.5 rounded-full" style={{ background: '#6EE7B7' }} />}
             </Link>
           )
         })}
-
       </nav>
 
-      <div className="px-3 py-3 flex flex-col gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        <ThemeToggle />
+      <div className={`px-2 py-3 flex flex-col gap-2 ${collapsed ? 'items-center' : ''}`} style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        {/* Botón colapsar */}
+        <button
+          onClick={toggleCollapse}
+          title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+          className={`flex items-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all duration-150 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
+          style={{ color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.06)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.13)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)' }}
+        >
+          <svg className={`shrink-0 w-4 h-4 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          {!collapsed && <span>Colapsar</span>}
+        </button>
+        {!collapsed && <ThemeToggle />}
         <button
           onClick={handleSignOut}
           disabled={isSigningOut}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+          title={collapsed ? 'Cerrar sesión' : undefined}
+          className={`flex items-center gap-2.5 rounded-lg py-2.5 text-sm font-semibold transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
           style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.12)' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.22)' }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.12)' }}
@@ -141,7 +190,7 @@ export default function Sidebar() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
           </svg>
-          {isSigningOut ? 'Cerrando...' : 'Cerrar sesión'}
+          {!collapsed && (isSigningOut ? 'Cerrando...' : 'Cerrar sesión')}
         </button>
       </div>
     </aside>

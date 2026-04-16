@@ -1,18 +1,28 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 
+// dotenv puede dejar comillas literales en los valores; las eliminamos
+function stripQuotes(val: string | undefined): string | undefined {
+  return val?.replace(/^["']|["']$/g, '')
+}
+
 function buildPrismaClient() {
   const isMock =
     process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' ||
     process.env.USE_MOCK_DATA === 'true'
 
-  // ── Modo mock: no se conecta a ninguna DB real ──────────────────────────────
-  if (isMock) {
-    return new PrismaClient()
-  }
-
   // ── Leer URL de Turso (TURSO_DATABASE_URL tiene prioridad) ─────────────────
-  const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL
+  const url = stripQuotes(process.env.TURSO_DATABASE_URL) ||
+              stripQuotes(process.env.DATABASE_URL)
+  const authToken = stripQuotes(process.env.TURSO_AUTH_TOKEN)
+
+  // ── Modo mock: no se conecta a ninguna DB real ──────────────────────────────
+  // En Prisma 7 siempre se requiere un adapter; usamos la misma DB pero sin
+  // ejecutar queries reales (el mock data se inyecta en las actions).
+  if (isMock && url && authToken) {
+    const adapter = new PrismaLibSql({ url, authToken })
+    return new PrismaClient({ adapter } as any)
+  }
 
   if (!url) {
     throw new Error(
@@ -22,11 +32,7 @@ function buildPrismaClient() {
   }
 
   // ── Conexión remota Turso via libSQL ────────────────────────────────────────
-  // En Prisma 7, PrismaLibSql es un factory que recibe Config directamente
-  // (ya NO se usa createClient de @libsql/client por separado)
   if (url.startsWith('libsql') || url.startsWith('wss') || url.startsWith('https')) {
-    const authToken = process.env.TURSO_AUTH_TOKEN
-
     if (!authToken) {
       throw new Error(
         '\n[Prisma] ❌ TURSO_AUTH_TOKEN no está definido.\n' +
@@ -39,8 +45,10 @@ function buildPrismaClient() {
     return new PrismaClient({ adapter } as any)
   }
 
-  // ── SQLite local (file:./...) — solo para desarrollo sin Turso ─────────────
-  return new PrismaClient()
+  // ── SQLite local embebido (file:./...) ─────────────────────────────────────
+  // Usa libsql con archivo local para compatibilidad con Prisma 7 adapter-only
+  const adapter = new PrismaLibSql({ url })
+  return new PrismaClient({ adapter } as any)
 }
 
 declare global {

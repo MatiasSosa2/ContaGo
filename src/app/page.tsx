@@ -1,4 +1,4 @@
-﻿import { getDashboardStats } from '@/app/actions'
+﻿import { getAvailableDashboardMonths, getDashboardStats } from '@/app/actions'
 import { FinancialOverviewChart, ProfitabilityDonut } from '@/components/DashboardCharts'
 import KpiCardWithModal from '@/components/KpiCardWithModal'
 import AppHeader from '@/components/AppHeader'
@@ -15,17 +15,17 @@ function DashboardSkeleton() {
     <>
       <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] lg:items-stretch">
         <div className="flex flex-col gap-4">
-          <div className="h-[176px] rounded-[20px] bg-gray-200 animate-pulse" />
+          <div className="h-[176px] rounded-2xl border border-stone-200 bg-white animate-pulse dark:border-white/10 dark:bg-[#141414]" />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {[0, 1].map(i => (
-              <div key={i} className="h-[132px] rounded-[20px] bg-gray-200 animate-pulse" />
+              <div key={i} className="h-[132px] rounded-2xl border border-stone-200 bg-white animate-pulse dark:border-white/10 dark:bg-[#141414]" />
             ))}
           </div>
         </div>
-        <div className="h-[320px] rounded-[20px] bg-gray-100 animate-pulse" />
+        <div className="h-[320px] rounded-2xl border border-stone-200 bg-white animate-pulse dark:border-white/10 dark:bg-[#141414]" />
       </section>
       <div className="mb-4 md:mb-5">
-        <div className="executive-card h-[340px] animate-pulse bg-gray-100 rounded-2xl" />
+        <div className="h-[340px] animate-pulse rounded-2xl border border-stone-200 bg-white dark:border-white/10 dark:bg-[#141414]" />
       </div>
     </>
   )
@@ -66,7 +66,7 @@ function SummaryRowContent({
 }) {
   return (
     <div
-      className={`kpi-card kpi-card-${tone} h-full rounded-[14px] border transition-all duration-200 ${prominent ? 'p-7 shadow-[0_12px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_14px_36px_rgba(0,0,0,0.34)] -translate-y-[2px]' : 'p-5'}`}
+      className={`kpi-card kpi-card-${tone} h-full rounded-2xl border shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition-all duration-200 dark:shadow-none ${prominent ? 'p-7 ring-1 ring-black/[0.02] dark:ring-white/[0.04]' : 'p-5'}`}
     >
       <div className="flex h-full flex-col justify-between gap-4">
         <div>
@@ -144,20 +144,20 @@ async function DashboardContent({
           </div>
         </div>
 
-        <div className="executive-card home-dashboard-panel flex h-full min-h-[320px] flex-col overflow-hidden rounded-[20px] dark:bg-[#111315]">
-          <div className="border-b border-black/[0.05] bg-slate-50 px-5 py-4 dark:border-white/[0.05] dark:bg-[#181a1d]">
+        <div className="home-dashboard-panel flex h-full min-h-[320px] flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+          <div className="border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 py-4 dark:border-white/10 dark:bg-[#171717]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-gray-700 dark:text-stone-300">Rentabilidad</h2>
-                <p className="text-xs text-gray-400 dark:text-stone-500">Distribución entre egresos y ganancia del período</p>
+                <h2 className="text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Rentabilidad</h2>
+                <p className="text-xs text-[#9CA3AF] dark:text-stone-500">Distribución entre egresos y ganancia del período</p>
               </div>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700 dark:border dark:border-emerald-400/10 dark:bg-[#13251d] dark:text-emerald-300">
+              <span className="rounded-full border border-[#D5E3D8] bg-[#F5FAF7] px-2.5 py-1 text-[10px] font-semibold text-[#2D5A41] dark:border-[#294235] dark:bg-[#162019] dark:text-[#9AC7A8]">
                 {kpis.income > 0 ? `${Math.max(0, (kpis.gain / kpis.income) * 100).toFixed(1)}% margen` : 'Sin ventas'}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-1 items-center justify-center p-4 sm:p-5">
+          <div className="flex flex-1 items-center justify-center p-5 sm:p-6">
             <div className="flex flex-1 items-center justify-center">
               <div className="w-full max-w-[420px]">
                 <ProfitabilityDonut expense={kpis.expense} gain={Math.max(kpis.gain, 0)} height={220} />
@@ -169,13 +169,13 @@ async function DashboardContent({
 
       {/* ══ FILA 2 — GRÁFICO PRINCIPAL (ancho completo) ══════════════════════ */}
       <div className="mb-5">
-        <div className="executive-card home-dashboard-panel flex flex-col overflow-hidden dark:bg-[#111315]">
-          <div className="px-5 py-4 border-b border-black/[0.05] dark:border-white/[0.05] flex justify-between items-center flex-wrap gap-2 bg-slate-50 dark:bg-[#181a1d]">
+        <div className="home-dashboard-panel flex flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+          <div className="flex items-center justify-between gap-2 border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 py-4 flex-wrap dark:border-white/10 dark:bg-[#171717]">
             <div>
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-stone-300">Resumen financiero</h2>
-              <p className="text-xs text-gray-400 dark:text-stone-500">Ingresos · Egresos · Ganancia — {periodLabel}</p>
+              <h2 className="text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Resumen financiero</h2>
+              <p className="text-xs text-[#9CA3AF] dark:text-stone-500">Ingresos · Egresos · Ganancia — {periodLabel}</p>
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-stone-500">
+            <div className="flex items-center gap-4 text-xs text-[#9CA3AF] dark:text-stone-500">
               <span className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm bg-[#7A9485] inline-block" />Ingresos
               </span>
@@ -187,7 +187,7 @@ async function DashboardContent({
               </span>
             </div>
           </div>
-          <div className="p-4 flex-1 dark:bg-[#111315]">
+          <div className="flex-1 p-4 dark:bg-[#141414]">
             {chartData.some(d => d.income > 0 || d.expense > 0) ? (
               <FinancialOverviewChart data={chartData} height={280} />
             ) : (
@@ -201,37 +201,37 @@ async function DashboardContent({
 
       {/* ══ INSIGHTS IA — 3 tarjetas preparadas para mensajes inteligentes ══ */}
       <div className="mb-4 md:mb-5 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl border border-black/[0.04] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border-white/[0.05] dark:bg-[#121416] dark:shadow-none">
-          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 dark:bg-[#173326]">
+        <div className="flex h-[58px] items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F5FAF7] text-[#2D5A41] shrink-0 dark:bg-[#173326] dark:text-[#9AC7A8]">
             <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none dark:text-stone-500">Ingresos</p>
-            <p className="truncate text-[11px] leading-tight text-gray-600 dark:text-stone-300">Análisis disponible próximamente</p>
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF] leading-none dark:text-stone-500">Ingresos</p>
+            <p className="truncate text-[11px] leading-tight text-[#4B5563] dark:text-stone-300">Análisis disponible próximamente</p>
           </div>
         </div>
-        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl border border-black/[0.04] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border-white/[0.05] dark:bg-[#121416] dark:shadow-none">
-          <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 dark:bg-[#241818]">
+        <div className="flex h-[58px] items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FAF6EE] text-[#8A6118] shrink-0 dark:bg-[#241818] dark:text-[#F2B272]">
             <svg className="w-3.5 h-3.5 text-gray-500 dark:text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none dark:text-stone-500">Egresos</p>
-            <p className="truncate text-[11px] leading-tight text-gray-600 dark:text-stone-300">Análisis disponible próximamente</p>
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF] leading-none dark:text-stone-500">Egresos</p>
+            <p className="truncate text-[11px] leading-tight text-[#4B5563] dark:text-stone-300">Análisis disponible próximamente</p>
           </div>
         </div>
-        <div className="h-[52px] flex items-center gap-3 px-4 rounded-xl border border-black/[0.04] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)] dark:border-white/[0.05] dark:bg-[#121416] dark:shadow-none">
-          <div className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center shrink-0 dark:bg-[#222016]">
+        <div className="flex h-[58px] items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F3F6F4] text-[#3A4D39] shrink-0 dark:bg-[#222016] dark:text-[#D7F3DF]">
             <svg className="w-3.5 h-3.5 text-amber-600 dark:text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09ZM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456Z" />
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-none dark:text-stone-500">Rentabilidad</p>
-            <p className="truncate text-[11px] leading-tight text-gray-600 dark:text-stone-300">Análisis disponible próximamente</p>
+            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF] leading-none dark:text-stone-500">Rentabilidad</p>
+            <p className="truncate text-[11px] leading-tight text-[#4B5563] dark:text-stone-300">Análisis disponible próximamente</p>
           </div>
         </div>
       </div>
@@ -249,6 +249,7 @@ export default async function Home({
     searchParams,
   ])
   const businessId = sessionContext.activeBusiness.id
+  const availableMonths = await getAvailableDashboardMonths(businessId)
   const periodo = (sp.periodo ?? 'mensual') as PeriodKey
   const customFrom = sp.from
   const customTo = sp.to
@@ -259,7 +260,7 @@ export default async function Home({
   const selectedMonth = sp.month ? Number.parseInt(sp.month, 10) : (periodo === 'mensual' ? currentMonth : undefined)
 
   return (
-    <div className="p-3 sm:p-5 lg:p-6 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-[#0a0b0d]">
+    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F7F9FB] p-4 font-sans text-[#1F2937] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
 
       {/* ══ FILA 0 — HEADER ══════════════════════════════════════════════════ */}
       <AppHeader
@@ -272,7 +273,7 @@ export default async function Home({
         }
       />
 
-      <div className="mb-3 md:mb-4 flex items-center justify-between gap-3">
+      <div className="mb-5 flex items-center justify-between gap-3 md:mb-6">
         <Suspense fallback={null}>
           <PeriodTabs
             active={periodo}
@@ -280,6 +281,7 @@ export default async function Home({
             customTo={customTo}
             selectedYear={selectedYear}
             selectedMonth={selectedMonth}
+            availableMonths={availableMonths}
           />
         </Suspense>
       </div>

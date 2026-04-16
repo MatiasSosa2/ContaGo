@@ -22,7 +22,7 @@ export default function TransactionFormCard({
     return await createTransaction(formData)
   }
 
-  const headerBg = activeTab === 'INCOME' ? 'bg-brand-military' : 'bg-[#1A1A1A]'
+  const headerBg = activeTab === 'INCOME' ? 'bg-brand-military' : 'bg-brand-oxide'
 
   return (
     <div className="bg-white/90 backdrop-blur-sm border border-gray-200/80 shadow-lg rounded-sm flex flex-col h-full overflow-hidden">
@@ -45,7 +45,7 @@ export default function TransactionFormCard({
           </button>
           <button
             onClick={() => setActiveTab('EXPENSE')}
-            className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all border-l-2 border-white/20 ${activeTab === 'EXPENSE' ? 'bg-white text-gray-900' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+            className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all border-l-2 border-white/20 ${activeTab === 'EXPENSE' ? 'bg-white text-brand-oxide' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
           >
             Gasto
           </button>

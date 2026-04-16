@@ -218,24 +218,27 @@ body {
 }
 
 .kpi-card-value-income {
-  color: #166534;
+  color: #2D5A41;
 }
 
-.kpi-card-value-expense,
-.kpi-card-value-profit-negative {
-  color: #991B1B;
+.kpi-card-value-expense {
+  color: #8A6118;
 }
 
 .kpi-card-value-profit-positive {
-  color: #166534;
+  color: #2D5A41;
+}
+
+.kpi-card-value-profit-negative {
+  color: #9A3412;
 }
 
 .kpi-card-variation-positive {
-  color: #166534;
+  color: #2D5A41;
 }
 
 .kpi-card-variation-negative {
-  color: #991B1B;
+  color: #9A3412;
 }
 
 .kpi-card-variation-neutral {
@@ -243,27 +246,27 @@ body {
 }
 
 .kpi-card-income {
-  background: #F0FDF4;
-  border-color: #BBF7D0;
+  background: #F5FAF7;
+  border-color: #D5E3D8;
 }
 
 .kpi-card-income .kpi-card-label {
-  color: #166534;
+  color: #2D5A41;
 }
 
 .kpi-card-expense {
-  background: #FEF2F2;
-  border-color: #FECACA;
+  background: #FFF8EC;
+  border-color: #E6D6B8;
 }
 
 .kpi-card-expense .kpi-card-label {
-  color: #991B1B;
+  color: #8A6118;
 }
 
 .kpi-card-profit-positive,
 .kpi-card-profit-negative {
-  background: #F8FAFC;
-  border-color: #E5E7EB;
+  background: #FAFBFC;
+  border-color: #ECE7E1;
 }
 
 .kpi-card-profit-positive .kpi-card-label,
@@ -369,8 +372,8 @@ body {
 }
 
 [data-theme="dark"] .kpi-card-income {
-  background: #102017;
-  border-color: #1b3a2a;
+  background: #162019;
+  border-color: #294235;
 }
 
 [data-theme="dark"] .kpi-card-income .kpi-card-label {
@@ -378,12 +381,12 @@ body {
 }
 
 [data-theme="dark"] .kpi-card-expense {
-  background: #241515;
-  border-color: #5f2a2a;
+  background: #21180f;
+  border-color: #5b4a2f;
 }
 
 [data-theme="dark"] .kpi-card-expense .kpi-card-label {
-  color: #f0b4b4;
+  color: #d7b36b;
 }
 
 [data-theme="dark"] .kpi-card-profit-positive,
@@ -420,7 +423,10 @@ body {
   color: #c9f1d8;
 }
 
-[data-theme="dark"] .kpi-card-value-expense,
+[data-theme="dark"] .kpi-card-value-expense {
+  color: #f2d59b;
+}
+
 [data-theme="dark"] .kpi-card-value-profit-negative {
   color: #ffd2cc;
 }
