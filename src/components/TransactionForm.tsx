@@ -230,11 +230,11 @@ export default function TransactionForm({
   const subTypeOptions: { value: SubType; label: string }[] = isIngreso
     ? [
         { value: 'SALE', label: 'Venta' },
-        { value: 'COBRO', label: 'Cobro' },
+        { value: 'COBRO', label: 'Otros Ingresos' },
       ]
     : [
         { value: 'PURCHASE', label: 'Compra' },
-        { value: 'PAGO', label: 'Pago' },
+        { value: 'PAGO', label: 'Otros Egresos' },
       ]
 
   const metodoPagoOptions: { value: MetodoPago; label: string; icon: string; onlyFor?: SubType[] }[] = [
@@ -415,7 +415,7 @@ export default function TransactionForm({
                     value={cantidad}
                     onChange={(e) => setCantidad(e.target.value)}
                     placeholder="0"
-                    className={INPUT_CLS}
+                    className={INPUT_CLS + ' [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'}
                     required={isProductSubType}
                   />
                 </div>
@@ -432,7 +432,7 @@ export default function TransactionForm({
                       value={precioUnitario}
                       onChange={(e) => setPrecioUnitario(e.target.value)}
                       placeholder="0.00"
-                      className={INPUT_CLS + ' pl-6'}
+                      className={INPUT_CLS + ' pl-6 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'}
                       required={isProductSubType}
                     />
                   </div>
