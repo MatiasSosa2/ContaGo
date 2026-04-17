@@ -2,7 +2,7 @@
 
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 
 // ── Hook de detección de tema ──────────────────────────────────────────────────
 function useDarkMode() {
@@ -467,5 +467,150 @@ export function DebtStatusBar({ data, height = 48 }: DebtStatusBarProps) {
       style={{ height, width: '100%' }}
       opts={{ renderer: 'svg' }}
     />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. EVOLUTION TABS — gráfico full-width con 4 sub-vistas
+// ─────────────────────────────────────────────────────────────────────────────
+type EvView = 'overview' | 'income_cats' | 'expense_cats' | 'net'
+
+interface EvolutionTabsProps {
+  chartData: { label: string; income: number; expense: number; net: number }[]
+  categoryBreakdown: { name: string; value: number; color: string }[]
+  incomeCategoryBreakdown: { name: string; value: number; color: string }[]
+}
+
+function EmptyChart({ message = 'Sin datos históricos aún' }: { message?: string }) {
+  return (
+    <div className="flex h-[280px] items-center justify-center">
+      <p className="text-sm text-stone-400 dark:text-stone-500">{message}</p>
+    </div>
+  )
+}
+
+export function EvolutionTabs({ chartData, categoryBreakdown, incomeCategoryBreakdown }: EvolutionTabsProps) {
+  const [view, setView] = useState<EvView>('overview')
+  const isDark = useDarkMode()
+
+  const TABS: { key: EvView; label: string }[] = [
+    { key: 'overview', label: 'Ingresos vs Egresos' },
+    { key: 'income_cats', label: 'Composición Ingresos' },
+    { key: 'expense_cats', label: 'Composición Egresos' },
+    { key: 'net', label: 'Ganancia' },
+  ]
+
+  const hasData = chartData.some(d => d.income > 0 || d.expense > 0)
+
+  const netOption: EChartsOption = useMemo(() => {
+    const axisColor = isDark ? '#2a2a2a' : '#d1d5db'
+    const labelColor = isDark ? '#6b7280' : '#9ca3af'
+    return {
+      animation: true,
+      backgroundColor: 'transparent',
+      grid: { top: 12, bottom: 36, left: 16, right: 16, containLabel: true },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: '#1A1A1A',
+        borderColor: '#374151',
+        borderWidth: 1,
+        textStyle: { color: '#fff', fontSize: 11 },
+        formatter: (params: any) => {
+          const p = params[0]
+          const val = Number(p?.value ?? 0)
+          return `<div style="font-weight:600;color:#9ca3af;margin-bottom:4px;">${p?.axisValue ?? ''}</div><div style="font-family:monospace;">${val >= 0 ? '' : '−'}${fmtARS(Math.abs(val))}</div>`
+        },
+      },
+      xAxis: {
+        type: 'category',
+        data: chartData.map(d => d.label),
+        axisLine: { lineStyle: { color: axisColor } },
+        axisTick: { show: false },
+        axisLabel: { color: labelColor, fontSize: 10 },
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { lineStyle: { color: axisColor, type: 'dashed' } },
+        axisLabel: {
+          color: labelColor,
+          fontSize: 10,
+          formatter: (v: number) => {
+            const abs = Math.abs(v)
+            if (abs >= 1_000_000) return `${v < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(1).replace('.0', '')}M`
+            return `${v < 0 ? '-' : ''}$${abs.toLocaleString('es-AR')}`
+          },
+        },
+      },
+      series: [{
+        name: 'Ganancia',
+        type: 'line',
+        data: chartData.map(d => d.net),
+        smooth: true,
+        showSymbol: true,
+        symbolSize: 5,
+        lineStyle: { color: '#38BDF8', width: 2 },
+        itemStyle: { color: '#38BDF8' },
+        areaStyle: {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: '#38BDF840' },
+              { offset: 1, color: '#38BDF800' },
+            ],
+          },
+        },
+      }],
+    }
+  }, [chartData, isDark])
+
+  const incomeDonutData = incomeCategoryBreakdown.map(c => ({ name: c.name, value: c.value, itemStyle: { color: c.color } }))
+  const expenseDonutData = categoryBreakdown.map(c => ({ name: c.name, value: c.value, itemStyle: { color: c.color } }))
+
+  return (
+    <div>
+      {/* Pestañas */}
+      <div className="flex gap-0 overflow-x-auto border-b border-[#ECE7E1] px-5 dark:border-white/10">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setView(tab.key)}
+            className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] transition ${
+              view === tab.key
+                ? 'border-[#3A4D39] text-[#3A4D39] dark:border-[#9AC7A8] dark:text-[#9AC7A8]'
+                : 'border-transparent text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Contenido del gráfico */}
+      <div className="p-4">
+        {view === 'overview' && (
+          hasData
+            ? <FinancialOverviewChart data={chartData} height={280} />
+            : <EmptyChart />
+        )}
+        {view === 'income_cats' && (
+          incomeDonutData.length > 0
+            ? <ExpenseCategoryDonut data={incomeDonutData} height={280} />
+            : <EmptyChart message="Sin ingresos categorizados" />
+        )}
+        {view === 'expense_cats' && (
+          expenseDonutData.length > 0
+            ? <ExpenseCategoryDonut data={expenseDonutData} height={280} />
+            : <EmptyChart message="Sin egresos categorizados" />
+        )}
+        {view === 'net' && (
+          hasData
+            ? <ReactECharts option={netOption} style={{ height: 280, width: '100%' }} opts={{ renderer: 'svg' }} />
+            : <EmptyChart />
+        )}
+      </div>
+    </div>
   )
 }
