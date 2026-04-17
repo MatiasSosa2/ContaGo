@@ -628,3 +628,135 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
 }
 
 // ── Columna de grupo (Efectivo o Virtual) ──
+function CajaGroupColumn({
+  label,
+  icon,
+  group,
+  variant = 'military',
+}: {
+  label: string
+  icon: React.ReactNode
+  group: CajasGroupData
+  variant?: 'military' | 'gold'
+}) {
+  const availableCurrencies = new Set(group.accounts.map((a) => a.currency))
+  const defaultCurrency: CajaCurrency = availableCurrencies.has('ARS') ? 'ARS' : 'USD'
+  const [selectedCurrency, setSelectedCurrency] = useState<CajaCurrency>(defaultCurrency)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+
+  const filtered = group.accounts.filter(a => a.currency === selectedCurrency)
+  const filteredTotal = filtered.reduce((s, a) => s + a.currentBalance, 0)
+  const isNegative = filteredTotal < 0
+
+  const todayVariation = group.todayVariation
+  const todayIsPositive = todayVariation >= 0
+
+  const tone = variant === 'gold'
+    ? {
+        card: 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]',
+        header: 'bg-[#FAFBFC] border-[#ECE7E1] dark:bg-[#171717] dark:border-white/10',
+        iconWrap: 'bg-brand-gold-light text-brand-gold-dark dark:bg-[#3B2E1A] dark:text-[#D7B36B]',
+        selectorWrap: 'border-[#E6D6B8] bg-[#FFF8EC] dark:border-[#5B4A2F] dark:bg-[#21180F]',
+        selectorActive: 'bg-brand-gold text-white shadow-sm dark:bg-[#7A5821] dark:text-[#FFF6E6]',
+        selectorIdle: 'text-[#8A6118] hover:text-[#5C4315] dark:text-[#CBA86B] dark:hover:text-[#F2D59B]',
+        button: 'border-[#D9C7A1] bg-white text-[#8A6118] hover:border-[#B88A2E] hover:text-[#6E4E14] dark:border-[#5B4A2F] dark:bg-[#221A10] dark:text-[#D7B36B]',
+      }
+    : {
+        card: 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]',
+        header: 'bg-[#FAFBFC] border-[#ECE7E1] dark:bg-[#171717] dark:border-white/10',
+        iconWrap: 'bg-brand-military-light text-[#2D5A41] dark:bg-[#1F3428] dark:text-[#9AC7A8]',
+        selectorWrap: 'border-[#D5E3D8] bg-[#F5FAF7] dark:border-[#294235] dark:bg-[#131C16]',
+        selectorActive: 'bg-brand-military text-white shadow-sm dark:bg-[#244330] dark:text-[#D7F3DF]',
+        selectorIdle: 'text-[#4D6E59] hover:text-[#1F4D36] dark:text-[#8CB299] dark:hover:text-[#D7F3DF]',
+        button: 'border-[#C9D8CC] bg-white text-[#2D5A41] hover:border-[#2D6A4F] hover:text-[#1F4D36] dark:border-[#294235] dark:bg-[#152019] dark:text-[#9AC7A8]',
+      }
+
+  return (
+    <>
+      <div className="flex h-full flex-col gap-5">
+        <div className={`flex h-full flex-col overflow-hidden rounded-2xl border shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${tone.card}`}>
+
+          <div className={`border-b px-5 pb-4 pt-5 ${tone.header}`}>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className={`flex h-9 w-9 items-center justify-center ${tone.iconWrap}`}>
+                {icon}
+              </div>
+              <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
+            </div>
+
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 mb-1">Saldo</p>
+                <p className={`text-3xl md:text-[32px] font-mono font-bold num-tabular leading-none ${
+                  isNegative ? 'text-[#B45309] dark:text-[#F2B272]' : 'text-[#1F2937] dark:text-[#E8E8E8]'
+                }`}>
+                  {isNegative ? '− ' : ''}{fmtMoney(Math.abs(filteredTotal), selectedCurrency)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(true)}
+                className={`shrink-0 border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${tone.button}`}
+              >
+                Subcajas
+              </button>
+            </div>
+
+            <div className={`mt-3 inline-flex w-full items-center gap-1 border p-1 ${tone.selectorWrap}`}>
+              {CAJA_CURRENCIES.map((currency) => {
+                const isActive = selectedCurrency === currency
+                const isAvailable = availableCurrencies.has(currency)
+                return (
+                  <button
+                    key={currency}
+                    type="button"
+                    onClick={() => setSelectedCurrency(currency)}
+                    className={`flex-1 px-3 py-2 text-[11px] font-semibold transition ${
+                      isActive ? tone.selectorActive : tone.selectorIdle
+                    } ${!isAvailable ? 'opacity-55' : ''}`}
+                  >
+                    {getCurrencyLabel(currency)}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="px-5 py-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 mb-1">Hoy</p>
+            <p className={`text-lg font-mono font-semibold num-tabular ${
+              todayIsPositive ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#B45309] dark:text-[#F2B272]'
+            }`}>
+              {todayIsPositive ? '+' : '− '}{fmtMoney(Math.abs(todayVariation), selectedCurrency)}
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      {detailsOpen && (
+        <CajaDetailsModal
+          label={label}
+          currency={selectedCurrency}
+          accounts={filtered}
+          total={filteredTotal}
+          onClose={() => setDetailsOpen(false)}
+        />
+      )}
+    </>
+  )
+}
+
+// ── Componente principal ──
+export default function CajasClient({ data, movements }: { data: CajasData; movements: CajasMovementItem[] }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <CajaGroupColumn label="Efectivo" icon={<CashIcon />} group={data.efectivo} variant="military" />
+        <CajaGroupColumn label="Virtual" icon={<VirtualIcon />} group={data.virtual} variant="gold" />
+        <HistorialCard movements={movements} />
+      </div>
+      <MovementsPanel movements={movements} />
+    </div>
+  )
+}
