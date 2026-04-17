@@ -240,8 +240,8 @@ export default function TransactionForm({
   const metodoPagoOptions: { value: MetodoPago; label: string; icon: string; onlyFor?: SubType[] }[] = [
     { value: 'EFECTIVO', label: 'Efectivo', icon: 'cash' },
     { value: 'VIRTUAL', label: 'Virtual', icon: 'card' },
-    { value: 'CREDITO', label: 'Credito', icon: 'credit', onlyFor: ['SALE'] },
-    { value: 'DEUDA', label: 'Deuda', icon: 'debt', onlyFor: ['PURCHASE'] },
+    { value: 'CREDITO', label: 'Credito', icon: 'credit', onlyFor: ['SALE', 'COBRO'] },
+    { value: 'DEUDA', label: 'Deuda', icon: 'debt', onlyFor: ['PURCHASE', 'PAGO'] },
   ]
 
   return (
@@ -272,10 +272,6 @@ export default function TransactionForm({
           </button>
         </div>
       )}
-
-      <p className="mb-4 text-xs font-medium text-gray-400 dark:text-gray-500">
-        {isIngreso ? 'Entrada de dinero' : 'Salida de dinero'}
-      </p>
 
       {error && (
         <div className="mb-4 flex items-center justify-between rounded-xl border-l-4 border-red-500 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-400">
@@ -410,10 +406,10 @@ export default function TransactionForm({
                   <label className={LABEL_CLS}>Cantidad</label>
                   <input
                     type="number"
-                    min="0.01"
-                    step="0.01"
+                    min="1"
+                    step="1"
                     value={cantidad}
-                    onChange={(e) => setCantidad(e.target.value)}
+                    onChange={(e) => setCantidad(String(Math.floor(Number(e.target.value))))}
                     placeholder="0"
                     className={INPUT_CLS}
                     required={isProductSubType}
@@ -532,19 +528,6 @@ export default function TransactionForm({
           </div>
         </div>
 
-        {/* Descripcion */}
-        <div>
-          <label className={LABEL_CLS}>Descripcion</label>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder={isProductSubType ? 'Opcional - se auto-genera' : 'Concepto del movimiento'}
-            className={INPUT_CLS}
-            required={isCobroPago && !description}
-          />
-        </div>
-
         {/* Metodo de pago */}
         <div>
           <label className={LABEL_CLS}>Metodo de pago</label>
@@ -639,22 +622,6 @@ export default function TransactionForm({
           </div>
         )}
 
-        {/* Area de negocio */}
-        {areas.length > 0 && (
-          <div>
-            <label className={LABEL_CLS}>Area de negocio</label>
-            <SelectWrapper>
-              <select name="areaNegocioId" className={SELECT_CLS} defaultValue="">
-                <option value="">Sin area asignada</option>
-                {areas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nombre}
-                  </option>
-                ))}
-              </select>
-            </SelectWrapper>
-          </div>
-        )}
       </div>
 
       {/* Submit */}
