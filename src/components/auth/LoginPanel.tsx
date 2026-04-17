@@ -8,6 +8,15 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 import { prepareCredentialsLogin } from '@/app/auth/actions'
 
+/** Extrae solo el pathname+search de una URL para evitar redirects cross-origin */
+function safeLocalPath(url: string): string {
+  try {
+    return new URL(url).pathname
+  } catch {
+    return url.startsWith('/') ? url : '/select-business'
+  }
+}
+
 function GoogleIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
@@ -102,7 +111,8 @@ export default function LoginPanel({
         return
       }
 
-      router.push(result.url || '/select-business')
+      const dest = result.url ? safeLocalPath(result.url) : '/select-business'
+      router.push(dest)
       router.refresh()
     })
   }
@@ -123,7 +133,8 @@ export default function LoginPanel({
         return
       }
 
-      router.push(result.url || '/select-business')
+      const dest = result.url ? safeLocalPath(result.url) : '/select-business'
+      router.push(dest)
       router.refresh()
     })
   }
