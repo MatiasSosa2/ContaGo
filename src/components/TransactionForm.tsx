@@ -193,6 +193,8 @@ export default function TransactionForm({
       description ||
         (isProductSubType && selectedProducto
           ? `${subType === 'SALE' ? 'Venta' : 'Compra'}: ${selectedProducto.nombre}`
+          : subType === 'COBRO' ? 'Otros Ingresos'
+          : subType === 'PAGO' ? 'Otros Egresos'
           : subType)
     )
     formData.set('type', type)

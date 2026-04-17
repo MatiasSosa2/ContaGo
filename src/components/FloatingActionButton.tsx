@@ -123,9 +123,6 @@ export default function FloatingActionButton() {
             <div className="flex shrink-0 items-start justify-between px-6 pt-5 pb-4">
               <div>
                 <h2 className="text-base font-bold text-gray-900 dark:text-white">Registrar movimiento</h2>
-                <p className="mt-0.5 text-xs font-medium text-gray-400 dark:text-gray-500">
-                  {activeTab === 'INCOME' ? 'Entrada de dinero' : 'Salida de dinero'}
-                </p>
               </div>
               <div className="flex items-center gap-3">
                 {/* Toggle Ingresos / Egresos */}
