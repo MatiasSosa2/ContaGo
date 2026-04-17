@@ -178,7 +178,7 @@ export function FinancialOverviewChart({ data, height = 240 }: FinancialOverview
           const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px;"></span>`
           html += `<div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:2px;">`
           html += `<span>${dot}${p.seriesName}</span>`
-          html += `<span style="font-family:monospace;font-weight:300;">${val >= 0 ? '' : '−'}${fmtARS(Math.abs(val))}</span>`
+          html += `<span style="font-family:monospace;font-weight:300;">${val >= 0 ? '' : '-'}${fmtARS(Math.abs(val))}</span>`
           html += `</div>`
         }
         return html
@@ -518,7 +518,7 @@ export function EvolutionTabs({ chartData, categoryBreakdown, incomeCategoryBrea
         formatter: (params: any) => {
           const p = params[0]
           const val = Number(p?.value ?? 0)
-          return `<div style="font-weight:600;color:#9ca3af;margin-bottom:4px;">${p?.axisValue ?? ''}</div><div style="font-family:monospace;">${val >= 0 ? '' : '−'}${fmtARS(Math.abs(val))}</div>`
+          return `<div style="font-weight:600;color:#9ca3af;margin-bottom:4px;">${p?.axisValue ?? ''}</div><div style="font-family:monospace;">${val >= 0 ? '' : '-'}${fmtARS(Math.abs(val))}</div>`
         },
       },
       xAxis: {

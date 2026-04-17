@@ -49,7 +49,7 @@ function fmt(v: number) {
 }
 
 function variationState(value: number | null, trend: 'direct' | 'inverse' = 'direct') {
-  if (value === null) return { label: '—', positive: null, favorable: null }
+  if (value === null) return { label: 'Sin datos', positive: null, favorable: null }
   const positive = value >= 0
   const favorable = trend === 'inverse' ? !positive : positive
   return {
@@ -207,13 +207,13 @@ async function DashboardContent({
           <p className={`mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] num-tabular ${
             gainIsPositive ? 'text-[#0369A1] dark:text-[#38BDF8]' : 'text-[#B91C1C] dark:text-[#F87171]'
           }`}>
-            {gainIsPositive ? '' : '−'}{fmt(kpis.gain)}
+            {gainIsPositive ? '' : '-'}{fmt(kpis.gain)}
           </p>
           <div className="mt-3 flex items-center gap-2">
             <div className={`h-1.5 flex-1 overflow-hidden rounded-full ${gainIsPositive ? 'bg-[#E0F2FE] dark:bg-[#0C3450]' : 'bg-[#FDEDED] dark:bg-[#2E1919]'}`}>
               <div className={`h-full rounded-full ${gainIsPositive ? 'bg-[#0369A1]' : 'bg-[#B91C1C]'}`} style={{ width: `${gainShare.toFixed(0)}%` }} />
             </div>
-            <span className="text-[11px] text-stone-400">{kpis.income > 0 ? `${gainShare.toFixed(0)}%` : '—'}</span>
+            <span className="text-[11px] text-stone-400">{kpis.income > 0 ? `${gainShare.toFixed(0)}%` : 'N/A'}</span>
           </div>
         </div>
 
@@ -410,7 +410,7 @@ export default async function Home({
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#1F2937] dark:text-[#E8E8E8]">
-            Hola, {firstName} 👋
+            Hola, {firstName}
           </h1>
           <p className="mt-0.5 text-sm text-stone-400 dark:text-stone-500">
             {PERIOD_DISPLAY[periodo] ?? 'Período personalizado'}
