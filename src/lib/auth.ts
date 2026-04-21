@@ -8,8 +8,7 @@ import bcrypt from "bcryptjs";
 
 import prismaClient from '@/lib/prisma'
 import type { EmailChallengePurpose } from '@/server/auth/challenges'
-import { createEmailChallenge } from '@/server/auth/challenges'
-import { resolveUserActiveBusiness } from '@/server/auth/business-context'
+import { createEmailChallenge, findVerifiedChallengeForLogin } from '@/server/auth/challenges'
 import { sendAuthCodeEmail } from '@/server/auth/email'
 import { decideLoginChallenge, shouldRequirePeriodicRiskChallenge } from '@/server/auth/login-security'
 
@@ -60,6 +59,7 @@ function getConfiguredProviders() {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
         temporaryAccess: { label: "TemporaryAccess", type: "text" },
+        postVerifyChallengeId: { label: "PostVerifyChallengeId", type: "text" },
       },
       async authorize(credentials) {
         if (useMockAuth) {
@@ -69,14 +69,17 @@ function getConfiguredProviders() {
         const wantsTemporaryAccess = credentials?.temporaryAccess === 'true'
         const normalizedEmail = credentials?.email?.trim().toLowerCase()
         const password = credentials?.password
+        const postVerifyChallengeId = credentials?.postVerifyChallengeId?.trim() || null
 
         if (wantsTemporaryAccess) {
           const temporaryAccessEmail = getTemporaryAccessAdminEmail()
 
           if (!temporaryAccessEmail || !prisma) {
+            console.warn('[auth] acceso temporal deshabilitado: TEMP_ACCESS_ADMIN_EMAIL no configurado o prisma ausente')
             return null
           }
 
+          // Buscar user (los emails en DB se guardan normalizados a lowercase)
           const user = await prisma.user.findUnique({
             where: { email: temporaryAccessEmail },
             select: {
@@ -94,7 +97,12 @@ function getConfiguredProviders() {
             },
           })
 
-          if (!user || user.memberships.length === 0) {
+          if (!user) {
+            console.warn(`[auth] acceso temporal: no existe user con email ${temporaryAccessEmail}`)
+            return null
+          }
+          if (user.memberships.length === 0) {
+            console.warn(`[auth] acceso temporal: user ${user.id} no tiene membership ACTIVE+ADMIN`)
             return null
           }
 
@@ -106,6 +114,41 @@ function getConfiguredProviders() {
             emailVerified: user.emailVerified,
             lastSecurityChallengeAt: user.lastSecurityChallengeAt,
             isTemporaryAccess: true,
+          } as CredentialsAuthUser
+        }
+
+        // Post-verificación: permite iniciar sesión con un challengeId recién consumido
+        // (sin reingresar password) en la ventana de 2 minutos después del verify-code.
+        if (postVerifyChallengeId && normalizedEmail && prisma) {
+          const verified = await findVerifiedChallengeForLogin({
+            email: normalizedEmail,
+            challengeId: postVerifyChallengeId,
+          })
+          if (!verified) {
+            console.warn('[auth] postVerifyChallengeId no valido o expirado')
+            return null
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              emailVerified: true,
+              lastSecurityChallengeAt: true,
+            },
+          })
+          if (!user) return null
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            emailVerified: user.emailVerified,
+            lastSecurityChallengeAt: user.lastSecurityChallengeAt,
           } as CredentialsAuthUser
         }
 
@@ -173,23 +216,49 @@ async function hydrateTokenContext(token: JWT) {
     return token
   }
 
-  const [user, activeBusiness] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: token.sub },
-      select: {
-        emailVerified: true,
-        defaultBusinessId: true,
-        lastSecurityChallengeAt: true,
+  const user = await prisma.user.findUnique({
+    where: { id: token.sub },
+    select: {
+      emailVerified: true,
+      defaultBusinessId: true,
+      lastSecurityChallengeAt: true,
+      memberships: {
+        where: { status: 'ACTIVE' },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          role: true,
+          businessId: true,
+          business: { select: { id: true, name: true } },
+        },
       },
-    }),
-    resolveUserActiveBusiness(token.sub, token.activeBusinessId),
-  ])
+    },
+  })
+
+  const memberships = user?.memberships ?? []
+  const preferredId = token.activeBusinessId ?? null
+  let activeMembership = preferredId
+    ? memberships.find((m) => m.businessId === preferredId)
+    : undefined
+
+  if (!activeMembership) {
+    activeMembership =
+      memberships.find((m) => m.businessId === user?.defaultBusinessId) ??
+      (memberships.length === 1 ? memberships[0] : undefined)
+  }
+
+  const role = activeMembership?.role
+  const normalizedRole: 'ADMIN' | 'COLLABORATOR' | 'VIEWER' | null =
+    role === 'ADMIN' || role === 'COLLABORATOR' || role === 'VIEWER'
+      ? role
+      : activeMembership
+      ? 'COLLABORATOR'
+      : null
 
   token.emailVerified = Boolean(user?.emailVerified)
-  token.activeBusinessId = activeBusiness?.id ?? null
-  token.activeBusinessName = activeBusiness?.name ?? null
-  token.activeBusinessRole = activeBusiness?.role ?? null
-  token.challengeSatisfied = Boolean(user?.emailVerified) && !shouldRequirePeriodicRiskChallenge(user?.lastSecurityChallengeAt)
+  token.activeBusinessId = activeMembership?.business.id ?? null
+  token.activeBusinessName = activeMembership?.business.name ?? null
+  token.activeBusinessRole = normalizedRole
+  token.challengeSatisfied = Boolean(user?.emailVerified) && !shouldRequirePeriodicRiskChallenge(user?.lastSecurityChallengeAt, user?.emailVerified)
 
   return token
 }
@@ -254,7 +323,20 @@ export const authOptions: NextAuthOptions = {
         token.activeBusinessRole = session.activeBusiness.role
       }
 
-      return hydrateTokenContext(token)
+      // Solo hidratar desde DB en el login inicial o cuando cambia el contexto.
+      // En las requests subsiguientes el token ya trae lo necesario y evitamos
+      // 1 query por cada request autenticada.
+      const needsHydration =
+        Boolean(user) ||
+        trigger === 'update' ||
+        trigger === 'signUp' ||
+        token.emailVerified === undefined
+
+      if (needsHydration) {
+        return hydrateTokenContext(token)
+      }
+
+      return token
     },
     async signIn({ user, account }) {
       if (!useMockAuth && prisma && user.id && user.email && account?.provider) {
@@ -266,7 +348,7 @@ export const authOptions: NextAuthOptions = {
         const isTemporaryAccess = credentialsUser.isTemporaryAccess === true
 
         if (isTemporaryAccess) {
-          await prisma.user.update({
+          void prisma.user.update({
             where: { id: user.id },
             data: { lastLoginAt: new Date() },
           }).catch(() => null)
@@ -313,7 +395,8 @@ export const authOptions: NextAuthOptions = {
           return buildVerifyCodeRedirect(dbUser.email, challengePurpose)
         }
 
-        await prisma.user.update({
+        // Fire-and-forget: no bloqueamos el login esperando un update cosmético.
+        void prisma.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
         }).catch(() => null)

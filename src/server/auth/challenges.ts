@@ -64,6 +64,39 @@ function safeCompareHash(left: string, right: string) {
   return timingSafeEqual(leftBuffer, rightBuffer)
 }
 
+/**
+ * Busca un EmailChallenge recién verificado para permitir un signIn post-verificación
+ * sin volver a pedir la contraseña. Se usa como "token one-shot" de corta vida.
+ *
+ * Requisitos:
+ *  - id = challengeId
+ *  - email coincide (case-insensitive via comparación lower)
+ *  - consumedAt no nulo y consumedAt >= ahora - maxAgeSeconds
+ *  - purpose apto para login
+ */
+export async function findVerifiedChallengeForLogin(input: {
+  email: string
+  challengeId: string
+  maxAgeSeconds?: number
+}): Promise<{ userId: string | null; purpose: EmailChallengePurpose } | null> {
+  const maxAge = (input.maxAgeSeconds ?? 120) * 1000
+  const challenge = await prisma.emailChallenge.findFirst({
+    where: {
+      id: input.challengeId,
+      email: input.email.toLowerCase(),
+      purpose: { in: ['SIGNUP_VERIFY', 'SOCIAL_LOGIN_VERIFY', 'RISK_CHALLENGE'] },
+      consumedAt: { not: null, gte: new Date(Date.now() - maxAge) },
+    },
+    select: { id: true, userId: true, purpose: true },
+  })
+
+  if (!challenge) return null
+  return {
+    userId: challenge.userId,
+    purpose: challenge.purpose as EmailChallengePurpose,
+  }
+}
+
 export async function invalidateOpenChallenges(email: string, purpose: EmailChallengePurpose, userId?: string | null) {
   await prisma.emailChallenge.updateMany({
     where: {

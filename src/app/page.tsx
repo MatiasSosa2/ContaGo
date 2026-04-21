@@ -407,10 +407,10 @@ export default async function Home({
       />
 
       {/* ── Saludo + Selector de período ────────────────────────────────────── */}
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between md:mb-6">
+      <div className="mb-5 flex flex-row flex-wrap items-center justify-between gap-3 md:mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#1F2937] dark:text-[#E8E8E8]">
-            Hola, {firstName}
+            Hola, {firstName} 👋
           </h1>
           <p className="mt-0.5 text-sm text-stone-400 dark:text-stone-500">
             {PERIOD_DISPLAY[periodo] ?? 'Período personalizado'}

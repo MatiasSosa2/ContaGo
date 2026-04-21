@@ -1,72 +1,93 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import TransactionForm from './TransactionForm'
-import { getAccounts, getCategories, getContacts, getAreasNegocio, getProductos, getEmpleados, createTransaction } from '@/app/actions'
+import { getModalCatalogs, createTransaction } from '@/app/actions'
 import type { Account, Category, Contact, AreaNegocio, Producto, Empleado } from './TransactionForm'
+
+type CatalogsData = {
+  accounts: Account[]
+  categories: Category[]
+  contacts: Contact[]
+  areas: AreaNegocio[]
+  productos: Producto[]
+  empleados: Empleado[]
+}
 
 export default function FloatingActionButton() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'INCOME' | 'EXPENSE'>('INCOME')
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<{
-    accounts: Account[]
-    categories: Category[]
-    contacts: Contact[]
-    areas: AreaNegocio[]
-    productos: Producto[]
-    empleados: Empleado[]
-  } | null>(null)
+  const [data, setData] = useState<CatalogsData | null>(null)
+  const fetchPromiseRef = useRef<Promise<CatalogsData> | null>(null)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    const [accounts, categories, contacts, areas, productosRaw, empleadosRaw] = await Promise.all([
-      getAccounts(),
-      getCategories(),
-      getContacts(),
-      getAreasNegocio(),
-      getProductos(),
-      getEmpleados(),
-    ])
-    const productos: Producto[] = productosRaw.map((p) => ({
-      id: p.id,
-      nombre: p.nombre,
-      categoria: p.categoria ?? null,
-      marca: p.marca ?? null,
-      precioVenta: p.precioVenta,
-      precioCosto: p.precioCosto,
-      stockActual: p.stockActual,
-    }))
-    const empleados: Empleado[] = empleadosRaw.map((e) => ({
-      id: e.id,
-      nombre: e.nombre,
-      cargo: e.cargo ?? null,
-    }))
-    const mappedAccounts: Account[] = accounts.map((a) => ({
-      id: a.id,
-      name: a.name,
-      currency: a.currency,
-      type: a.type,
-    }))
-    const mappedCategories: Category[] = categories.map((c) => ({
-      id: c.id,
-      name: c.name,
-      type: c.type,
-    }))
-    const mappedContacts: Contact[] = contacts.map((c) => ({
-      id: c.id,
-      name: c.name,
-      type: c.type,
-    }))
-    setData({ accounts: mappedAccounts, categories: mappedCategories, contacts: mappedContacts, areas, productos, empleados })
-    setLoading(false)
+  const isAuthRoute = pathname.startsWith('/auth') || pathname.startsWith('/select-business')
+
+  const fetchData = useCallback(() => {
+    if (fetchPromiseRef.current) return fetchPromiseRef.current
+    const promise = (async () => {
+      const raw = await getModalCatalogs()
+      const productos: Producto[] = raw.productos.map((p) => ({
+        id: p.id,
+        nombre: p.nombre,
+        categoria: p.categoria ?? null,
+        marca: p.marca ?? null,
+        precioVenta: p.precioVenta,
+        precioCosto: p.precioCosto,
+        stockActual: p.stockActual,
+      }))
+      const empleados: Empleado[] = raw.empleados.map((e) => ({
+        id: e.id,
+        nombre: e.nombre,
+        cargo: e.cargo ?? null,
+      }))
+      const mappedAccounts: Account[] = raw.accounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        currency: a.currency,
+        type: a.type,
+      }))
+      const mappedCategories: Category[] = raw.categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+      }))
+      const mappedContacts: Contact[] = raw.contacts.map((c) => ({
+        id: c.id,
+        name: c.name,
+        type: c.type,
+      }))
+      const catalogs: CatalogsData = {
+        accounts: mappedAccounts,
+        categories: mappedCategories,
+        contacts: mappedContacts,
+        areas: raw.areas,
+        productos,
+        empleados,
+      }
+      setData(catalogs)
+      return catalogs
+    })()
+    fetchPromiseRef.current = promise
+    promise.catch(() => { fetchPromiseRef.current = null })
+    return promise
   }, [])
+
+  // Prefetch silencioso al montar (solo en rutas protegidas) para que el modal abra instantáneo.
+  useEffect(() => {
+    if (isAuthRoute) return
+    if (data || fetchPromiseRef.current) return
+    fetchData()
+  }, [isAuthRoute, data, fetchData])
 
   const handleOpen = () => {
     setOpen(true)
-    fetchData()
+    if (!data) {
+      setLoading(true)
+      fetchData().finally(() => setLoading(false))
+    }
   }
 
   const handleClose = () => {
@@ -87,7 +108,7 @@ export default function FloatingActionButton() {
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  if (pathname.startsWith('/auth') || pathname.startsWith('/select-business')) {
+  if (isAuthRoute) {
     return null
   }
 

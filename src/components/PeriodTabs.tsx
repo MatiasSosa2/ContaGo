@@ -191,9 +191,8 @@ export default function PeriodTabs({
 
   return (
     <>
-      <div className="w-full rounded-2xl border border-stone-200 bg-white p-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-white/[0.04] dark:bg-[#101113] dark:shadow-none sm:p-3">
-        <div className="flex min-w-0 flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <div className="rounded-2xl border border-stone-200 bg-white p-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-white/[0.04] dark:bg-[#101113] dark:shadow-none sm:p-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-2 py-1.5 dark:border-white/[0.04] dark:bg-[#17191c]">
               <div className="min-w-[112px]">
                 <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Año</label>
@@ -251,7 +250,6 @@ export default function PeriodTabs({
                 {selectorLabel}
               </button>
             </div>
-          </div>
         </div>
       </div>
 

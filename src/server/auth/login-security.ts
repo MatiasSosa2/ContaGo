@@ -10,13 +10,25 @@ type LoginChallengeDecisionInput = {
 
 const RISK_CHALLENGE_MAX_AGE_DAYS = 30
 
-export function shouldRequirePeriodicRiskChallenge(lastSecurityChallengeAt?: Date | null) {
-  if (!lastSecurityChallengeAt) {
+/**
+ * Determina si se necesita un nuevo challenge periódico de riesgo.
+ *
+ * Si `lastSecurityChallengeAt` es null pero el usuario ya verificó su email,
+ * se usa `emailVerified` como baseline: la verificación inicial cuenta como
+ * el último challenge satisfecho. Esto evita pedir un código en cada login
+ * a usuarios existentes cuyo `lastSecurityChallengeAt` nunca se pobló.
+ */
+export function shouldRequirePeriodicRiskChallenge(
+  lastSecurityChallengeAt?: Date | null,
+  emailVerified?: Date | null,
+) {
+  const baseline = lastSecurityChallengeAt ?? emailVerified ?? null
+  if (!baseline) {
     return true
   }
 
   const maxAgeMs = RISK_CHALLENGE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000
-  return Date.now() - lastSecurityChallengeAt.getTime() > maxAgeMs
+  return Date.now() - baseline.getTime() > maxAgeMs
 }
 
 export function decideLoginChallenge(
@@ -28,7 +40,7 @@ export function decideLoginChallenge(
     return input.provider === 'credentials' ? 'SIGNUP_VERIFY' : 'SOCIAL_LOGIN_VERIFY'
   }
 
-  if (shouldRequirePeriodicRiskChallenge(input.lastSecurityChallengeAt)) {
+  if (shouldRequirePeriodicRiskChallenge(input.lastSecurityChallengeAt, input.emailVerified)) {
     return 'RISK_CHALLENGE'
   }
 

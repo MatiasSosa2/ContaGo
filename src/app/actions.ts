@@ -23,6 +23,21 @@ export async function getAccounts(preBusinessId?: string) {
   return databaseActions.getAccounts(preBusinessId);
 }
 
+export async function getModalCatalogs() {
+  if (USE_MOCK) {
+    return {
+      accounts: MOCK.MOCK_ACCOUNTS,
+      categories: MOCK.MOCK_CATEGORIES,
+      contacts: [],
+      areas: [],
+      productos: MOCK.MOCK_PRODUCTOS,
+      empleados: [],
+    };
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getModalCatalogs();
+}
+
 export async function getCategories(preBusinessId?: string) {
   if (USE_MOCK) return MOCK.MOCK_CATEGORIES;
   const databaseActions = await getDatabaseActions();

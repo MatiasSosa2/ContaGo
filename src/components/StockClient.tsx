@@ -9,7 +9,6 @@ type Producto = {
   id: string; nombre: string; descripcion: string | null; categoria: string | null
   marca: string | null; unidad: string; metodoCosteo: string; enTransito: number
   precioVenta: number; precioCosto: number; stockActual: number
-  movimientos: Array<{ id: string }>
 }
 
 type Movimiento = {

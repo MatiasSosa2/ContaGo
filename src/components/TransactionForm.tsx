@@ -82,7 +82,6 @@ export default function TransactionForm({
   const [categoryId, setCategoryId] = useState('')
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('EFECTIVO')
   const [accountId, setAccountId] = useState(accounts[0]?.id || '')
-  const [estadoCredito, setEstadoCredito] = useState('PENDIENTE')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -206,7 +205,7 @@ export default function TransactionForm({
     formData.set('date', date)
     formData.set('currency', selectedCurrency)
     formData.set('esCredito', esCreditoAuto ? 'true' : 'false')
-    formData.set('estado', esCreditoAuto ? estadoCredito : type === 'INCOME' ? 'COBRADO' : 'PAGADO')
+    formData.set('estado', esCreditoAuto ? 'PENDIENTE' : type === 'INCOME' ? 'COBRADO' : 'PAGADO')
     if (esCreditoAuto && fechaVencimiento) formData.set('fechaVencimiento', fechaVencimiento)
     if (isProductSubType && productoId) {
       formData.set('productoId', productoId)
@@ -556,8 +555,8 @@ export default function TransactionForm({
           </div>
         </div>
 
-        {/* Subcuentas */}
-        {(metodoPago === 'EFECTIVO' || metodoPago === 'VIRTUAL') && filteredAccounts.length > 0 && (
+        {/* Subcuentas — solo si hay más de una cuenta disponible para el método */}
+        {(metodoPago === 'EFECTIVO' || metodoPago === 'VIRTUAL') && filteredAccounts.length > 1 && (
           <div>
             <label className={LABEL_CLS}>Cuenta</label>
             <SelectWrapper>
@@ -595,31 +594,14 @@ export default function TransactionForm({
                 ))}
               </select>
             </SelectWrapper>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={LABEL_CLS}>Vencimiento</label>
-                <input
-                  type="date"
-                  value={fechaVencimiento}
-                  onChange={(e) => setFechaVencimiento(e.target.value)}
-                  className={INPUT_CLS + ' font-mono'}
-                />
-              </div>
-              <div>
-                <label className={LABEL_CLS}>Estado</label>
-                <SelectWrapper>
-                  <select
-                    value={estadoCredito}
-                    onChange={(e) => setEstadoCredito(e.target.value)}
-                    className={SELECT_CLS}
-                  >
-                    <option value="PENDIENTE">Pendiente</option>
-                    <option value="COBRADO">Cobrado</option>
-                    <option value="PAGADO">Pagado</option>
-                    <option value="VENCIDO">Vencido</option>
-                  </select>
-                </SelectWrapper>
-              </div>
+            <div>
+              <label className={LABEL_CLS}>Vencimiento</label>
+              <input
+                type="date"
+                value={fechaVencimiento}
+                onChange={(e) => setFechaVencimiento(e.target.value)}
+                className={INPUT_CLS + ' font-mono'}
+              />
             </div>
           </div>
         )}
@@ -647,7 +629,7 @@ export default function TransactionForm({
       <input type="hidden" name="categoryId" value={categoryId} />
       <input type="hidden" name="currency" value={selectedCurrency} />
       <input type="hidden" name="esCredito" value={esCreditoAuto ? 'true' : 'false'} />
-      <input type="hidden" name="estado" value={esCreditoAuto ? estadoCredito : type === 'INCOME' ? 'COBRADO' : 'PAGADO'} />
+      <input type="hidden" name="estado" value={esCreditoAuto ? 'PENDIENTE' : type === 'INCOME' ? 'COBRADO' : 'PAGADO'} />
       {esCreditoAuto && fechaVencimiento && (
         <input type="hidden" name="fechaVencimiento" value={fechaVencimiento} />
       )}

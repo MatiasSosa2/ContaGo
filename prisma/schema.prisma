@@ -132,14 +132,15 @@ model Business {
   members     BusinessMember[]
 
   // Tablas Financieras pertenecientes al negocio
-  accounts    Account[]
-  categories  Category[]
-  transactions Transaction[]
-  contacts    Contact[]
-  areas       AreaNegocio[]
-  productos   Producto[]
-  empleados   Empleado[]
-  defaultUsers User[] @relation("UserDefaultBusiness")
+  accounts       Account[]
+  categories     Category[]
+  transactions   Transaction[]
+  contacts       Contact[]
+  areas          AreaNegocio[]
+  productos      Producto[]
+  empleados      Empleado[]
+  journalEntries JournalEntry[]
+  defaultUsers   User[] @relation("UserDefaultBusiness")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -169,20 +170,31 @@ model BusinessMember {
 // --- FINANCIAL MODELS (Scoped by Business) ---
 
 model Account {
-  id             String        @id @default(uuid())
-  name           String
-  description    String?
-  type           String
-  currency       String        @default("ARS")         
-  currentBalance Float         @default(0)
-  
-  transactions   Transaction[]
-  
-  businessId     String
-  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  id              String        @id @default(uuid())
+  name            String
+  description     String?
+  type            String        // CASH | BANK | WALLET (tipo de cuenta física)
+  currency        String        @default("ARS")
+  currentBalance  Float         @default(0)
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  // --- Motor contable ---
+  // Tipo contable: ASSET | LIABILITY | EQUITY | INCOME | EXPENSE
+  contableType    String?       // null = pendiente de clasificar
+  // Subtipo: CASH | BANK | RECEIVABLE | PAYABLE | SALES | EXPENSE_GEN | etc.
+  subtype         String?
+  // true = cuenta del sistema (CxC, CxP, Ventas, etc.) - oculta en formularios UX
+  isSystemAccount Boolean       @default(false)
+
+  transactions     Transaction[]
+  journalLines     JournalLine[]
+  // Categorías que usan esta cuenta como su cuenta contable del sistema
+  categoryContable Category[]    @relation("CategoryContableAccount")
+
+  businessId       String
+  business         Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 }
 
 model Category {
@@ -190,9 +202,13 @@ model Category {
   name         String
   type         String
   transactions Transaction[]
-  
-  businessId     String
-  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  // Cuenta contable del sistema asociada a esta categoría (INCOME/EXPENSE)
+  contableAccountId String?   @unique
+  contableAccount   Account?  @relation("CategoryContableAccount", fields: [contableAccountId], references: [id], onDelete: SetNull)
+
+  businessId   String
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -241,6 +257,9 @@ model Transaction {
   // Empleado (tracking de rendimiento)
   empleadoId String?
   empleado   Empleado? @relation(fields: [empleadoId], references: [id])
+
+  // Motor contable: cada Transaction genera un JournalEntry
+  journalEntry   JournalEntry?
 
   businessId     String
   business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -332,5 +351,50 @@ model Empleado {
 
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+// --- MOTOR DE DOBLE PARTIDA ---
+
+// Asiento contable (cabecera)
+model JournalEntry {
+  id            String        @id @default(uuid())
+  date          DateTime      @default(now())
+  description   String?
+
+  // Relación 1:1 con la Transaction que lo originó
+  transactionId String?       @unique
+  transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  lines         JournalLine[]
+
+  businessId    String
+  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime      @default(now())
+
+  @@index([businessId, date])
+  @@index([transactionId])
+}
+
+// Línea de asiento: DEBE / HABER
+model JournalLine {
+  id             String       @id @default(uuid())
+
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+
+  // Doble partida: siempre uno de los dos es > 0 y el otro es 0
+  debit          Float        @default(0)  // DEBE
+  credit         Float        @default(0)  // HABER
+
+  description    String?
+
+  createdAt      DateTime     @default(now())
+
+  @@index([accountId])
+  @@index([journalEntryId])
 }
 

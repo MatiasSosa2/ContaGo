@@ -1,7 +1,5 @@
 'use server'
 
-import bcrypt from 'bcryptjs'
-
 import prisma from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import {
@@ -119,24 +117,23 @@ export async function prepareCredentialsLogin(
     return { success: false, error: parsed.error.issues[0].message }
   }
 
+  // Solo consultamos los campos necesarios para decidir si hace falta challenge.
+  // La validación de password se delega a authorize() en el signIn para no
+  // pagar bcrypt dos veces (ahorro ~200-400ms por login).
   const user = await prisma.user.findUnique({
     where: { email: parsed.data.email },
     select: {
       id: true,
       email: true,
-      password: true,
       emailVerified: true,
       lastSecurityChallengeAt: true,
     },
   })
 
-  if (!user?.password) {
-    return { success: false, error: 'No se pudo iniciar sesion. Revisa tus credenciales o verifica tu email.' }
-  }
-
-  const isCorrectPassword = await bcrypt.compare(parsed.data.password, user.password)
-  if (!isCorrectPassword) {
-    return { success: false, error: 'No se pudo iniciar sesion. Revisa tus credenciales o verifica tu email.' }
+  // Si el usuario no existe, devolvemos success sin datos: signIn fallará con el
+  // mensaje genérico y no filtramos enumeración de usuarios.
+  if (!user) {
+    return { success: true }
   }
 
   const challengePurpose = decideLoginChallenge({
@@ -149,6 +146,8 @@ export async function prepareCredentialsLogin(
     return { success: true }
   }
 
+  // Sólo enviamos el email si realmente hay challenge (caso menos frecuente
+  // luego del fix del baseline en login-security).
   const { code } = await createEmailChallenge({
     userId: user.id,
     email: user.email,
@@ -219,7 +218,9 @@ export async function requestEmailVerification(formData: FormData): Promise<Acti
   return { success: true }
 }
 
-export async function verifyEmailCode(formData: FormData): Promise<ActionResult> {
+export async function verifyEmailCode(
+  formData: FormData,
+): Promise<ActionResult<{ challengeId?: string }>> {
   if (USE_MOCK) {
     return { success: true }
   }
@@ -267,7 +268,10 @@ export async function verifyEmailCode(formData: FormData): Promise<ActionResult>
     data,
   })
 
-  return { success: true }
+  return {
+    success: true,
+    data: { challengeId: verification.challenge.id },
+  }
 }
 
 export async function requestPasswordReset(formData: FormData): Promise<ActionResult> {

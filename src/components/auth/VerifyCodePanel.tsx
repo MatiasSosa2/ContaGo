@@ -3,9 +3,26 @@
 import { useState, useTransition } from 'react'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 
 import { requestEmailVerification, verifyEmailCode } from '@/app/auth/actions'
+
+/** Extrae solo el pathname+search de una URL para evitar redirects cross-origin */
+function safeLocalPath(url: string): string {
+  try {
+    const u = new URL(url)
+    return u.pathname + u.search
+  } catch {
+    return url.startsWith('/') ? url : '/select-business'
+  }
+}
+
+/** Hard navigation para evitar que startTransition quede colgado tras signIn. */
+function hardNavigate(dest: string) {
+  if (typeof window !== 'undefined') {
+    window.location.assign(dest)
+  }
+}
 
 export default function VerifyCodePanel({
   email,
@@ -14,7 +31,6 @@ export default function VerifyCodePanel({
   email: string
   purpose: 'SIGNUP_VERIFY' | 'SOCIAL_LOGIN_VERIFY' | 'PASSWORD_RESET' | 'RISK_CHALLENGE'
 }) {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -36,8 +52,25 @@ export default function VerifyCodePanel({
         return
       }
 
-      router.push(`/auth/login?email=${encodeURIComponent(email)}&verified=1`)
-      router.refresh()
+      // Purposes de login: intentar signIn automatico con el challengeId recien consumido
+      const challengeId = result.data?.challengeId
+      if (challengeId) {
+        const signInResult = await signIn('credentials', {
+          email,
+          postVerifyChallengeId: challengeId,
+          redirect: false,
+          callbackUrl: '/select-business',
+        })
+
+        if (signInResult && !signInResult.error) {
+          const dest = signInResult.url ? safeLocalPath(signInResult.url) : '/select-business'
+          hardNavigate(dest)
+          return
+        }
+      }
+
+      // Fallback: si no pudimos auto-loguear, mandar al login con email precargado
+      hardNavigate(`/auth/login?email=${encodeURIComponent(email)}&verified=1`)
     })
   }
 

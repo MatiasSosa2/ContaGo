@@ -4,16 +4,26 @@ import { useState, useTransition } from 'react'
 
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
-
-import { prepareCredentialsLogin } from '@/app/auth/actions'
+import { useSearchParams } from 'next/navigation'
 
 /** Extrae solo el pathname+search de una URL para evitar redirects cross-origin */
 function safeLocalPath(url: string): string {
   try {
-    return new URL(url).pathname
+    const u = new URL(url)
+    return u.pathname + u.search
   } catch {
     return url.startsWith('/') ? url : '/select-business'
+  }
+}
+
+/**
+ * Hard navigation post-signIn. Evita que startTransition quede colgado
+ * esperando el render server-side mientras la cookie de sesión recién seteada
+ * aún no es visible en el mismo ciclo de navegación del App Router.
+ */
+function hardNavigate(dest: string) {
+  if (typeof window !== 'undefined') {
+    window.location.assign(dest)
   }
 }
 
@@ -57,7 +67,6 @@ export default function LoginPanel({
   appleEnabled: boolean
   temporaryAccessEnabled: boolean
 }) {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(searchParams.get('error'))
   const [message, setMessage] = useState<string | null>(
@@ -80,40 +89,22 @@ export default function LoginPanel({
       const email = String(formData.get('email') || '')
       const password = String(formData.get('password') || '')
 
-      const preflight = new FormData()
-      preflight.set('email', email)
-      preflight.set('password', password)
-
-      const preparation = await prepareCredentialsLogin(preflight)
-
-      if (!preparation.success) {
-        setError(preparation.error)
-        return
-      }
-
-      if (preparation.data?.requiresCode && preparation.data.email && preparation.data.purpose) {
-        router.push(
-          `/auth/verify-code?email=${encodeURIComponent(preparation.data.email)}&purpose=${encodeURIComponent(preparation.data.purpose)}`,
-        )
-        router.refresh()
-        return
-      }
-
-      const result = await signIn('credentials', {
+      // El callback signIn del server ya decide si hace falta challenge y
+      // devuelve la URL de verify-code. No hace falta un pre-flight duplicado.
+      const signInResult = await signIn('credentials', {
         email,
         password,
         redirect: false,
         callbackUrl: '/select-business',
       })
 
-      if (!result || result.error) {
+      if (!signInResult || signInResult.error) {
         setError('No se pudo iniciar sesion. Revisa tus credenciales o verifica tu email.')
         return
       }
 
-      const dest = result.url ? safeLocalPath(result.url) : '/select-business'
-      router.push(dest)
-      router.refresh()
+      const dest = signInResult.url ? safeLocalPath(signInResult.url) : '/select-business'
+      hardNavigate(dest)
     })
   }
 
@@ -134,13 +125,20 @@ export default function LoginPanel({
       }
 
       const dest = result.url ? safeLocalPath(result.url) : '/select-business'
-      router.push(dest)
-      router.refresh()
+      hardNavigate(dest)
     })
   }
 
   return (
-    <div className="space-y-6 lg:space-y-4">
+    <div className="relative space-y-6 lg:space-y-4">
+      {isPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm dark:bg-black/60">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-brand-military/20 border-t-brand-military" />
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Ingresando...</p>
+          </div>
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:gap-2.5">
         <button
           type="button"

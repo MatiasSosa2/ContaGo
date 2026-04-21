@@ -13,6 +13,8 @@ import {
   createMovimientoStockSchema,
   type ActionResult,
 } from '@/lib/validations'
+import { generateJournalLines } from '@/server/accounting/journal-engine'
+import { createContableAccountForCategory } from '@/server/accounting/setup-contable-accounts'
 
 async function getBusinessId() {
   const sessionContext = await requireBusinessContext()
@@ -24,6 +26,40 @@ async function getScopedAccount(id: string, businessId: string) {
     where: { id, businessId },
     select: { id: true, currentBalance: true },
   })
+}
+
+/**
+ * Obtiene (o crea) una categoría por defecto para asignar automáticamente cuando
+ * el formulario no envía categoría (ej: venta de producto, otros ingresos, etc).
+ * Garantiza que toda transacción genere asiento contable.
+ */
+async function getOrCreateDefaultCategory(
+  businessId: string,
+  type: 'INCOME' | 'EXPENSE',
+  subType: string | undefined,
+): Promise<string | null> {
+  const name =
+    subType === 'SALE' ? 'Ventas' :
+    subType === 'PURCHASE' ? 'Compras' :
+    type === 'INCOME' ? 'Otros ingresos' : 'Otros egresos'
+
+  const existing = await prisma.category.findFirst({
+    where: { businessId, name, type },
+    select: { id: true, contableAccountId: true },
+  })
+  if (existing) {
+    if (!existing.contableAccountId) {
+      await createContableAccountForCategory(existing.id, name, type, businessId, prisma as never)
+    }
+    return existing.id
+  }
+
+  const created = await prisma.category.create({
+    data: { name, type, businessId },
+    select: { id: true },
+  })
+  await createContableAccountForCategory(created.id, name, type, businessId, prisma as never)
+  return created.id
 }
 
 async function getScopedTransaction(id: string, businessId: string) {
@@ -50,6 +86,21 @@ export async function getAccounts(preBusinessId?: string) {
   return await prisma.account.findMany({
     where: { businessId },
   })
+}
+
+// Catálogos combinados para el modal de registro de movimientos.
+// Corre todas las queries en paralelo dentro de un solo round-trip de server action.
+export async function getModalCatalogs() {
+  const businessId = await getBusinessId()
+  const [accounts, categories, contacts, areas, productos, empleados] = await Promise.all([
+    prisma.account.findMany({ where: { businessId } }),
+    prisma.category.findMany({ where: { businessId } }),
+    prisma.contact.findMany({ where: { businessId }, orderBy: { name: 'asc' } }),
+    prisma.areaNegocio.findMany({ where: { businessId }, orderBy: { nombre: 'asc' } }),
+    prisma.producto.findMany({ where: { businessId, activo: true }, orderBy: { nombre: 'asc' } }),
+    prisma.empleado.findMany({ where: { businessId, activo: true }, orderBy: { nombre: 'asc' } }),
+  ])
+  return { accounts, categories, contacts, areas, productos, empleados }
 }
 
 export async function getCategories(preBusinessId?: string) {
@@ -145,7 +196,10 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
   const { createTransactionSchema } = await import('@/lib/validations')
   const parsed = createTransactionSchema.safeParse(raw)
   if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message }
+    const issue = parsed.error.issues[0]
+    const field = issue.path.join('.')
+    console.error('[createTransaction] validation failed', { field, message: issue.message, raw })
+    return { success: false, error: `${field}: ${issue.message}` }
   }
 
   const {
@@ -158,11 +212,23 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
   const account = await getScopedAccount(accountId, businessId)
   if (!account) return { success: false, error: 'Cuenta no encontrada' }
 
+  // Auto-asignación de categoría: si el form no la envió, usar/crear una por defecto
+  // según el tipo de movimiento. Así toda transacción tiene asiento contable.
+  let effectiveCategoryId = categoryId
+  if (!effectiveCategoryId || effectiveCategoryId === '') {
+    const defaultId = await getOrCreateDefaultCategory(
+      businessId,
+      type as 'INCOME' | 'EXPENSE',
+      subType,
+    )
+    effectiveCategoryId = defaultId ?? ''
+  }
+
   const date = dateStr ? new Date(dateStr) : new Date()
   const fVenc = fechaVencimiento ? new Date(fechaVencimiento) : null
 
   await prisma.$transaction(async (tx) => {
-    await tx.transaction.create({
+    const newTx = await tx.transaction.create({
       data: {
         amount,
         description,
@@ -177,20 +243,66 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         precioUnitario: precioUnitario ?? null,
         account: { connect: { id: accountId } },
         business: { connect: { id: businessId } },
-        category: categoryId && categoryId !== '' ? { connect: { id: categoryId } } : undefined,
+        category: effectiveCategoryId && effectiveCategoryId !== '' ? { connect: { id: effectiveCategoryId } } : undefined,
         contact: contactId && contactId !== '' ? { connect: { id: contactId } } : undefined,
         areaNegocio: areaNegocioId && areaNegocioId !== '' ? { connect: { id: areaNegocioId } } : undefined,
         empleado: empleadoId && empleadoId !== '' ? { connect: { id: empleadoId } } : undefined,
         producto: productoId && productoId !== '' ? { connect: { id: productoId } } : undefined,
       },
+      select: { id: true },
     })
 
-    // Actualizar balance de la cuenta
+    // Actualizar balance de la cuenta (caché — fuente de verdad es el journal)
     const balanceChange = type === 'INCOME' ? amount : -amount
     await tx.account.update({
       where: { id: accountId },
       data: { currentBalance: account.currentBalance + balanceChange },
     })
+
+    // ── Motor de doble partida ───────────────────────────────────────────────
+    // Obtener cuenta contable de la categoría y cuentas sistema del negocio
+    const [categoryWithContable, cxcAccount, cxpAccount] = await Promise.all([
+      effectiveCategoryId && effectiveCategoryId !== ''
+        ? tx.category.findFirst({
+            where: { id: effectiveCategoryId, businessId },
+            select: { contableAccountId: true },
+          })
+        : null,
+      tx.account.findFirst({
+        where: { businessId, isSystemAccount: true, subtype: 'RECEIVABLE' },
+        select: { id: true },
+      }),
+      tx.account.findFirst({
+        where: { businessId, isSystemAccount: true, subtype: 'PAYABLE' },
+        select: { id: true },
+      }),
+    ])
+
+    const journalResult = generateJournalLines({
+      amount,
+      type: type as 'INCOME' | 'EXPENSE',
+      esCredito,
+      physicalAccountId: accountId,
+      categoryContableAccountId: categoryWithContable?.contableAccountId ?? null,
+      cxcAccountId: cxcAccount?.id ?? null,
+      cxpAccountId: cxpAccount?.id ?? null,
+      description,
+    })
+
+    if (journalResult.ok) {
+      await tx.journalEntry.create({
+        data: {
+          date,
+          description,
+          transactionId: newTx.id,
+          businessId,
+          lines: {
+            create: journalResult.lines,
+          },
+        },
+      })
+    }
+    // Si journalResult.ok === false: degradación graceful, no se interrumpe la operación
 
     // Actualizar stock si hay producto vinculado
     if (productoId && productoId !== '' && cantidad && cantidad > 0) {
@@ -220,8 +332,10 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
     }
   })
 
+  revalidateTag(`dashboard:${businessId}`, 'max')
   revalidatePath('/')
   revalidatePath('/stock')
+  revalidatePath('/creditos')
   return { success: true }
 }
 
@@ -233,13 +347,15 @@ export async function deleteTransaction(id: string) {
   // Revert balance
   const account = await getScopedAccount(transaction.accountId, businessId)
   if (account) {
-    // Si era INGRESO, RESTAMOS al saldo. Si era EGRESO, SUMAMOS al saldo.
     const balanceChange = transaction.type === 'INCOME' ? -transaction.amount : transaction.amount
     await prisma.account.update({
       where: { id: transaction.accountId },
       data: { currentBalance: account.currentBalance + balanceChange }
     })
   }
+
+  // Eliminar JournalEntry vinculado (cascade elimina JournalLines)
+  await prisma.journalEntry.deleteMany({ where: { transactionId: id } })
 
   await prisma.transaction.deleteMany({ where: { id, businessId } })
   revalidateTag(`dashboard:${businessId}`, 'max')
@@ -593,11 +709,18 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
   }
 
   const businessId = await getBusinessId()
-  await prisma.category.create({ 
-    data: {
-      ...parsed.data,
+  await prisma.$transaction(async (tx) => {
+    const category = await tx.category.create({
+      data: { ...parsed.data, businessId },
+    })
+    // Crear cuenta contable del sistema para esta categoría
+    await createContableAccountForCategory(
+      category.id,
+      category.name,
+      category.type,
       businessId,
-    } 
+      tx,
+    )
   })
   revalidatePath('/')
   return { success: true }
@@ -679,7 +802,6 @@ export async function getProductos() {
   return await prisma.producto.findMany({
     where: { businessId, activo: true },
     orderBy: { nombre: 'asc' },
-    include: { movimientos: { orderBy: { fecha: 'desc' }, take: 5 } },
   })
 }
 
@@ -1446,18 +1568,7 @@ async function _fetchDashboardStats(
 
   // ── Alerts (based on period data + account balances) ──
   const alerts: DashboardStatsResult['alerts'] = []
-  const arsBalance = accounts.reduce((s, a) => a.currency === 'ARS' ? s + a.currentBalance : s, 0)
-  const avgExpense = prevExpense > 0 ? prevExpense : curExpense
-  const runwayMths = avgExpense > 0 ? arsBalance / avgExpense : null
 
-  if (runwayMths !== null && runwayMths < 3) {
-    alerts.push({
-      severity: runwayMths < 1.5 ? 'danger' : 'warning',
-      icon: 'runway',
-      title: 'Runway bajo',
-      message: `Con el ritmo actual de gastos, el saldo ARS cubre solo ${runwayMths.toFixed(1)} meses. Revisá la liquidez.`,
-    })
-  }
   if (curMargin < 20 && curIncome > 0) {
     alerts.push({
       severity: curMargin < 0 ? 'danger' : 'warning',
