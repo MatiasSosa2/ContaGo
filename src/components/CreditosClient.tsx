@@ -20,6 +20,7 @@ const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
 
 const ESTADO_LABELS: Record<string, string> = {
   PENDIENTE: 'Pendiente',
+  PARCIAL: 'Parcial',
   VENCIDO: 'Vencido',
   COBRADO: 'Cobrado',
   PAGADO: 'Pagado',

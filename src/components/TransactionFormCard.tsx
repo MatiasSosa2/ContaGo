@@ -30,10 +30,10 @@ export default function TransactionFormCard({
       <div className={`px-5 py-4 flex justify-between items-center shrink-0 ${headerBg}`}>
         <div>
           <h2 className="text-[10px] font-black text-white uppercase tracking-widest">
-            {activeTab === 'INCOME' ? 'Registrar Ingreso' : 'Registrar Gasto'}
+            Registrar operación
           </h2>
           <p className="text-[9px] text-white/50 font-medium mt-0.5 uppercase tracking-wider">
-            {activeTab === 'INCOME' ? 'Entrada de dinero' : 'Salida de dinero'}
+            {activeTab === 'INCOME' ? 'Venta o cobro' : 'Compra o pago'}
           </p>
         </div>
         <div className="flex border-2 border-white/20 overflow-hidden">
@@ -41,13 +41,13 @@ export default function TransactionFormCard({
             onClick={() => setActiveTab('INCOME')}
             className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'INCOME' ? 'bg-white text-brand-military' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
           >
-            Ingreso
+            Ventas
           </button>
           <button
             onClick={() => setActiveTab('EXPENSE')}
             className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all border-l-2 border-white/20 ${activeTab === 'EXPENSE' ? 'bg-white text-brand-oxide' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
           >
-            Gasto
+            Compras
           </button>
         </div>
       </div>

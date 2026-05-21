@@ -27,7 +27,7 @@ function buildPrismaClient() {
   if (!url) {
     throw new Error(
       '\n[Prisma] ❌ No se encontró TURSO_DATABASE_URL ni DATABASE_URL.\n' +
-      '  → Verificá que el archivo .env tenga las variables configuradas y reiniciá el servidor (npm run dev).'
+      '  → Verificá que el archivo .env tenga las variables configuradas y reiniciá el servidor (pnpm dev).'
     )
   }
 

@@ -39,18 +39,8 @@ export default function AppHeader({ title, icon, sessionContext, actions, showRo
     ">
       <div className="px-4 py-3 sm:px-5 lg:px-8 lg:min-h-[72px] flex items-center justify-between gap-4 lg:h-[72px]">
 
-        {/* ── LEFT: Logo · Separador · Ícono · Título · Negocio · Rol ─────── */}
+        {/* ── LEFT: Ícono · Título · Negocio ─────── */}
         <div className="flex items-center gap-3 min-w-0">
-
-          {/* Logo mark */}
-          <img
-            src="/contago-mark.svg"
-            alt="ContaGo"
-            className="hidden sm:block h-7 w-7 shrink-0 select-none"
-          />
-
-          {/* Separador vertical */}
-          <span className="hidden sm:block h-5 w-px bg-stone-200 dark:bg-white/10 shrink-0" />
 
           {/* Ícono de sección */}
           {icon && (
@@ -69,12 +59,6 @@ export default function AppHeader({ title, icon, sessionContext, actions, showRo
             </p>
           </div>
 
-          {/* Badge de rol */}
-          {showRoleBadge && (
-            <span className="hidden md:inline-flex shrink-0 items-center border border-[#d9cfba] dark:border-[#3d3020] bg-[#f6efe2] dark:bg-[#1c1206] px-2 py-1 text-[10px] font-medium text-[#7a6850] dark:text-[#c9a870] rounded-sm select-none">
-              {ROLE_LABELS[activeBusiness.role]}
-            </span>
-          )}
         </div>
 
         {/* ── RIGHT: Acciones opcionales · ThemeToggle · UserMenu ──────────── */}

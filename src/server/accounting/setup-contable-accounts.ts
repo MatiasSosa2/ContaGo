@@ -28,6 +28,9 @@ export const CONTABLE_SUBTYPE = {
   BANK: 'BANK',
   SALES: 'SALES',
   EXPENSE_GEN: 'EXPENSE_GEN',
+  INVENTORY: 'INVENTORY',     // Mercadería / stock
+  FIXED_ASSET: 'FIXED_ASSET', // Bienes de uso
+  COGS: 'COGS',               // Costo de mercadería vendida
 } as const
 
 // ─── Función principal ─────────────────────────────────────────────────────────
@@ -91,6 +94,63 @@ export async function setupContableAccountsForBusiness(
         type: 'SYSTEM',
         contableType: 'LIABILITY',
         subtype: CONTABLE_SUBTYPE.PAYABLE,
+        isSystemAccount: true,
+        currency: 'ARS',
+        currentBalance: 0,
+        businessId,
+      },
+    })
+  }
+
+  // 3b. Crear cuenta sistema Inventario / Mercadería si no existe
+  const existingInventory = await tx.account.findFirst({
+    where: { businessId, isSystemAccount: true, subtype: CONTABLE_SUBTYPE.INVENTORY },
+  })
+  if (!existingInventory) {
+    await tx.account.create({
+      data: {
+        name: 'Inventario / Mercadería',
+        type: 'SYSTEM',
+        contableType: 'ASSET',
+        subtype: CONTABLE_SUBTYPE.INVENTORY,
+        isSystemAccount: true,
+        currency: 'ARS',
+        currentBalance: 0,
+        businessId,
+      },
+    })
+  }
+
+  // 3c. Crear cuenta sistema Bienes de Uso si no existe
+  const existingFixed = await tx.account.findFirst({
+    where: { businessId, isSystemAccount: true, subtype: CONTABLE_SUBTYPE.FIXED_ASSET },
+  })
+  if (!existingFixed) {
+    await tx.account.create({
+      data: {
+        name: 'Bienes de Uso',
+        type: 'SYSTEM',
+        contableType: 'ASSET',
+        subtype: CONTABLE_SUBTYPE.FIXED_ASSET,
+        isSystemAccount: true,
+        currency: 'ARS',
+        currentBalance: 0,
+        businessId,
+      },
+    })
+  }
+
+  // 3d. Crear cuenta sistema Costo de Mercadería Vendida (COGS) si no existe
+  const existingCogs = await tx.account.findFirst({
+    where: { businessId, isSystemAccount: true, subtype: CONTABLE_SUBTYPE.COGS },
+  })
+  if (!existingCogs) {
+    await tx.account.create({
+      data: {
+        name: 'Costo de Mercadería Vendida',
+        type: 'SYSTEM',
+        contableType: 'EXPENSE',
+        subtype: CONTABLE_SUBTYPE.COGS,
         isSystemAccount: true,
         currency: 'ARS',
         currentBalance: 0,

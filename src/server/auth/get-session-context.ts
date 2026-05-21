@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 
 import type { ActiveBusinessContext, AppRole } from './business-context'
+import { normalizeOperatingModel } from './business-context'
 
 export type SessionContext = {
   user: {
@@ -52,7 +53,7 @@ async function _getSessionContextImpl(): Promise<SessionContext | null> {
         select: {
           role: true,
           businessId: true,
-          business: { select: { id: true, name: true } },
+          business: { select: { id: true, name: true, operatingModel: true } },
         },
       },
     },
@@ -63,6 +64,7 @@ async function _getSessionContextImpl(): Promise<SessionContext | null> {
     id: m.business.id,
     name: m.business.name,
     role: normalizeRole(m.role),
+    operatingModel: normalizeOperatingModel(m.business.operatingModel),
   }))
 
   const preferredId = session.activeBusiness?.id ?? null
@@ -81,6 +83,7 @@ async function _getSessionContextImpl(): Promise<SessionContext | null> {
         id: activeMembership.business.id,
         name: activeMembership.business.name,
         role: normalizeRole(activeMembership.role),
+        operatingModel: normalizeOperatingModel(activeMembership.business.operatingModel),
       }
     : null
 

@@ -140,6 +140,7 @@ model Business {
   productos      Producto[]
   empleados      Empleado[]
   journalEntries JournalEntry[]
+  bienesDeUso    BienDeUso[]
   defaultUsers   User[] @relation("UserDefaultBusiness")
 
   createdAt   DateTime @default(now())
@@ -246,13 +247,23 @@ model Transaction {
   areaNegocio   AreaNegocio? @relation(fields: [areaNegocioId], references: [id])
 
   // Subtipo de movimiento
-  subType String? // SALE | COBRO | PURCHASE | PAGO
+  // SALE | SALE_PRODUCT | SALE_SERVICE | SALE_BIEN_USO | COBRO | COBRO_CREDITO | OTHER_INCOME | PURCHASE | PAGO
+  subType String?
 
   // Producto (para ventas y compras)
   productoId     String?
   producto       Producto? @relation(fields: [productoId], references: [id])
   cantidad       Float?
   precioUnitario Float?
+
+  // Bien de Uso (para venta de activos fijos)
+  bienDeUsoId String?
+  bienDeUso   BienDeUso? @relation(fields: [bienDeUsoId], references: [id])
+
+  // Crédito original al que aplica este cobro (para COBRO_CREDITO total/parcial)
+  linkedCreditoId String?
+  linkedCredito   Transaction?  @relation("CreditoCobros", fields: [linkedCreditoId], references: [id])
+  cobrosAplicados Transaction[] @relation("CreditoCobros")
 
   // Empleado (tracking de rendimiento)
   empleadoId String?
@@ -274,6 +285,8 @@ model Producto {
   id            String            @id @default(uuid())
   nombre        String
   descripcion   String?
+  // Tipo: MERCADERIA (con stock) | SERVICIO (sin stock)
+  tipo          String            @default("MERCADERIA")
   categoria     String?
   marca         String?
   unidad        String            @default("unidad")
@@ -292,6 +305,30 @@ model Producto {
 
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
+}
+
+// Bienes de Uso (activos fijos: maquinaria, vehículos, equipos, etc.)
+model BienDeUso {
+  id                    String   @id @default(uuid())
+  nombre                String
+  descripcion           String?
+  categoria             String?
+  marca                 String?
+  valorAdquisicion      Float    @default(0)
+  valorResidual         Float    @default(0)
+  fechaAdquisicion      DateTime @default(now())
+  vidaUtilMeses         Int?
+  depreciacionAcumulada Float    @default(0)
+  activo                Boolean  @default(true)
+  transactions          Transaction[]
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([businessId, activo])
 }
 
 model MovimientoStock {

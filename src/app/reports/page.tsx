@@ -1,8 +1,9 @@
-﻿import { getAvailableDashboardMonths, getReportDataExtended } from '@/app/actions'
+﻿import { getReportDataExtended } from '@/app/actions'
 import FinancialStatementsPanel from '@/components/FinancialStatementsPanel'
 import type { DateRange } from '@/lib/validations'
 import PrintButton from '@/components/PrintButton'
-import PeriodFilter from '@/components/PeriodFilter'
+import PeriodSelector from '@/components/PeriodSelector'
+import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
 import AppHeader from '@/components/AppHeader'
 import { Suspense } from 'react'
@@ -85,27 +86,86 @@ function isSettledForCashFlow(tx: { esCredito?: boolean | null; estado?: string 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ preset?: string; from?: string; to?: string; year?: string; month?: string }>
+  searchParams?: Promise<{
+    periodo?: string
+    preset?: string
+    from?: string
+    to?: string
+    year?: string
+    month?: string
+    day?: string
+    weekStart?: string
+  }>
 }) {
   const sessionContext = await requireBusinessContext()
   const params = await searchParams
   const now = new Date()
-  const selectedYear = params?.year ? Number.parseInt(params.year, 10) : now.getFullYear()
-  const selectedMonth = params?.month ? Number.parseInt(params.month, 10) : now.getMonth() + 1
-  const range: DateRange | undefined =
-    params?.year && params?.month
-      ? {
-          from: new Date(selectedYear, selectedMonth - 1, 1, 0, 0, 0),
-          to: new Date(selectedYear, selectedMonth, 0, 23, 59, 59),
-        }
-      : params?.from || params?.to
-      ? {
-          from: params.from ? new Date(params.from + 'T00:00:00') : undefined,
-          to:   params.to   ? new Date(params.to   + 'T23:59:59') : undefined,
-        }
-      : undefined
+  const periodo = (params?.periodo ?? 'mensual') as PeriodKey
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const selectedYear = params?.year
+    ? Number.parseInt(params.year, 10)
+    : (periodo === 'mensual' || periodo === 'anual' ? currentYear : undefined)
+  const selectedMonth = params?.month
+    ? Number.parseInt(params.month, 10)
+    : (periodo === 'mensual' ? currentMonth : undefined)
+  const selectedDay = params?.day
+  const selectedWeekStart = params?.weekStart
 
-  const availableMonths = await getAvailableDashboardMonths(sessionContext.activeBusiness.id)
+  // ── Resolve date range based on selected period ────────────────────────────
+  let range: DateRange | undefined
+  let periodLabel: string
+
+  if (periodo === 'diario') {
+    const target = selectedDay ? new Date(selectedDay + 'T12:00:00') : now
+    range = {
+      from: new Date(target.getFullYear(), target.getMonth(), target.getDate(), 0, 0, 0),
+      to: new Date(target.getFullYear(), target.getMonth(), target.getDate(), 23, 59, 59),
+    }
+    periodLabel = target.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })
+  } else if (periodo === 'semanal') {
+    let monday: Date
+    if (selectedWeekStart) {
+      monday = new Date(selectedWeekStart + 'T12:00:00')
+      monday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate(), 0, 0, 0)
+    } else {
+      const dow = now.getDay()
+      const offset = dow === 0 ? -6 : 1 - dow
+      monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 0, 0, 0)
+    }
+    const sunday = new Date(monday); sunday.setDate(sunday.getDate() + 6); sunday.setHours(23, 59, 59)
+    range = { from: monday, to: sunday }
+    const fmt = (d: Date) => d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+    periodLabel = `${fmt(monday)} - ${fmt(sunday)}`
+  } else if (periodo === 'anual') {
+    const y = selectedYear ?? currentYear
+    const isCurrent = y === currentYear
+    range = {
+      from: new Date(y, 0, 1, 0, 0, 0),
+      to: isCurrent
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        : new Date(y, 11, 31, 23, 59, 59),
+    }
+    periodLabel = `Año ${y}`
+  } else if (periodo === 'custom' && (params?.from || params?.to)) {
+    range = {
+      from: params?.from ? new Date(params.from + 'T00:00:00') : undefined,
+      to: params?.to ? new Date(params.to + 'T23:59:59') : undefined,
+    }
+    periodLabel = 'Periodo personalizado'
+  } else {
+    // mensual (default)
+    const y = selectedYear ?? currentYear
+    const m = selectedMonth ?? currentMonth
+    const isCurrent = y === currentYear && m === currentMonth
+    range = {
+      from: new Date(y, m - 1, 1, 0, 0, 0),
+      to: isCurrent
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        : new Date(y, m, 0, 23, 59, 59),
+    }
+    periodLabel = `${MONTH_NAMES[m - 1]} ${y}`
+  }
 
   const {
     allTx,
@@ -185,12 +245,6 @@ export default async function ReportsPage({
     totalLiabilities || 1,
   )
 
-  const periodLabel = params?.year && params?.month
-    ? `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}`
-    : params?.from && params?.to
-    ? 'Periodo personalizado'
-    : `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`
-
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
 
@@ -212,10 +266,14 @@ export default async function ReportsPage({
 
       <div className="mb-5 flex items-center justify-between gap-3 md:mb-6">
         <Suspense fallback={null}>
-          <PeriodFilter
-            availableMonths={availableMonths}
+          <PeriodSelector
+            active={periodo}
+            customFrom={params?.from}
+            customTo={params?.to}
             selectedYear={selectedYear}
             selectedMonth={selectedMonth}
+            selectedDay={selectedDay}
+            selectedWeekStart={selectedWeekStart}
           />
         </Suspense>
       </div>

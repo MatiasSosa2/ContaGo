@@ -2,10 +2,13 @@ import prisma from '@/lib/prisma'
 
 export type AppRole = 'ADMIN' | 'COLLABORATOR' | 'VIEWER'
 
+export type OperatingModel = 'SERVICES' | 'PRODUCTS' | 'BOTH'
+
 export type ActiveBusinessContext = {
   id: string
   name: string
   role: AppRole
+  operatingModel: OperatingModel
 }
 
 export type UserBusinessOption = ActiveBusinessContext
@@ -16,6 +19,13 @@ function normalizeRole(role: string | null | undefined): AppRole {
   }
 
   return 'COLLABORATOR'
+}
+
+export function normalizeOperatingModel(model: string | null | undefined): OperatingModel {
+  if (model === 'SERVICES' || model === 'PRODUCTS' || model === 'BOTH') {
+    return model
+  }
+  return 'BOTH'
 }
 
 export async function ensureUserBusinessMembership(
@@ -34,6 +44,7 @@ export async function ensureUserBusinessMembership(
         select: {
           id: true,
           name: true,
+          operatingModel: true,
         },
       },
     },
@@ -47,5 +58,6 @@ export async function ensureUserBusinessMembership(
     id: membership.business.id,
     name: membership.business.name,
     role: normalizeRole(membership.role),
+    operatingModel: normalizeOperatingModel(membership.business.operatingModel),
   }
 }

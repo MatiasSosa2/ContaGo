@@ -39,7 +39,10 @@ async function getOrCreateDefaultCategory(
   subType: string | undefined,
 ): Promise<string | null> {
   const name =
-    subType === 'SALE' ? 'Ventas' :
+    subType === 'SALE' || subType === 'SALE_PRODUCT' ? 'Ventas de mercadería' :
+    subType === 'SALE_SERVICE' ? 'Ventas de servicios' :
+    subType === 'SALE_BIEN_USO' ? 'Resultado por venta de bienes de uso' :
+    subType === 'COBRO_CREDITO' ? 'Cobros de crédito' :
     subType === 'PURCHASE' ? 'Compras' :
     type === 'INCOME' ? 'Otros ingresos' : 'Otros egresos'
 
@@ -89,18 +92,63 @@ export async function getAccounts(preBusinessId?: string) {
 }
 
 // Catálogos combinados para el modal de registro de movimientos.
-// Corre todas las queries en paralelo dentro de un solo round-trip de server action.
+// Cacheado por business + select acotado para reducir payload Turso (latencia remota).
 export async function getModalCatalogs() {
   const businessId = await getBusinessId()
-  const [accounts, categories, contacts, areas, productos, empleados] = await Promise.all([
-    prisma.account.findMany({ where: { businessId } }),
-    prisma.category.findMany({ where: { businessId } }),
-    prisma.contact.findMany({ where: { businessId }, orderBy: { name: 'asc' } }),
-    prisma.areaNegocio.findMany({ where: { businessId }, orderBy: { nombre: 'asc' } }),
-    prisma.producto.findMany({ where: { businessId, activo: true }, orderBy: { nombre: 'asc' } }),
-    prisma.empleado.findMany({ where: { businessId, activo: true }, orderBy: { nombre: 'asc' } }),
-  ])
-  return { accounts, categories, contacts, areas, productos, empleados }
+  const cached = unstable_cache(
+    async (bid: string) => {
+      const [accounts, categories, contacts, areas, productos, empleados, bienesDeUso, business] = await Promise.all([
+        prisma.account.findMany({
+          where: { businessId: bid },
+          select: { id: true, name: true, currency: true, type: true },
+          orderBy: { name: 'asc' },
+        }),
+        prisma.category.findMany({
+          where: { businessId: bid },
+          select: { id: true, name: true, type: true },
+        }),
+        prisma.contact.findMany({
+          where: { businessId: bid },
+          select: { id: true, name: true, type: true },
+          orderBy: { name: 'asc' },
+        }),
+        prisma.areaNegocio.findMany({
+          where: { businessId: bid },
+          select: { id: true, nombre: true },
+          orderBy: { nombre: 'asc' },
+        }),
+        prisma.producto.findMany({
+          where: { businessId: bid, activo: true },
+          select: {
+            id: true, nombre: true, categoria: true, marca: true,
+            precioVenta: true, precioCosto: true, stockActual: true, tipo: true,
+          },
+          orderBy: { nombre: 'asc' },
+        }),
+        prisma.empleado.findMany({
+          where: { businessId: bid, activo: true },
+          select: { id: true, nombre: true, cargo: true },
+          orderBy: { nombre: 'asc' },
+        }),
+        prisma.bienDeUso.findMany({
+          where: { businessId: bid, activo: true },
+          select: { id: true, nombre: true, categoria: true, marca: true, valorAdquisicion: true, depreciacionAcumulada: true },
+          orderBy: { nombre: 'asc' },
+        }),
+        prisma.business.findUnique({
+          where: { id: bid },
+          select: { operatingModel: true },
+        }),
+      ])
+      return {
+        accounts, categories, contacts, areas, productos, empleados, bienesDeUso,
+        operatingModel: business?.operatingModel ?? 'BOTH',
+      }
+    },
+    ['modal-catalogs'],
+    { tags: [`dashboard:${businessId}`, `catalogs:${businessId}`], revalidate: 300 },
+  )
+  return cached(businessId)
 }
 
 export async function getCategories(preBusinessId?: string) {
@@ -169,7 +217,7 @@ export async function createContact(formData: FormData): Promise<ActionResult> {
   */
 }
 
-export async function createTransaction(formData: FormData): Promise<ActionResult> {
+export async function createTransaction(formData: FormData): Promise<ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string }>> {
   const esCreditoRaw = formData.get('esCredito') as string
   const cantidadRaw = parseFloat(formData.get('cantidad') as string)
   const precioUnitarioRaw = parseFloat(formData.get('precioUnitario') as string)
@@ -184,6 +232,8 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
     areaNegocioId: formData.get('areaNegocioId') as string,
     empleadoId: formData.get('empleadoId') as string,
     productoId: formData.get('productoId') as string,
+    bienDeUsoId: formData.get('bienDeUsoId') as string,
+    linkedCreditoId: formData.get('linkedCreditoId') as string,
     cantidad: isNaN(cantidadRaw) ? undefined : cantidadRaw,
     precioUnitario: isNaN(precioUnitarioRaw) ? undefined : precioUnitarioRaw,
     date: formData.get('date') as string,
@@ -192,6 +242,11 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
     estado: (formData.get('estado') as string) || 'COBRADO',
     fechaVencimiento: (formData.get('fechaVencimiento') as string) || undefined,
   }
+
+  // Campos específicos para PURCHASE_BIEN_USO (quick-create)
+  const bienNombreNuevo = ((formData.get('bienNombre') as string) || '').trim()
+  const bienCategoriaNuevo = ((formData.get('bienCategoria') as string) || '').trim()
+  const bienMarcaNuevo = ((formData.get('bienMarca') as string) || '').trim()
 
   const { createTransactionSchema } = await import('@/lib/validations')
   const parsed = createTransactionSchema.safeParse(raw)
@@ -204,7 +259,8 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
 
   const {
     amount, description, type, subType, accountId, categoryId, contactId,
-    areaNegocioId, empleadoId, productoId, cantidad, precioUnitario,
+    areaNegocioId, empleadoId, productoId, bienDeUsoId, linkedCreditoId,
+    cantidad, precioUnitario,
     date: dateStr, currency, esCredito, estado, fechaVencimiento,
   } = parsed.data
 
@@ -212,8 +268,26 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
   const account = await getScopedAccount(accountId, businessId)
   if (!account) return { success: false, error: 'Cuenta no encontrada' }
 
-  // Auto-asignación de categoría: si el form no la envió, usar/crear una por defecto
-  // según el tipo de movimiento. Así toda transacción tiene asiento contable.
+  const isCobroCredito = subType === 'COBRO_CREDITO'
+  const isPagoDeuda = subType === 'PAGO_DEUDA'
+  const isSaleBienUso = subType === 'SALE_BIEN_USO'
+  const isPurchaseBienUso = subType === 'PURCHASE_BIEN_USO'
+  const isSaleProduct = subType === 'SALE_PRODUCT' || subType === 'SALE'
+  const isPurchaseProduct = subType === 'PURCHASE_PRODUCT' || subType === 'PURCHASE'
+
+  if (isCobroCredito && (!linkedCreditoId || linkedCreditoId === '')) {
+    return { success: false, error: 'Tenés que seleccionar un crédito para cobrar' }
+  }
+  if (isPagoDeuda && (!linkedCreditoId || linkedCreditoId === '')) {
+    return { success: false, error: 'Tenés que seleccionar una deuda para pagar' }
+  }
+  if (isSaleBienUso && (!bienDeUsoId || bienDeUsoId === '')) {
+    return { success: false, error: 'Tenés que seleccionar un bien de uso para vender' }
+  }
+  if (isPurchaseBienUso && bienNombreNuevo === '') {
+    return { success: false, error: 'Indicá el nombre del bien a comprar' }
+  }
+
   let effectiveCategoryId = categoryId
   if (!effectiveCategoryId || effectiveCategoryId === '') {
     const defaultId = await getOrCreateDefaultCategory(
@@ -227,99 +301,426 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
   const date = dateStr ? new Date(dateStr) : new Date()
   const fVenc = fechaVencimiento ? new Date(fechaVencimiento) : null
 
-  await prisma.$transaction(async (tx) => {
-    const newTx = await tx.transaction.create({
-      data: {
-        amount,
-        description,
-        type,
-        subType: subType || null,
-        date,
-        currency,
-        esCredito,
-        estado: esCredito ? estado : (type === 'INCOME' ? 'COBRADO' : 'PAGADO'),
-        fechaVencimiento: fVenc,
-        cantidad: cantidad ?? null,
-        precioUnitario: precioUnitario ?? null,
-        account: { connect: { id: accountId } },
-        business: { connect: { id: businessId } },
-        category: effectiveCategoryId && effectiveCategoryId !== '' ? { connect: { id: effectiveCategoryId } } : undefined,
-        contact: contactId && contactId !== '' ? { connect: { id: contactId } } : undefined,
-        areaNegocio: areaNegocioId && areaNegocioId !== '' ? { connect: { id: areaNegocioId } } : undefined,
-        empleado: empleadoId && empleadoId !== '' ? { connect: { id: empleadoId } } : undefined,
-        producto: productoId && productoId !== '' ? { connect: { id: productoId } } : undefined,
-      },
-      select: { id: true },
-    })
+  let clienteSaldado = false
+  let clienteNombre: string | undefined
+  let proveedorSaldado = false
+  let proveedorNombre: string | undefined
 
-    // Actualizar balance de la cuenta (caché — fuente de verdad es el journal)
-    const balanceChange = type === 'INCOME' ? amount : -amount
-    await tx.account.update({
-      where: { id: accountId },
-      data: { currentBalance: account.currentBalance + balanceChange },
-    })
+  try {
+    await prisma.$transaction(async (tx) => {
+      // ============ COBRO DE CRÉDITO ============
+      if (isCobroCredito && linkedCreditoId) {
+        const credito = await tx.transaction.findFirst({
+          where: { id: linkedCreditoId, businessId, esCredito: true, type: 'INCOME' },
+          select: { id: true, amount: true, contactId: true, contact: { select: { id: true, name: true } } },
+        })
+        if (!credito) throw new Error('Crédito no encontrado')
 
-    // ── Motor de doble partida ───────────────────────────────────────────────
-    // Obtener cuenta contable de la categoría y cuentas sistema del negocio
-    const [categoryWithContable, cxcAccount, cxpAccount] = await Promise.all([
-      effectiveCategoryId && effectiveCategoryId !== ''
-        ? tx.category.findFirst({
-            where: { id: effectiveCategoryId, businessId },
-            select: { contableAccountId: true },
-          })
-        : null,
-      tx.account.findFirst({
-        where: { businessId, isSystemAccount: true, subtype: 'RECEIVABLE' },
-        select: { id: true },
-      }),
-      tx.account.findFirst({
-        where: { businessId, isSystemAccount: true, subtype: 'PAYABLE' },
-        select: { id: true },
-      }),
-    ])
+        const cobrosPrev = await tx.transaction.aggregate({
+          where: { businessId, linkedCreditoId: credito.id },
+          _sum: { amount: true },
+        })
+        const yaCobrado = cobrosPrev._sum.amount ?? 0
+        const saldoPendiente = credito.amount - yaCobrado
+        if (amount > saldoPendiente + 0.001) {
+          throw new Error(`El monto excede el saldo pendiente ($${saldoPendiente.toFixed(2)})`)
+        }
 
-    const journalResult = generateJournalLines({
-      amount,
-      type: type as 'INCOME' | 'EXPENSE',
-      esCredito,
-      physicalAccountId: accountId,
-      categoryContableAccountId: categoryWithContable?.contableAccountId ?? null,
-      cxcAccountId: cxcAccount?.id ?? null,
-      cxpAccountId: cxpAccount?.id ?? null,
-      description,
-    })
-
-    if (journalResult.ok) {
-      await tx.journalEntry.create({
-        data: {
-          date,
-          description,
-          transactionId: newTx.id,
-          businessId,
-          lines: {
-            create: journalResult.lines,
+        const newTx = await tx.transaction.create({
+          data: {
+            amount,
+            description,
+            type: 'INCOME',
+            subType: 'COBRO_CREDITO',
+            date,
+            currency,
+            esCredito: false,
+            estado: 'COBRADO',
+            account: { connect: { id: accountId } },
+            business: { connect: { id: businessId } },
+            linkedCredito: { connect: { id: credito.id } },
+            contact: credito.contactId ? { connect: { id: credito.contactId } } : undefined,
           },
-        },
-      })
-    }
-    // Si journalResult.ok === false: degradación graceful, no se interrumpe la operación
+          select: { id: true },
+        })
 
-    // Actualizar stock si hay producto vinculado
-    if (productoId && productoId !== '' && cantidad && cantidad > 0) {
-      const tipoMovimiento = subType === 'SALE' ? 'SALIDA' : subType === 'PURCHASE' ? 'ENTRADA' : null
-      if (tipoMovimiento) {
-        const producto = await getScopedProducto(productoId, businessId)
-        if (producto) {
-          const nuevoStock = tipoMovimiento === 'SALIDA'
+        await tx.account.update({
+          where: { id: accountId },
+          data: { currentBalance: account.currentBalance + amount },
+        })
+
+        const nuevoCobrado = yaCobrado + amount
+        const nuevoEstado = Math.abs(credito.amount - nuevoCobrado) < 0.001 ? 'COBRADO' : 'PARCIAL'
+        await tx.transaction.update({ where: { id: credito.id }, data: { estado: nuevoEstado } })
+
+        const cxc = await tx.account.findFirst({
+          where: { businessId, isSystemAccount: true, subtype: 'RECEIVABLE' },
+          select: { id: true },
+        })
+        const journalResult = generateJournalLines({
+          amount,
+          type: 'INCOME',
+          esCredito: false,
+          physicalAccountId: accountId,
+          categoryContableAccountId: null,
+          cxcAccountId: cxc?.id ?? null,
+          cxpAccountId: null,
+          description,
+          mode: 'COBRO_CREDITO',
+        })
+        if (journalResult.ok) {
+          await tx.journalEntry.create({
+            data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
+          })
+        }
+
+        if (credito.contactId) {
+          const totalContacto = await tx.transaction.aggregate({
+            where: {
+              businessId,
+              contactId: credito.contactId,
+              esCredito: true,
+              type: 'INCOME',
+              estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] },
+            },
+            _sum: { amount: true },
+          })
+          const cobradoContacto = await tx.transaction.aggregate({
+            where: { businessId, linkedCredito: { contactId: credito.contactId } },
+            _sum: { amount: true },
+          })
+          const deudaTotal = (totalContacto._sum.amount ?? 0) - (cobradoContacto._sum.amount ?? 0)
+          if (deudaTotal <= 0.001) {
+            clienteSaldado = true
+            clienteNombre = credito.contact?.name
+          }
+        }
+        return
+      }
+
+      // ============ PAGO DE DEUDA (mirror de cobro) ============
+      if (isPagoDeuda && linkedCreditoId) {
+        const deuda = await tx.transaction.findFirst({
+          where: { id: linkedCreditoId, businessId, esCredito: true, type: 'EXPENSE' },
+          select: { id: true, amount: true, contactId: true, contact: { select: { id: true, name: true } } },
+        })
+        if (!deuda) throw new Error('Deuda no encontrada')
+
+        const pagosPrev = await tx.transaction.aggregate({
+          where: { businessId, linkedCreditoId: deuda.id },
+          _sum: { amount: true },
+        })
+        const yaPagado = pagosPrev._sum.amount ?? 0
+        const saldoPendiente = deuda.amount - yaPagado
+        if (amount > saldoPendiente + 0.001) {
+          throw new Error(`El monto excede el saldo pendiente ($${saldoPendiente.toFixed(2)})`)
+        }
+
+        const newTx = await tx.transaction.create({
+          data: {
+            amount,
+            description,
+            type: 'EXPENSE',
+            subType: 'PAGO_DEUDA',
+            date,
+            currency,
+            esCredito: false,
+            estado: 'PAGADO',
+            account: { connect: { id: accountId } },
+            business: { connect: { id: businessId } },
+            linkedCredito: { connect: { id: deuda.id } },
+            contact: deuda.contactId ? { connect: { id: deuda.contactId } } : undefined,
+          },
+          select: { id: true },
+        })
+
+        await tx.account.update({
+          where: { id: accountId },
+          data: { currentBalance: account.currentBalance - amount },
+        })
+
+        const nuevoPagado = yaPagado + amount
+        const nuevoEstado = Math.abs(deuda.amount - nuevoPagado) < 0.001 ? 'PAGADO' : 'PARCIAL'
+        await tx.transaction.update({ where: { id: deuda.id }, data: { estado: nuevoEstado } })
+
+        const cxp = await tx.account.findFirst({
+          where: { businessId, isSystemAccount: true, subtype: 'PAYABLE' },
+          select: { id: true },
+        })
+        const journalResult = generateJournalLines({
+          amount,
+          type: 'EXPENSE',
+          esCredito: false,
+          physicalAccountId: accountId,
+          categoryContableAccountId: null,
+          cxcAccountId: null,
+          cxpAccountId: cxp?.id ?? null,
+          description,
+          mode: 'PAGO_DEUDA',
+        })
+        if (journalResult.ok) {
+          await tx.journalEntry.create({
+            data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
+          })
+        }
+
+        if (deuda.contactId) {
+          const totalContacto = await tx.transaction.aggregate({
+            where: {
+              businessId,
+              contactId: deuda.contactId,
+              esCredito: true,
+              type: 'EXPENSE',
+              estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] },
+            },
+            _sum: { amount: true },
+          })
+          const pagadoContacto = await tx.transaction.aggregate({
+            where: { businessId, linkedCredito: { contactId: deuda.contactId } },
+            _sum: { amount: true },
+          })
+          const deudaTotal = (totalContacto._sum.amount ?? 0) - (pagadoContacto._sum.amount ?? 0)
+          if (deudaTotal <= 0.001) {
+            proveedorSaldado = true
+            proveedorNombre = deuda.contact?.name
+          }
+        }
+        return
+      }
+
+      // ============ VENTA DE BIEN DE USO ============
+      if (isSaleBienUso && bienDeUsoId) {
+        const bien = await tx.bienDeUso.findFirst({
+          where: { id: bienDeUsoId, businessId, activo: true },
+          select: { id: true, valorAdquisicion: true, depreciacionAcumulada: true },
+        })
+        if (!bien) throw new Error('Bien de uso no encontrado')
+        const valorNeto = Math.max(0, bien.valorAdquisicion - bien.depreciacionAcumulada)
+
+        const newTx = await tx.transaction.create({
+          data: {
+            amount,
+            description,
+            type: 'INCOME',
+            subType: 'SALE_BIEN_USO',
+            date,
+            currency,
+            esCredito,
+            estado: esCredito ? estado : 'COBRADO',
+            fechaVencimiento: fVenc,
+            account: { connect: { id: accountId } },
+            business: { connect: { id: businessId } },
+            bienDeUso: { connect: { id: bien.id } },
+            category: effectiveCategoryId ? { connect: { id: effectiveCategoryId } } : undefined,
+            contact: contactId && contactId !== '' ? { connect: { id: contactId } } : undefined,
+          },
+          select: { id: true },
+        })
+
+        await tx.bienDeUso.update({ where: { id: bien.id }, data: { activo: false } })
+
+        if (!esCredito) {
+          await tx.account.update({
+            where: { id: accountId },
+            data: { currentBalance: account.currentBalance + amount },
+          })
+        }
+
+        const [categoryWithContable, cxc, fixed] = await Promise.all([
+          effectiveCategoryId
+            ? tx.category.findFirst({ where: { id: effectiveCategoryId, businessId }, select: { contableAccountId: true } })
+            : null,
+          tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'RECEIVABLE' }, select: { id: true } }),
+          tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'FIXED_ASSET' }, select: { id: true } }),
+        ])
+        const journalResult = generateJournalLines({
+          amount,
+          type: 'INCOME',
+          esCredito,
+          physicalAccountId: accountId,
+          categoryContableAccountId: categoryWithContable?.contableAccountId ?? null,
+          cxcAccountId: cxc?.id ?? null,
+          cxpAccountId: null,
+          description,
+          mode: 'SALE_BIEN_USO',
+          fixedAssetAccountId: fixed?.id ?? null,
+          bienValorNetoEnLibros: valorNeto,
+        })
+        if (journalResult.ok) {
+          await tx.journalEntry.create({
+            data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
+          })
+        }
+        return
+      }
+
+      // ============ COMPRA DE BIEN DE USO (alta de activo fijo) ============
+      if (isPurchaseBienUso) {
+        const nuevoBien = await tx.bienDeUso.create({
+          data: {
+            nombre: bienNombreNuevo,
+            categoria: bienCategoriaNuevo || null,
+            marca: bienMarcaNuevo || null,
+            valorAdquisicion: amount,
+            valorResidual: 0,
+            depreciacionAcumulada: 0,
+            fechaAdquisicion: date,
+            activo: true,
+            businessId,
+          },
+          select: { id: true },
+        })
+
+        const newTx = await tx.transaction.create({
+          data: {
+            amount,
+            description,
+            type: 'EXPENSE',
+            subType: 'PURCHASE_BIEN_USO',
+            date,
+            currency,
+            esCredito,
+            estado: esCredito ? estado : 'PAGADO',
+            fechaVencimiento: fVenc,
+            account: { connect: { id: accountId } },
+            business: { connect: { id: businessId } },
+            bienDeUso: { connect: { id: nuevoBien.id } },
+            contact: contactId && contactId !== '' ? { connect: { id: contactId } } : undefined,
+          },
+          select: { id: true },
+        })
+
+        if (!esCredito) {
+          await tx.account.update({
+            where: { id: accountId },
+            data: { currentBalance: account.currentBalance - amount },
+          })
+        }
+
+        const [cxp, fixed] = await Promise.all([
+          tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'PAYABLE' }, select: { id: true } }),
+          tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'FIXED_ASSET' }, select: { id: true } }),
+        ])
+        const journalResult = generateJournalLines({
+          amount,
+          type: 'EXPENSE',
+          esCredito,
+          physicalAccountId: accountId,
+          categoryContableAccountId: null,
+          cxcAccountId: null,
+          cxpAccountId: cxp?.id ?? null,
+          description,
+          mode: 'PURCHASE_BIEN_USO',
+          fixedAssetAccountId: fixed?.id ?? null,
+        })
+        if (journalResult.ok) {
+          await tx.journalEntry.create({
+            data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
+          })
+        }
+        return
+      }
+
+      // ============ FLUJO ESTÁNDAR ============
+      const newTx = await tx.transaction.create({
+        data: {
+          amount,
+          description,
+          type,
+          subType: subType || null,
+          date,
+          currency,
+          esCredito,
+          estado: esCredito ? estado : (type === 'INCOME' ? 'COBRADO' : 'PAGADO'),
+          fechaVencimiento: fVenc,
+          cantidad: cantidad ?? null,
+          precioUnitario: precioUnitario ?? null,
+          account: { connect: { id: accountId } },
+          business: { connect: { id: businessId } },
+          category: effectiveCategoryId && effectiveCategoryId !== '' ? { connect: { id: effectiveCategoryId } } : undefined,
+          contact: contactId && contactId !== '' ? { connect: { id: contactId } } : undefined,
+          areaNegocio: areaNegocioId && areaNegocioId !== '' ? { connect: { id: areaNegocioId } } : undefined,
+          empleado: empleadoId && empleadoId !== '' ? { connect: { id: empleadoId } } : undefined,
+          producto: productoId && productoId !== '' ? { connect: { id: productoId } } : undefined,
+        },
+        select: { id: true },
+      })
+
+      if (!esCredito) {
+        const balanceChange = type === 'INCOME' ? amount : -amount
+        await tx.account.update({
+          where: { id: accountId },
+          data: { currentBalance: account.currentBalance + balanceChange },
+        })
+      }
+
+      const [categoryWithContable, cxcAccount, cxpAccount, inventoryAccount, cogsAccount] = await Promise.all([
+        effectiveCategoryId && effectiveCategoryId !== ''
+          ? tx.category.findFirst({ where: { id: effectiveCategoryId, businessId }, select: { contableAccountId: true } })
+          : null,
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'RECEIVABLE' }, select: { id: true } }),
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'PAYABLE' }, select: { id: true } }),
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'INVENTORY' }, select: { id: true } }),
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'COGS' }, select: { id: true } }),
+      ])
+
+      let costoMercaderia = 0
+      let producto: { id: string; tipo: string; stockActual: number; precioCosto: number } | null = null
+      if ((isSaleProduct || isPurchaseProduct) && productoId && cantidad && cantidad > 0) {
+        producto = await tx.producto.findFirst({
+          where: { id: productoId, businessId },
+          select: { id: true, tipo: true, stockActual: true, precioCosto: true },
+        })
+        if (producto && producto.tipo === 'MERCADERIA' && isSaleProduct) {
+          costoMercaderia = cantidad * (producto.precioCosto ?? 0)
+        }
+        // Compra de mercadería con costeo PROMEDIO: actualizar precioCosto del producto
+        if (producto && producto.tipo === 'MERCADERIA' && isPurchaseProduct && precioUnitario && precioUnitario > 0) {
+          const stockActual = producto.stockActual
+          const stockNuevo = stockActual + cantidad
+          if (stockNuevo > 0) {
+            const promedio = ((stockActual * (producto.precioCosto ?? 0)) + (cantidad * precioUnitario)) / stockNuevo
+            await tx.producto.update({ where: { id: productoId }, data: { precioCosto: promedio } })
+          }
+        }
+      }
+
+      const useProductMode = isSaleProduct && producto?.tipo === 'MERCADERIA' && costoMercaderia > 0
+      const usePurchaseMode = isPurchaseProduct
+
+      const journalResult = generateJournalLines({
+        amount,
+        type: type as 'INCOME' | 'EXPENSE',
+        esCredito,
+        physicalAccountId: accountId,
+        categoryContableAccountId: categoryWithContable?.contableAccountId ?? null,
+        cxcAccountId: cxcAccount?.id ?? null,
+        cxpAccountId: cxpAccount?.id ?? null,
+        description,
+        mode: useProductMode ? 'SALE_PRODUCT' : usePurchaseMode ? 'PURCHASE_PRODUCT' : 'STANDARD',
+        costoMercaderia: useProductMode ? costoMercaderia : undefined,
+        inventoryAccountId: inventoryAccount?.id ?? null,
+        cogsAccountId: cogsAccount?.id ?? null,
+      })
+
+      if (journalResult.ok) {
+        await tx.journalEntry.create({
+          data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
+        })
+      }
+
+      if (productoId && productoId !== '' && cantidad && cantidad > 0 && producto) {
+        let tipoMov: 'SALIDA' | 'ENTRADA' | null = null
+        if ((subType === 'SALE' || subType === 'SALE_PRODUCT') && producto.tipo === 'MERCADERIA') tipoMov = 'SALIDA'
+        else if (subType === 'PURCHASE' || subType === 'PURCHASE_PRODUCT') tipoMov = 'ENTRADA'
+        if (tipoMov) {
+          const nuevoStock = tipoMov === 'SALIDA'
             ? producto.stockActual - cantidad
             : producto.stockActual + cantidad
-          await tx.producto.update({
-            where: { id: productoId },
-            data: { stockActual: nuevoStock },
-          })
+          await tx.producto.update({ where: { id: productoId }, data: { stockActual: nuevoStock } })
           await tx.movimientoStock.create({
             data: {
-              tipo: tipoMovimiento,
+              tipo: tipoMov,
               cantidad,
               precio: precioUnitario ?? 0,
               motivo: description,
@@ -329,14 +730,18 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
           })
         }
       }
-    }
-  })
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error al registrar la operación'
+    return { success: false, error: msg }
+  }
 
   revalidateTag(`dashboard:${businessId}`, 'max')
   revalidatePath('/')
   revalidatePath('/stock')
   revalidatePath('/creditos')
-  return { success: true }
+  revalidatePath('/bienes-de-uso')
+  return { success: true, data: { clienteSaldado, clienteNombre, proveedorSaldado, proveedorNombre } }
 }
 
 export async function deleteTransaction(id: string) {
@@ -809,6 +1214,7 @@ export async function createProducto(formData: FormData): Promise<ActionResult> 
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
+    tipo: ((formData.get('tipo') as string) || 'MERCADERIA') as 'MERCADERIA' | 'SERVICIO',
     categoria: (formData.get('categoria') as string)?.trim(),
     marca: (formData.get('marca') as string)?.trim(),
     unidad: (formData.get('unidad') as string)?.trim() || 'unidad',
@@ -840,6 +1246,7 @@ export async function updateProducto(id: string, formData: FormData): Promise<Ac
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
+    tipo: ((formData.get('tipo') as string) || 'MERCADERIA') as 'MERCADERIA' | 'SERVICIO',
     categoria: (formData.get('categoria') as string)?.trim(),
     marca: (formData.get('marca') as string)?.trim(),
     unidad: (formData.get('unidad') as string)?.trim() || 'unidad',
@@ -1043,7 +1450,7 @@ export async function getDailyStats() {
 
 // ---- Dashboard Stats (Período dinámico) ----
 
-export type DashboardPeriodKey = 'diario' | 'ayer' | 'semanal' | 'mensual' | 'trimestral' | 'semestral' | 'anual' | 'custom'
+export type DashboardPeriodKey = 'diario' | 'semanal' | 'mensual' | 'anual' | 'custom'
 
 export interface DashboardStatsResult {
   kpis: { income: number; expense: number; gain: number; marginPct: number }
@@ -1094,40 +1501,42 @@ function computePeriodRange(
   customTo?: string,
   selectedYear?: number,
   selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
 ): { from: Date; to: Date; prevFrom: Date; prevTo: Date; label: string } {
   const now = new Date()
   let from: Date, to: Date, prevFrom: Date, prevTo: Date, label: string
 
   switch (period) {
     case 'diario': {
-      from = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-      const ayer = new Date(from); ayer.setDate(ayer.getDate() - 1)
-      prevFrom = new Date(ayer.getFullYear(), ayer.getMonth(), ayer.getDate(), 0, 0, 0)
-      prevTo = new Date(ayer.getFullYear(), ayer.getMonth(), ayer.getDate(), 23, 59, 59, 999)
-      label = 'Hoy'
-      break
-    }
-    case 'ayer': {
-      const yesterday = new Date(now)
-      yesterday.setDate(yesterday.getDate() - 1)
-      from = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0)
-      to = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999)
-      const twoDaysAgo = new Date(yesterday)
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 1)
-      prevFrom = new Date(twoDaysAgo.getFullYear(), twoDaysAgo.getMonth(), twoDaysAgo.getDate(), 0, 0, 0)
-      prevTo = new Date(twoDaysAgo.getFullYear(), twoDaysAgo.getMonth(), twoDaysAgo.getDate(), 23, 59, 59, 999)
-      label = 'Ayer'
+      const target = selectedDay ? new Date(selectedDay + 'T12:00:00') : now
+      from = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 0, 0, 0)
+      to = new Date(target.getFullYear(), target.getMonth(), target.getDate(), 23, 59, 59, 999)
+      const prev = new Date(from); prev.setDate(prev.getDate() - 1)
+      prevFrom = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate(), 0, 0, 0)
+      prevTo = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate(), 23, 59, 59, 999)
+      const isToday = from.getTime() === new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+      label = isToday
+        ? 'Hoy'
+        : from.toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })
       break
     }
     case 'semanal': {
-      const dayOfWeek = now.getDay()
-      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-      from = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset, 0, 0, 0)
-      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      let weekStart: Date
+      if (selectedWeekStart) {
+        weekStart = new Date(selectedWeekStart + 'T12:00:00')
+        weekStart = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate(), 0, 0, 0)
+      } else {
+        const dayOfWeek = now.getDay()
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+        weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset, 0, 0, 0)
+      }
+      from = weekStart
+      to = new Date(from); to.setDate(to.getDate() + 6); to.setHours(23, 59, 59, 999)
       prevFrom = new Date(from); prevFrom.setDate(prevFrom.getDate() - 7)
       prevTo = new Date(from); prevTo.setDate(prevTo.getDate() - 1); prevTo.setHours(23, 59, 59, 999)
-      label = 'Esta semana'
+      const fmtDate = (d: Date) => d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })
+      label = `${fmtDate(from)} – ${fmtDate(to)}`
       break
     }
     case 'mensual': {
@@ -1151,34 +1560,22 @@ function computePeriodRange(
             999,
           )
         : new Date(targetYear, targetMonthIndex, 0, 23, 59, 59, 999)
-      label = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
       label = from.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
       label = label.charAt(0).toUpperCase() + label.slice(1)
       break
     }
-    case 'trimestral': {
-      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3
-      from = new Date(now.getFullYear(), quarterStartMonth, 1, 0, 0, 0)
-      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-      prevFrom = new Date(now.getFullYear(), quarterStartMonth - 3, 1, 0, 0, 0)
-      prevTo = new Date(now.getFullYear(), quarterStartMonth, 0, 23, 59, 59, 999)
-      label = 'Trimestre actual'
-      break
-    }
-    case 'semestral': {
-      from = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate(), 0, 0, 0)
-      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-      prevFrom = new Date(now.getFullYear(), now.getMonth() - 12, now.getDate(), 0, 0, 0)
-      prevTo = new Date(from); prevTo.setDate(prevTo.getDate() - 1); prevTo.setHours(23, 59, 59, 999)
-      label = 'Último semestre'
-      break
-    }
     case 'anual': {
-      from = new Date(now.getFullYear(), 0, 1, 0, 0, 0)
-      to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-      prevFrom = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0)
-      prevTo = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999)
-      label = `Año ${now.getFullYear()}`
+      const targetYear = selectedYear ?? now.getFullYear()
+      const isCurrentYear = targetYear === now.getFullYear()
+      from = new Date(targetYear, 0, 1, 0, 0, 0)
+      to = isCurrentYear
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        : new Date(targetYear, 11, 31, 23, 59, 59, 999)
+      prevFrom = new Date(targetYear - 1, 0, 1, 0, 0, 0)
+      prevTo = isCurrentYear
+        ? new Date(targetYear - 1, now.getMonth(), now.getDate(), 23, 59, 59, 999)
+        : new Date(targetYear - 1, 11, 31, 23, 59, 59, 999)
+      label = `Año ${targetYear}`
       break
     }
     case 'custom': {
@@ -1210,10 +1607,10 @@ function groupTransactions(
   // Decide grouping based on period or range duration
   const durationDays = Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24))
   let mode: 'hour' | 'day' | 'month'
-  if (period === 'diario' || period === 'ayer') mode = 'hour'
+  if (period === 'diario') mode = 'hour'
   else if (period === 'semanal') mode = 'day'
   else if (period === 'mensual') mode = 'day'
-  else if (period === 'trimestral' || period === 'semestral' || period === 'anual') mode = 'month'
+  else if (period === 'anual') mode = 'month'
   else {
     // custom
     if (durationDays <= 2) mode = 'hour'
@@ -1323,14 +1720,16 @@ export async function getDashboardStats(
   preBusinessId?: string,
   selectedYear?: number,
   selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
 ): Promise<DashboardStatsResult> {
   const businessId = preBusinessId ?? await getBusinessId()
 
   // Cache key includes businessId + period params → safe per-tenant isolation.
   // Revalidates every 15 s so rapid tab switches hit memory, not Turso.
-  const cacheKey = `dashboard:${businessId}:${period}:${customFrom ?? ''}:${customTo ?? ''}:${selectedYear ?? ''}:${selectedMonth ?? ''}`
+  const cacheKey = `dashboard:${businessId}:${period}:${customFrom ?? ''}:${customTo ?? ''}:${selectedYear ?? ''}:${selectedMonth ?? ''}:${selectedDay ?? ''}:${selectedWeekStart ?? ''}`
   const cached = unstable_cache(
-    async () => _fetchDashboardStats(businessId, period, customFrom, customTo, selectedYear, selectedMonth),
+    async () => _fetchDashboardStats(businessId, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     [cacheKey],
     { revalidate: 15, tags: [`dashboard:${businessId}`] },
   )
@@ -1417,11 +1816,8 @@ export async function getDashboardPresetSummaries(
   const businessId = preBusinessId ?? await getBusinessId()
   const periods: Array<Exclude<DashboardPeriodKey, 'custom'>> = [
     'diario',
-    'ayer',
     'semanal',
     'mensual',
-    'trimestral',
-    'semestral',
     'anual',
   ]
 
@@ -1452,9 +1848,11 @@ async function _fetchDashboardStats(
   customTo?: string,
   selectedYear?: number,
   selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
 ): Promise<DashboardStatsResult> {
   const now = new Date()
-  const { from, to, prevFrom, prevTo, label: periodLabel } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth)
+  const { from, to, prevFrom, prevTo, label: periodLabel } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
 
   // ── Fetch current + previous period transactions in parallel ──
   // prevTxs only needs aggregates; creditosDeudas only needs amounts + status
@@ -1566,26 +1964,8 @@ async function _fetchDashboardStats(
     creditosDeudas: creditosDeudas as any[],
   }
 
-  // ── Alerts (based on period data + account balances) ──
+  // Alerts deshabilitadas a pedido (no se muestran en el Balance General)
   const alerts: DashboardStatsResult['alerts'] = []
-
-  if (curMargin < 20 && curIncome > 0) {
-    alerts.push({
-      severity: curMargin < 0 ? 'danger' : 'warning',
-      icon: 'margin',
-      title: 'Margen reducido',
-      message: `El margen del período es ${curMargin.toFixed(1)}%. Analizá costos en Reportes.`,
-    })
-  }
-  if (prevExpense > 0 && curExpense > prevExpense * 1.2) {
-    const spikePct = ((curExpense - prevExpense) / prevExpense) * 100
-    alerts.push({
-      severity: spikePct > 50 ? 'danger' : 'warning',
-      icon: 'spike',
-      title: 'Gastos en alza',
-      message: `Los gastos subieron un ${spikePct.toFixed(0)}% respecto al período anterior.`,
-    })
-  }
 
   return {
     kpis: { income: curIncome, expense: curExpense, gain: curGain, marginPct: curMargin },
@@ -1737,3 +2117,290 @@ export async function getCajasData(): Promise<CajasData> {
     aiTipVirtual,
   }
 }
+
+
+// =====================================================================
+//  COBRO DE CRÉDITOS — Clientes con saldo pendiente
+// =====================================================================
+
+export type ClienteConCredito = {
+  contactId: string
+  nombre: string
+  taxId: string | null
+  deudaTotal: number
+  creditos: {
+    id: string
+    description: string
+    amount: number
+    saldoPendiente: number
+    fechaVencimiento: Date | null
+    date: Date
+    estado: string
+  }[]
+}
+
+export async function getClientesConCreditoPendiente(): Promise<ClienteConCredito[]> {
+  const businessId = await getBusinessId()
+
+  // Traer todos los créditos de tipo INCOME que no estén COBRADO
+  const creditos = await prisma.transaction.findMany({
+    where: {
+      businessId,
+      type: 'INCOME',
+      esCredito: true,
+      contactId: { not: null },
+      estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] },
+    },
+    select: {
+      id: true,
+      description: true,
+      amount: true,
+      date: true,
+      fechaVencimiento: true,
+      estado: true,
+      contactId: true,
+      contact: { select: { id: true, name: true, taxId: true } },
+      cobrosAplicados: { select: { amount: true } },
+    },
+    orderBy: { date: 'desc' },
+  })
+
+  const map = new Map<string, ClienteConCredito>()
+  for (const c of creditos) {
+    if (!c.contactId || !c.contact) continue
+    const cobrado = c.cobrosAplicados.reduce((s, x) => s + x.amount, 0)
+    const saldo = c.amount - cobrado
+    if (saldo <= 0.001) continue
+    const existing = map.get(c.contactId)
+    const credito = {
+      id: c.id,
+      description: c.description,
+      amount: c.amount,
+      saldoPendiente: saldo,
+      fechaVencimiento: c.fechaVencimiento,
+      date: c.date,
+      estado: c.estado,
+    }
+    if (existing) {
+      existing.deudaTotal += saldo
+      existing.creditos.push(credito)
+    } else {
+      map.set(c.contactId, {
+        contactId: c.contactId,
+        nombre: c.contact.name,
+        taxId: c.contact.taxId,
+        deudaTotal: saldo,
+        creditos: [credito],
+      })
+    }
+  }
+
+  return [...map.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
+// =====================================================================
+//  PAGO DE DEUDAS — Proveedores con saldo pendiente (mirror de cobros)
+// =====================================================================
+
+export type ProveedorConDeuda = {
+  contactId: string
+  nombre: string
+  taxId: string | null
+  deudaTotal: number
+  deudas: {
+    id: string
+    description: string
+    amount: number
+    saldoPendiente: number
+    fechaVencimiento: Date | null
+    date: Date
+    estado: string
+  }[]
+}
+
+export async function getProveedoresConDeudaPendiente(): Promise<ProveedorConDeuda[]> {
+  const businessId = await getBusinessId()
+
+  const deudas = await prisma.transaction.findMany({
+    where: {
+      businessId,
+      type: 'EXPENSE',
+      esCredito: true,
+      contactId: { not: null },
+      estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] },
+    },
+    select: {
+      id: true,
+      description: true,
+      amount: true,
+      date: true,
+      fechaVencimiento: true,
+      estado: true,
+      contactId: true,
+      contact: { select: { id: true, name: true, taxId: true } },
+      cobrosAplicados: { select: { amount: true } },
+    },
+    orderBy: { date: 'desc' },
+  })
+
+  const map = new Map<string, ProveedorConDeuda>()
+  for (const d of deudas) {
+    if (!d.contactId || !d.contact) continue
+    const pagado = d.cobrosAplicados.reduce((s, x) => s + x.amount, 0)
+    const saldo = d.amount - pagado
+    if (saldo <= 0.001) continue
+    const existing = map.get(d.contactId)
+    const item = {
+      id: d.id,
+      description: d.description,
+      amount: d.amount,
+      saldoPendiente: saldo,
+      fechaVencimiento: d.fechaVencimiento,
+      date: d.date,
+      estado: d.estado,
+    }
+    if (existing) {
+      existing.deudaTotal += saldo
+      existing.deudas.push(item)
+    } else {
+      map.set(d.contactId, {
+        contactId: d.contactId,
+        nombre: d.contact.name,
+        taxId: d.contact.taxId,
+        deudaTotal: saldo,
+        deudas: [item],
+      })
+    }
+  }
+
+  return [...map.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
+}
+
+// =====================================================================
+//  BIENES DE USO — CRUD básico
+// =====================================================================
+
+export async function getBienesDeUso(activosOnly = true) {
+  const businessId = await getBusinessId()
+  return prisma.bienDeUso.findMany({
+    where: { businessId, ...(activosOnly ? { activo: true } : {}) },
+    orderBy: { nombre: 'asc' },
+  })
+}
+
+export async function createBienDeUso(formData: FormData): Promise<ActionResult> {
+  const { createBienDeUsoSchema } = await import('@/lib/validations')
+  const raw = {
+    nombre: (formData.get('nombre') as string)?.trim(),
+    descripcion: (formData.get('descripcion') as string)?.trim(),
+    categoria: (formData.get('categoria') as string)?.trim(),
+    marca: (formData.get('marca') as string)?.trim(),
+    valorAdquisicion: parseFloat(formData.get('valorAdquisicion') as string) || 0,
+    valorResidual: parseFloat(formData.get('valorResidual') as string) || 0,
+    fechaAdquisicion: (formData.get('fechaAdquisicion') as string) || undefined,
+    vidaUtilMeses: formData.get('vidaUtilMeses') ? parseInt(formData.get('vidaUtilMeses') as string, 10) : undefined,
+  }
+  const parsed = createBienDeUsoSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+  const businessId = await getBusinessId()
+  const data = parsed.data
+  await prisma.bienDeUso.create({
+    data: {
+      nombre: data.nombre,
+      descripcion: data.descripcion || null,
+      categoria: data.categoria || null,
+      marca: data.marca || null,
+      valorAdquisicion: data.valorAdquisicion,
+      valorResidual: data.valorResidual,
+      fechaAdquisicion: data.fechaAdquisicion ? new Date(data.fechaAdquisicion) : new Date(),
+      vidaUtilMeses: data.vidaUtilMeses ?? null,
+      businessId,
+    },
+  })
+  revalidatePath('/bienes-de-uso')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function deleteBienDeUso(id: string): Promise<ActionResult> {
+  const businessId = await getBusinessId()
+  await prisma.bienDeUso.updateMany({
+    where: { id, businessId },
+    data: { activo: false },
+  })
+  revalidatePath('/bienes-de-uso')
+  return { success: true }
+}
+
+// =====================================================================
+//  CATEGORÍAS — crear nueva categoría custom (con cuenta contable asociada)
+// =====================================================================
+
+export async function createCategoryWithContable(formData: FormData): Promise<ActionResult<{ id: string; name: string }>> {
+  const raw = {
+    name: (formData.get('name') as string)?.trim(),
+    type: (formData.get('type') as string) || 'INCOME',
+  }
+  const parsed = createCategorySchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+  const businessId = await getBusinessId()
+  const created = await prisma.category.create({
+    data: { name: parsed.data.name, type: parsed.data.type, businessId },
+    select: { id: true, name: true },
+  })
+  await createContableAccountForCategory(created.id, created.name, parsed.data.type, businessId, prisma as never)
+  revalidatePath('/')
+  return { success: true, data: created }
+}
+
+// =====================================================================
+//  PRODUCTOS — crear producto/servicio rápido desde el form de venta
+// =====================================================================
+
+export async function createProductoQuick(formData: FormData): Promise<ActionResult<{ id: string; nombre: string; tipo: string }>> {
+  const raw = {
+    nombre: (formData.get('nombre') as string)?.trim(),
+    descripcion: (formData.get('descripcion') as string)?.trim(),
+    tipo: (formData.get('tipo') as string) || 'MERCADERIA',
+    categoria: (formData.get('categoria') as string)?.trim(),
+    marca: (formData.get('marca') as string)?.trim(),
+    unidad: (formData.get('unidad') as string)?.trim() || 'unidad',
+    metodoCosteo: (formData.get('metodoCosteo') as string) || 'PROMEDIO',
+    precioVenta: parseFloat(formData.get('precioVenta') as string) || 0,
+    precioCosto: parseFloat(formData.get('precioCosto') as string) || 0,
+    stockActual: parseFloat(formData.get('stockActual') as string) || 0,
+    enTransito: 0,
+  }
+  const parsed = createProductoSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+  const businessId = await getBusinessId()
+  const data = parsed.data
+  const created = await prisma.producto.create({
+    data: {
+      nombre: data.nombre,
+      descripcion: data.descripcion || null,
+      tipo: data.tipo,
+      categoria: data.categoria || null,
+      marca: data.marca || null,
+      unidad: data.unidad,
+      metodoCosteo: data.metodoCosteo,
+      precioVenta: data.precioVenta,
+      precioCosto: data.precioCosto,
+      stockActual: data.tipo === 'SERVICIO' ? 0 : data.stockActual,
+      enTransito: 0,
+      businessId,
+    },
+    select: { id: true, nombre: true, tipo: true },
+  })
+  revalidatePath('/stock')
+  revalidatePath('/')
+  return { success: true, data: created }
+}
+
+

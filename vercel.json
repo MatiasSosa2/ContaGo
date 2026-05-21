@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install",
-  "buildCommand": "npx prisma generate && next build"
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm exec prisma generate && pnpm exec next build"
 }

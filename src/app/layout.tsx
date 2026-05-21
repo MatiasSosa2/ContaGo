@@ -47,6 +47,7 @@ export default function RootLayout({
         />
       </head>
       <body
+        suppressHydrationWarning
         className={`${inter.variable} ${archivo.variable} ${geistMono.variable} antialiased flex`}
       >
         <Sidebar />

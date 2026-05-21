@@ -89,20 +89,20 @@ export default function TransactionSection({
         <div className="bg-white border border-[#D8E2D6] shadow-sm flex flex-col h-full rounded-sm overflow-hidden">
             <div className="bg-[#F0F4EF] px-4 py-3.5 border-b border-[#D8E2D6] flex justify-between items-center">
                  <h2 className="font-semibold text-[#3A4D39] uppercase text-xs tracking-wider">
-                    {activeTab === 'INCOME' ? 'Registrar Ingreso' : 'Registrar Gasto'}
+                    Registrar operación
                 </h2>
                 <div className="flex bg-[#D8E2D6] p-0.5 rounded-sm">
                     <button 
                         onClick={() => setActiveTab('INCOME')}
                         className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all rounded-[2px] ${activeTab === 'INCOME' ? 'bg-[#1B4332] text-white shadow-sm' : 'text-[#4A6741] hover:text-[#1B4332]'}`}
                     >
-                        Ingreso
+                        Ventas
                     </button>
                     <button 
                         onClick={() => setActiveTab('EXPENSE')}
                         className={`px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-all rounded-[2px] ${activeTab === 'EXPENSE' ? 'bg-[#1A1A1A] text-white shadow-sm' : 'text-[#4A6741] hover:text-[#1B4332]'}`}
                     >
-                        Gasto
+                        Compras
                     </button>
                 </div>
             </div>

@@ -32,6 +32,8 @@ export async function getModalCatalogs() {
       areas: [],
       productos: MOCK.MOCK_PRODUCTOS,
       empleados: [],
+      bienesDeUso: [],
+      operatingModel: 'BOTH' as const,
     };
   }
   const databaseActions = await getDatabaseActions();
@@ -68,10 +70,52 @@ export async function createContact(formData: FormData): Promise<ActionResult> {
   return databaseActions.createContact(formData);
 }
 
-export async function createTransaction(formData: FormData): Promise<ActionResult> {
-  if (USE_MOCK) return { success: true };
+export async function createTransaction(formData: FormData): Promise<ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string }>> {
+  if (USE_MOCK) return { success: true, data: {} };
   const databaseActions = await getDatabaseActions();
   return databaseActions.createTransaction(formData);
+}
+
+export async function getClientesConCreditoPendiente() {
+  if (USE_MOCK) return [];
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getClientesConCreditoPendiente();
+}
+
+export async function getProveedoresConDeudaPendiente() {
+  if (USE_MOCK) return [];
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getProveedoresConDeudaPendiente();
+}
+
+export async function getBienesDeUso(activosOnly = true) {
+  if (USE_MOCK) return [];
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getBienesDeUso(activosOnly);
+}
+
+export async function createBienDeUso(formData: FormData): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createBienDeUso(formData);
+}
+
+export async function deleteBienDeUso(id: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.deleteBienDeUso(id);
+}
+
+export async function createCategoryWithContable(formData: FormData): Promise<ActionResult<{ id: string; name: string }>> {
+  if (USE_MOCK) return { success: true, data: { id: 'mock', name: 'mock' } };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createCategoryWithContable(formData);
+}
+
+export async function createProductoQuick(formData: FormData): Promise<ActionResult<{ id: string; nombre: string; tipo: string }>> {
+  if (USE_MOCK) return { success: true, data: { id: 'mock', nombre: 'mock', tipo: 'MERCADERIA' } };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createProductoQuick(formData);
 }
 
 export async function deleteTransaction(id: string) {
@@ -272,13 +316,13 @@ export async function getDailyStats() {
   return databaseActions.getDailyStats();
 }
 
-export async function getDashboardStats(period: string, customFrom?: string, customTo?: string, preBusinessId?: string, selectedYear?: number, selectedMonth?: number) {
+export async function getDashboardStats(period: string, customFrom?: string, customTo?: string, preBusinessId?: string, selectedYear?: number, selectedMonth?: number, selectedDay?: string, selectedWeekStart?: string) {
   if (USE_MOCK) {
     const { getMockDashboardStats } = await import('@/lib/mock');
     return getMockDashboardStats(period, customFrom, customTo);
   }
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getDashboardStats(period as any, customFrom, customTo, preBusinessId, selectedYear, selectedMonth);
+  return databaseActions.getDashboardStats(period as any, customFrom, customTo, preBusinessId, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
 export async function getMonthlyDashboardStats(preBusinessId?: string) {
@@ -310,7 +354,7 @@ export async function getAvailableDashboardMonths(preBusinessId?: string) {
 
 export async function getDashboardPresetSummaries(preBusinessId?: string) {
   if (USE_MOCK) {
-    const periods = ['diario', 'ayer', 'semanal', 'mensual', 'trimestral', 'semestral', 'anual'] as const;
+    const periods = ['diario', 'semanal', 'mensual', 'anual'] as const;
     return periods.map((period) => ({
       period,
       periodLabel: period,

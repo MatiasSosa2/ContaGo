@@ -87,7 +87,7 @@ export default function DashboardUserMenu({ user, business, authProvider }: Dash
       <button
         type="button"
         onClick={() => setIsOpen(current => !current)}
-        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-left transition hover:border-stone-300 hover:bg-white sm:w-auto lg:min-h-[52px]"
+        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 text-left transition hover:border-stone-300 hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20 dark:hover:bg-white/[0.08] sm:w-auto lg:min-h-[52px]"
         aria-expanded={isOpen}
         aria-haspopup="menu"
       >
@@ -96,20 +96,20 @@ export default function DashboardUserMenu({ user, business, authProvider }: Dash
             <img
               src={user.image}
               alt={`Avatar de ${displayName}`}
-              className="h-11 w-11 rounded-full object-cover ring-2 ring-white"
+              className="h-11 w-11 rounded-full object-cover ring-2 ring-white dark:ring-[#11171d]"
             />
           ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2D6A4F] text-sm font-semibold text-white ring-2 ring-white">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2D6A4F] text-sm font-semibold text-white ring-2 ring-white dark:ring-[#11171d]">
               {initials}
             </div>
           )}
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-stone-800">{displayName}</p>
-            <p className="truncate text-xs text-stone-500">{business.name}</p>
+            <p className="truncate text-sm font-semibold text-stone-800 dark:text-stone-100">{displayName}</p>
+            <p className="truncate text-xs text-stone-500 dark:text-stone-400">{business.name}</p>
           </div>
         </div>
         <svg
-          className={`h-4 w-4 shrink-0 text-stone-500 transition ${isOpen ? 'rotate-180' : ''}`}
+          className={`h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${isOpen ? 'rotate-180' : ''}`}
           viewBox="0 0 20 20"
           fill="currentColor"
           aria-hidden="true"

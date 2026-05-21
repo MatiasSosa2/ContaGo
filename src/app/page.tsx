@@ -1,18 +1,13 @@
-﻿import { getAvailableDashboardMonths, getDashboardStats, getCajasData } from '@/app/actions'
-import { FinancialOverviewChart, ProfitabilityDonut, EvolutionTabs } from '@/components/DashboardCharts'
+﻿import { getDashboardStats, getCajasData } from '@/app/actions'
+import { FinancialOverviewChart, EvolutionTabs } from '@/components/DashboardCharts'
 import AppHeader from '@/components/AppHeader'
-import PeriodTabs from '@/components/PeriodTabs'
-import type { PeriodKey } from '@/components/PeriodTabs'
+import PeriodSelector from '@/components/PeriodSelector'
+import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
 import { Suspense } from 'react'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
-
-const PERIOD_DISPLAY: Record<string, string> = {
-  diario: 'Hoy', ayer: 'Ayer', semanal: 'Esta semana', mensual: 'Este mes',
-  trimestral: 'Este trimestre', semestral: 'Este semestre', anual: 'Este año', custom: 'Período personalizado',
-}
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function DashboardSkeleton() {
@@ -104,7 +99,7 @@ function generateInsights(
 
 // ── Async content component ────────────────────────────────────────────────────
 async function DashboardContent({
-  businessId, periodo, customFrom, customTo, selectedYear, selectedMonth,
+  businessId, periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
 }: {
   businessId: string
   periodo: PeriodKey
@@ -112,13 +107,15 @@ async function DashboardContent({
   customTo?: string
   selectedYear?: number
   selectedMonth?: number
+  selectedDay?: string
+  selectedWeekStart?: string
 }) {
   const [stats, cajasData] = await Promise.all([
-    getDashboardStats(periodo, customFrom, customTo, businessId, selectedYear, selectedMonth),
+    getDashboardStats(periodo, customFrom, customTo, businessId, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getCajasData(),
   ])
 
-  const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, periodLabel, debtStatus, alerts } = stats
+  const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, periodLabel, debtStatus } = stats
 
   const incomeGrowth = prevKpis.income > 0 ? ((kpis.income - prevKpis.income) / prevKpis.income) * 100 : null
   const expenseGrowth = prevKpis.expense > 0 ? ((kpis.expense - prevKpis.expense) / prevKpis.expense) * 100 : null
@@ -141,27 +138,11 @@ async function DashboardContent({
 
   return (
     <>
-      {/* ── Alertas ─────────────────────────────────────────────────────────── */}
-      {alerts.length > 0 && (
-        <div className="mb-4 space-y-2">
-          {alerts.map((a, i) => (
-            <div key={i} className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
-              a.severity === 'danger'
-                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-400'
-                : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400'
-            }`}>
-              <span className="mt-0.5 shrink-0">⚠️</span>
-              <div><span className="font-semibold">{a.title}: </span><span>{a.message}</span></div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ══ SECCIÓN 1 — KPIs (3/4) + Donut rentabilidad (1/4) ══════════════ */}
-      <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr_1fr_minmax(240px,0.8fr)]">
+      {/* ══ SECCIÓN 1 — KPIs principales (3 columnas) ════════════════ */}
+      <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
 
         {/* KPI Ingresos — verde */}
-        <div className="flex flex-col justify-between rounded-2xl border border-[#D5E3D8] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#1E3627] dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col justify-between rounded-2xl border border-[#D5E3D8] bg-white p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#1E3627] dark:bg-[#141414] dark:shadow-none">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2D6A4F] dark:text-[#8FD0A7]">Ingresos</span>
             <span className={`text-[11px] font-semibold ${variationClass(incomeV)}`}>{incomeV.label}</span>
@@ -178,7 +159,7 @@ async function DashboardContent({
         </div>
 
         {/* KPI Egresos — rojo */}
-        <div className="flex flex-col justify-between rounded-2xl border border-[#F3D6D6] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#2E1919] dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col justify-between rounded-2xl border border-[#F3D6D6] bg-white p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#2E1919] dark:bg-[#141414] dark:shadow-none">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#B91C1C] dark:text-[#F87171]">Egresos</span>
             <span className={`text-[11px] font-semibold ${variationClass(expenseV)}`}>{expenseV.label}</span>
@@ -195,7 +176,7 @@ async function DashboardContent({
         </div>
 
         {/* KPI Ganancia Neta — celeste */}
-        <div className={`flex flex-col justify-between rounded-2xl border p-5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${
+        <div className={`flex flex-col justify-between rounded-2xl border p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${
           gainIsPositive ? 'border-[#BAE6FD] bg-white dark:border-[#0C3450] dark:bg-[#141414]' : 'border-[#F3D6D6] bg-white dark:border-[#2E1919] dark:bg-[#141414]'
         }`}>
           <div className="flex items-center justify-between">
@@ -214,21 +195,6 @@ async function DashboardContent({
               <div className={`h-full rounded-full ${gainIsPositive ? 'bg-[#0369A1]' : 'bg-[#B91C1C]'}`} style={{ width: `${gainShare.toFixed(0)}%` }} />
             </div>
             <span className="text-[11px] text-stone-400">{kpis.income > 0 ? `${gainShare.toFixed(0)}%` : 'N/A'}</span>
-          </div>
-        </div>
-
-        {/* Donut de rentabilidad */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
-          <div className="border-b border-[#ECE7E1] bg-[#FAFBFC] px-4 py-3 dark:border-white/10 dark:bg-[#171717]">
-            <h2 className="text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Rentabilidad</h2>
-            <p className="text-[11px] text-[#9CA3AF]">
-              {kpis.income > 0 ? `Margen ${kpis.marginPct.toFixed(1)}%` : 'Sin ventas registradas'}
-            </p>
-          </div>
-          <div className="flex flex-1 items-center justify-center p-3">
-            <div className="w-full max-w-[240px]">
-              <ProfitabilityDonut expense={kpis.expense} gain={Math.max(kpis.gain, 0)} height={170} />
-            </div>
           </div>
         </div>
       </section>
@@ -255,7 +221,7 @@ async function DashboardContent({
       <section className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
 
         {/* Caja */}
-        <div className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-military-light text-[#2D5A41] dark:bg-[#1F3428] dark:text-[#9AC7A8]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
@@ -267,7 +233,7 @@ async function DashboardContent({
         </div>
 
         {/* Créditos / Deudas */}
-        <div className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FFF7ED] text-[#C2410C] dark:bg-[#2A1810] dark:text-[#F97316]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
@@ -288,7 +254,7 @@ async function DashboardContent({
         </div>
 
         {/* Stock */}
-        <div className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#7C3AED] dark:bg-[#1E1830] dark:text-[#A78BFA]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
@@ -300,7 +266,7 @@ async function DashboardContent({
         </div>
 
         {/* Bienes de Uso */}
-        <div className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FFFBEB] text-[#92400E] dark:bg-[#2A1810] dark:text-[#D97706]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
@@ -375,11 +341,10 @@ async function DashboardContent({
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; from?: string; to?: string; year?: string; month?: string }>
+  searchParams: Promise<{ periodo?: string; from?: string; to?: string; year?: string; month?: string; day?: string; weekStart?: string }>
 }) {
   const [sessionContext, sp] = await Promise.all([requireBusinessContext(), searchParams])
   const businessId = sessionContext.activeBusiness.id
-  const availableMonths = await getAvailableDashboardMonths(businessId)
 
   const periodo = (sp.periodo ?? 'mensual') as PeriodKey
   const customFrom = sp.from
@@ -387,10 +352,14 @@ export default async function Home({
   const today = new Date()
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth() + 1
-  const selectedYear = sp.year ? Number.parseInt(sp.year, 10) : (periodo === 'mensual' ? currentYear : undefined)
-  const selectedMonth = sp.month ? Number.parseInt(sp.month, 10) : (periodo === 'mensual' ? currentMonth : undefined)
-
-  const firstName = sessionContext.user.name?.split(' ')[0] ?? 'Hola'
+  const selectedYear = sp.year
+    ? Number.parseInt(sp.year, 10)
+    : (periodo === 'mensual' || periodo === 'anual' ? currentYear : undefined)
+  const selectedMonth = sp.month
+    ? Number.parseInt(sp.month, 10)
+    : (periodo === 'mensual' ? currentMonth : undefined)
+  const selectedDay = sp.day
+  const selectedWeekStart = sp.weekStart
 
   return (
     <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F7F9FB] p-4 font-sans text-[#1F2937] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
@@ -406,24 +375,17 @@ export default async function Home({
         }
       />
 
-      {/* ── Saludo + Selector de período ────────────────────────────────────── */}
-      <div className="mb-5 flex flex-row flex-wrap items-center justify-between gap-3 md:mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1F2937] dark:text-[#E8E8E8]">
-            Hola, {firstName} 👋
-          </h1>
-          <p className="mt-0.5 text-sm text-stone-400 dark:text-stone-500">
-            {PERIOD_DISPLAY[periodo] ?? 'Período personalizado'}
-          </p>
-        </div>
+      {/* ── Selector de período ─────────────────────────────────────────────── */}
+      <div className="mb-5 flex flex-row flex-wrap items-center justify-end gap-3 md:mb-6">
         <Suspense fallback={null}>
-          <PeriodTabs
+          <PeriodSelector
             active={periodo}
             customFrom={customFrom}
             customTo={customTo}
             selectedYear={selectedYear}
             selectedMonth={selectedMonth}
-            availableMonths={availableMonths}
+            selectedDay={selectedDay}
+            selectedWeekStart={selectedWeekStart}
           />
         </Suspense>
       </div>
@@ -437,6 +399,8 @@ export default async function Home({
           customTo={customTo}
           selectedYear={selectedYear}
           selectedMonth={selectedMonth}
+          selectedDay={selectedDay}
+          selectedWeekStart={selectedWeekStart}
         />
       </Suspense>
     </div>

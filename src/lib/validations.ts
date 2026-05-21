@@ -25,6 +25,22 @@ const challengeCodeSchema = z
   .trim()
   .regex(/^\d{6}$/, 'El código debe tener 6 dígitos')
 
+// Subtipos de movimiento expandidos
+export const TRANSACTION_SUBTYPES = [
+  // Legacy / genéricos
+  'SALE', 'COBRO', 'PURCHASE', 'PAGO',
+  // Ventas detalladas
+  'SALE_PRODUCT', 'SALE_SERVICE', 'SALE_BIEN_USO',
+  'COBRO_CREDITO', 'OTHER_INCOME',
+  // Compras detalladas
+  'PURCHASE_PRODUCT', 'PURCHASE_SERVICE', 'PURCHASE_BIEN_USO',
+  'PAGO_DEUDA',
+] as const
+
+export const TRANSACTION_ESTADOS = [
+  'COBRADO', 'PAGADO', 'PENDIENTE', 'VENCIDO', 'PARCIAL',
+] as const
+
 // ---- Transaction ----
 export const createTransactionSchema = z.object({
   amount: z
@@ -38,20 +54,22 @@ export const createTransactionSchema = z.object({
   type: z.enum(['INCOME', 'EXPENSE'], {
     message: 'El tipo debe ser INCOME o EXPENSE',
   }),
-  subType: z.enum(['SALE', 'COBRO', 'PURCHASE', 'PAGO']).optional(),
+  subType: z.enum(TRANSACTION_SUBTYPES).optional(),
   accountId: z.string().uuid('Cuenta inválida'),
   categoryId: z.string().uuid('Categoría inválida').optional().or(z.literal('')),
   contactId: z.string().uuid('Contacto inválido').optional().or(z.literal('')),
   areaNegocioId: z.string().uuid('Área de negocio inválida').optional().or(z.literal('')),
   empleadoId: z.string().uuid('Empleado inválido').optional().or(z.literal('')),
   productoId: z.string().uuid('Producto inválido').optional().or(z.literal('')),
+  bienDeUsoId: z.string().uuid('Bien de uso inválido').optional().or(z.literal('')),
+  linkedCreditoId: z.string().uuid('Crédito inválido').optional().or(z.literal('')),
   cantidad: z.number().positive('La cantidad debe ser mayor a 0').optional(),
   precioUnitario: z.number().min(0).optional(),
   date: z.string().optional(),
   currency: z.enum(['ARS', 'USD']).default('ARS'),
   // Créditos y Deudas
   esCredito: z.boolean().default(false),
-  estado: z.enum(['COBRADO', 'PAGADO', 'PENDIENTE', 'VENCIDO']).default('COBRADO'),
+  estado: z.enum(TRANSACTION_ESTADOS).default('COBRADO'),
   fechaVencimiento: z.string().optional(),
 })
 
@@ -70,6 +88,7 @@ export const createEmpleadoSchema = z.object({
 export const createProductoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio').max(100),
   descripcion: z.string().max(300).optional().or(z.literal('')),
+  tipo: z.enum(['MERCADERIA', 'SERVICIO']).default('MERCADERIA'),
   categoria: z.string().max(80).optional().or(z.literal('')),
   marca: z.string().max(80).optional().or(z.literal('')),
   unidad: z.string().max(30).default('unidad'),
@@ -78,6 +97,18 @@ export const createProductoSchema = z.object({
   precioCosto: z.number().min(0).default(0),
   stockActual: z.number().default(0),
   enTransito: z.number().min(0).default(0),
+})
+
+// ---- Bien de Uso ----
+export const createBienDeUsoSchema = z.object({
+  nombre: z.string().min(1, 'El nombre es obligatorio').max(120),
+  descripcion: z.string().max(300).optional().or(z.literal('')),
+  categoria: z.string().max(80).optional().or(z.literal('')),
+  marca: z.string().max(80).optional().or(z.literal('')),
+  valorAdquisicion: z.number().min(0).default(0),
+  valorResidual: z.number().min(0).default(0),
+  fechaAdquisicion: z.string().optional(),
+  vidaUtilMeses: z.number().int().positive().optional(),
 })
 
 // ---- Movimiento de Stock ----

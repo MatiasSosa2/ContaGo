@@ -9,6 +9,7 @@ type Producto = {
   id: string; nombre: string; descripcion: string | null; categoria: string | null
   marca: string | null; unidad: string; metodoCosteo: string; enTransito: number
   precioVenta: number; precioCosto: number; stockActual: number
+  tipo?: 'MERCADERIA' | 'SERVICIO'
 }
 
 type Movimiento = {
@@ -401,6 +402,17 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
             <form onSubmit={handleCreateOrUpdate} className="p-5 grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <InputField label="Nombre del Producto *" name="nombre" required defaultValue={editingProd?.nombre} />
+              </div>
+              <div className="col-span-2 flex flex-col gap-1">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Tipo</label>
+                <select
+                  name="tipo"
+                  defaultValue={editingProd?.tipo || 'MERCADERIA'}
+                  className="border border-[#E5E7EB] dark:border-white/10 bg-[#F9FAFB] dark:bg-[#1F1F1F] rounded-xl px-3 py-2 text-sm text-[#1F2937] dark:text-[#E8E8E8] focus:outline-none focus:border-brand-military transition"
+                >
+                  <option value="MERCADERIA">Mercadería (con stock)</option>
+                  <option value="SERVICIO">Servicio (sin stock)</option>
+                </select>
               </div>
               <InputField label="Marca" name="marca" defaultValue={editingProd?.marca || ''} />
               <InputField label="Categoría" name="categoria" defaultValue={editingProd?.categoria || ''} />
