@@ -38,6 +38,9 @@ yarn-error.log*
 
 # database
 *.db
+00000416.sst
+snyk.exe
+next-swc.win32-x64-msvc.node
 *.db-journal
 
 # vercel
