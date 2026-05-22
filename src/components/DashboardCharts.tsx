@@ -497,7 +497,6 @@ export function EvolutionTabs({ chartData, categoryBreakdown, incomeCategoryBrea
     { key: 'overview', label: 'Ingresos vs Egresos' },
     { key: 'income_cats', label: 'Composición Ingresos' },
     { key: 'expense_cats', label: 'Composición Egresos' },
-    { key: 'net', label: 'Ganancia' },
   ]
 
   const hasData = chartData.some(d => d.income > 0 || d.expense > 0)

@@ -258,7 +258,10 @@ async function hydrateTokenContext(token: JWT) {
   token.activeBusinessId = activeMembership?.business.id ?? null
   token.activeBusinessName = activeMembership?.business.name ?? null
   token.activeBusinessRole = normalizedRole
-  token.challengeSatisfied = Boolean(user?.emailVerified) && !shouldRequirePeriodicRiskChallenge(user?.lastSecurityChallengeAt, user?.emailVerified)
+  // El acceso temporal saltea el challenge por diseño; mantener challengeSatisfied=true.
+  token.challengeSatisfied = token.isTemporaryAccess === true
+    ? true
+    : Boolean(user?.emailVerified) && !shouldRequirePeriodicRiskChallenge(user?.lastSecurityChallengeAt, user?.emailVerified)
 
   return token
 }
@@ -309,6 +312,10 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account, trigger, session }) {
       if (user) {
         token.sub = user.id;
+        const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
+        if (credentialsUser.isTemporaryAccess === true) {
+          token.isTemporaryAccess = true
+        }
       }
 
       if (account?.provider) {

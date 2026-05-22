@@ -794,10 +794,24 @@ export async function createAccount(formData: FormData): Promise<ActionResult> {
   */
 }
 
-export async function getAllTransactions() {
+export async function getAllTransactions(
+  period?: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   const businessId = await getBusinessId()
+  const dateFilter = period
+    ? (() => {
+        const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+        return { date: { gte: from, lte: to } }
+      })()
+    : {}
   return await prisma.transaction.findMany({
-    where: { businessId },
+    where: { businessId, ...dateFilter },
     orderBy: { date: 'desc' },
     include: { category: true, account: true, contact: true, areaNegocio: true },
   })
@@ -1164,10 +1178,24 @@ export async function deleteCategory(id: string) {
 
 // ---- Créditos y Deudas ----
 
-export async function getCreditosDeudas() {
+export async function getCreditosDeudas(
+  period?: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   const businessId = await getBusinessId()
+  const dateFilter = period
+    ? (() => {
+        const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+        return { date: { gte: from, lte: to } }
+      })()
+    : {}
   return await prisma.transaction.findMany({
-    where: { businessId, esCredito: true },
+    where: { businessId, esCredito: true, ...dateFilter },
     orderBy: [{ estado: 'asc' }, { fechaVencimiento: 'asc' }],
     include: { contact: true, category: true, account: true, areaNegocio: true },
   })
@@ -1202,12 +1230,35 @@ export async function getEmpleados(preBusinessId?: string) {
 
 // ---- Stock: Productos ----
 
-export async function getProductos() {
+export async function getProductos(
+  period?: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   const businessId = await getBusinessId()
-  return await prisma.producto.findMany({
+  const productos = await prisma.producto.findMany({
     where: { businessId, activo: true },
     orderBy: { nombre: 'asc' },
   })
+
+  if (!period) return productos
+
+  // Stock asof "to": revertir movimientos posteriores a "to"
+  const { to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  const movsPosteriores = await prisma.movimientoStock.findMany({
+    where: { businessId, fecha: { gt: to } },
+    select: { productoId: true, tipo: true, cantidad: true },
+  })
+  const delta: Record<string, number> = {}
+  for (const m of movsPosteriores) {
+    const signed = m.tipo === 'ENTRADA' ? m.cantidad : m.tipo === 'SALIDA' ? -m.cantidad : m.cantidad
+    delta[m.productoId] = (delta[m.productoId] || 0) + signed
+  }
+  return productos.map(p => ({ ...p, stockActual: (p.stockActual ?? 0) - (delta[p.id] || 0) }))
 }
 
 export async function createProducto(formData: FormData): Promise<ActionResult> {
@@ -2007,7 +2058,138 @@ export interface CajasData {
   aiTipVirtual: string         // consejo IA para virtual
 }
 
-export async function getCajasData(): Promise<CajasData> {
+// Snapshot acumulado de activos al cierre del período seleccionado
+export interface AssetSnapshot {
+  cajaTotal: number
+  totalACobrar: number
+  totalAPagar: number
+  stockTotal: number
+  bienesTotal: number
+  cmvPeriod: number
+  prev: {
+    cajaTotal: number
+    totalACobrar: number
+    totalAPagar: number
+    stockTotal: number
+    bienesTotal: number
+    cmvPeriod: number
+  }
+}
+
+export async function getAssetSnapshotAsOf(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+): Promise<AssetSnapshot> {
+  const businessId = await getBusinessId()
+  const { from: periodStart, to: periodEnd, prevFrom, prevTo } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+
+  // Helper interno: computa un snapshot para (start, end) con queries en paralelo
+  async function computeSnapshot(start: Date, end: Date) {
+    const [txAggregates, creditosAbiertos, productos, bienesAggregate, salidasPeriodo] = await Promise.all([
+      prisma.transaction.groupBy({
+        by: ['type'],
+        where: { businessId, date: { lte: end } },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.findMany({
+        where: { businessId, esCredito: true, date: { lte: end } },
+        select: { id: true, amount: true, type: true },
+      }),
+      prisma.producto.findMany({
+        where: { businessId, activo: true, tipo: 'MERCADERIA' },
+        select: { id: true, stockActual: true, precioCosto: true },
+      }),
+      prisma.bienDeUso.aggregate({
+        where: { businessId, activo: true, fechaAdquisicion: { lte: end } },
+        _sum: { valorAdquisicion: true },
+      }),
+      prisma.movimientoStock.findMany({
+        where: {
+          tipo: 'SALIDA',
+          producto: { businessId },
+          fecha: { gte: start, lte: end },
+        },
+        select: { cantidad: true, precio: true },
+      }),
+    ])
+
+    let cajaTotal = 0
+    for (const row of txAggregates) {
+      const sum = row._sum.amount ?? 0
+      if (row.type === 'INCOME') cajaTotal += sum
+      else if (row.type === 'EXPENSE') cajaTotal -= sum
+    }
+
+    const creditoIds = creditosAbiertos.map(c => c.id)
+    const productoIds = productos.map(p => p.id)
+    const [cobrosPagos, movimientosPost] = await Promise.all([
+      creditoIds.length
+        ? prisma.transaction.groupBy({
+            by: ['linkedCreditoId'],
+            where: { businessId, linkedCreditoId: { in: creditoIds }, date: { lte: end } },
+            _sum: { amount: true },
+          })
+        : Promise.resolve([] as Array<{ linkedCreditoId: string | null; _sum: { amount: number | null } }>),
+      productoIds.length
+        ? prisma.movimientoStock.findMany({
+            where: { productoId: { in: productoIds }, fecha: { gt: end } },
+            select: { productoId: true, tipo: true, cantidad: true },
+          })
+        : Promise.resolve([] as Array<{ productoId: string; tipo: string; cantidad: number }>),
+    ])
+
+    const aplicadoPorCredito = new Map<string, number>()
+    for (const row of cobrosPagos) {
+      if (row.linkedCreditoId) aplicadoPorCredito.set(row.linkedCreditoId, row._sum.amount ?? 0)
+    }
+    let totalACobrar = 0
+    let totalAPagar = 0
+    for (const c of creditosAbiertos) {
+      const aplicado = aplicadoPorCredito.get(c.id) ?? 0
+      const pendiente = Math.max(0, c.amount - aplicado)
+      if (c.type === 'INCOME') totalACobrar += pendiente
+      else if (c.type === 'EXPENSE') totalAPagar += pendiente
+    }
+
+    const deltaPostPorProducto = new Map<string, number>()
+    for (const m of movimientosPost) {
+      const delta = m.tipo === 'ENTRADA' ? m.cantidad : m.tipo === 'SALIDA' ? -m.cantidad : 0
+      deltaPostPorProducto.set(m.productoId, (deltaPostPorProducto.get(m.productoId) ?? 0) + delta)
+    }
+    let stockTotal = 0
+    for (const p of productos) {
+      const stockAt = p.stockActual - (deltaPostPorProducto.get(p.id) ?? 0)
+      stockTotal += stockAt * p.precioCosto
+    }
+
+    const bienesTotal = bienesAggregate._sum.valorAdquisicion ?? 0
+    const cmvPeriod = salidasPeriodo.reduce((acc, m) => acc + m.cantidad * m.precio, 0)
+
+    return { cajaTotal, totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod }
+  }
+
+  const [current, prev] = await Promise.all([
+    computeSnapshot(periodStart, periodEnd),
+    computeSnapshot(prevFrom, prevTo),
+  ])
+
+  return { ...current, prev }
+}
+
+export async function getCajasData(
+  period?: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+): Promise<CajasData> {
   const businessId = await getBusinessId()
 
   // Traer todas las cuentas del negocio
@@ -2015,31 +2197,41 @@ export async function getCajasData(): Promise<CajasData> {
     where: { businessId },
   })
 
-  // Fechas para cálculos
+  // Rango efectivo: si no hay period, usar "hoy" como ventana de variación pero balance actual.
   const now = new Date()
-  const inicioHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-  const finHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
-  const hace7dias = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+  const range = period
+    ? computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+    : null
+  const periodFrom = range?.from ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+  const periodTo = range?.to ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  const periodLabel = range?.label
 
-  // Movimientos últimos 7 días agrupados por cuenta
-  const recentTx = await prisma.transaction.findMany({
-    where: { businessId, date: { gte: hace7dias } },
-    select: { accountId: true, amount: true, type: true, date: true },
+  // Balance asof "periodTo": sumar INCOME - EXPENSE de todas las transacciones <= periodTo por cuenta.
+  // Solo se calcula si hay period; si no, se usa account.currentBalance.
+  const balanceAsofByAccount: Record<string, number> = {}
+  if (period) {
+    const txAsof = await prisma.transaction.findMany({
+      where: { businessId, date: { lte: periodTo } },
+      select: { accountId: true, amount: true, type: true },
+    })
+    for (const tx of txAsof) {
+      const delta = tx.type === 'INCOME' ? tx.amount : -tx.amount
+      balanceAsofByAccount[tx.accountId] = (balanceAsofByAccount[tx.accountId] || 0) + delta
+    }
+  }
+
+  // Movimientos del período: contar y calcular variación dentro de [periodFrom, periodTo]
+  const txPeriodo = await prisma.transaction.findMany({
+    where: { businessId, date: { gte: periodFrom, lte: periodTo } },
+    select: { accountId: true, amount: true, type: true },
   })
 
-  // Calcular movimientos recientes y variación diaria por cuenta
   const movCountByAccount: Record<string, number> = {}
-  const todayVarByAccount: Record<string, number> = {}
-
-  for (const tx of recentTx) {
-    // Contar movimientos de últimos 7 días
+  const periodVarByAccount: Record<string, number> = {}
+  for (const tx of txPeriodo) {
     movCountByAccount[tx.accountId] = (movCountByAccount[tx.accountId] || 0) + 1
-
-    // Variación de hoy
-    if (tx.date >= inicioHoy && tx.date <= finHoy) {
-      const delta = tx.type === 'INCOME' ? tx.amount : -tx.amount
-      todayVarByAccount[tx.accountId] = (todayVarByAccount[tx.accountId] || 0) + delta
-    }
+    const delta = tx.type === 'INCOME' ? tx.amount : -tx.amount
+    periodVarByAccount[tx.accountId] = (periodVarByAccount[tx.accountId] || 0) + delta
   }
 
   // Clasificar: CASH = Efectivo, BANK/WALLET/otro = Virtual
@@ -2047,14 +2239,15 @@ export async function getCajasData(): Promise<CajasData> {
   const virtualAccounts: CajasAccountItem[] = []
 
   for (const acc of accounts) {
+    const balance = period ? (balanceAsofByAccount[acc.id] || 0) : acc.currentBalance
     const item: CajasAccountItem = {
       id: acc.id,
       name: acc.name,
       type: acc.type,
       currency: acc.currency,
-      currentBalance: acc.currentBalance,
+      currentBalance: balance,
       recentMovements: movCountByAccount[acc.id] || 0,
-      todayVariation: todayVarByAccount[acc.id] || 0,
+      todayVariation: periodVarByAccount[acc.id] || 0,
     }
     if (acc.type === 'CASH') {
       efectivoAccounts.push(item)
@@ -2068,19 +2261,27 @@ export async function getCajasData(): Promise<CajasData> {
   const todayVarEfectivo = efectivoAccounts.reduce((s, a) => s + a.todayVariation, 0)
   const todayVarVirtual = virtualAccounts.reduce((s, a) => s + a.todayVariation, 0)
 
-  // Calcular resumen comparativo (últimos 30 días vs 30 días anteriores)
-  const hace30dias = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  const hace60dias = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
-
-  const tx30 = await prisma.transaction.findMany({
-    where: { businessId, date: { gte: hace60dias } },
-    select: { amount: true, type: true, date: true },
-  })
-
+  // Resumen comparativo: período actual vs período anterior
   let incomeActual = 0, incomePrev = 0
-
-  for (const tx of tx30) {
-    if (tx.type === 'INCOME') {
+  if (period && range) {
+    const txComp = await prisma.transaction.findMany({
+      where: { businessId, date: { gte: range.prevFrom, lte: periodTo } },
+      select: { amount: true, type: true, date: true },
+    })
+    for (const tx of txComp) {
+      if (tx.type !== 'INCOME') continue
+      if (tx.date >= periodFrom && tx.date <= periodTo) incomeActual += tx.amount
+      else if (tx.date >= range.prevFrom && tx.date <= range.prevTo) incomePrev += tx.amount
+    }
+  } else {
+    const hace30dias = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const hace60dias = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+    const tx30 = await prisma.transaction.findMany({
+      where: { businessId, date: { gte: hace60dias } },
+      select: { amount: true, type: true, date: true },
+    })
+    for (const tx of tx30) {
+      if (tx.type !== 'INCOME') continue
       if (tx.date >= hace30dias) incomeActual += tx.amount
       else incomePrev += tx.amount
     }
@@ -2088,26 +2289,27 @@ export async function getCajasData(): Promise<CajasData> {
 
   const growth = incomePrev > 0 ? ((incomeActual - incomePrev) / incomePrev) * 100 : 0
   const totalGeneral = totalEfectivo + totalVirtual
+  const periodWord = periodLabel ?? 'mes'
   const summaryMessage = growth !== 0
-    ? `Tus cajas suman $${totalGeneral.toLocaleString('es-AR')} en total. Tus ingresos ${growth >= 0 ? 'crecieron' : 'bajaron'} un ${Math.abs(growth).toFixed(1)}% respecto al mes anterior.`
-    : `Tus cajas suman $${totalGeneral.toLocaleString('es-AR')} en total.`
+    ? `Tus cajas suman $${totalGeneral.toLocaleString('es-AR')} en total. Tus ingresos ${growth >= 0 ? 'crecieron' : 'bajaron'} un ${Math.abs(growth).toFixed(1)}% respecto al período anterior.`
+    : `Tus cajas suman $${totalGeneral.toLocaleString('es-AR')} en total al cierre de ${periodWord}.`
 
   // Consejos IA (placeholder inteligentes basados en datos)
   const aiTipEfectivo = efectivoAccounts.length === 0
     ? 'No tenés cajas de efectivo registradas. Creá una para empezar a trackear tus movimientos físicos.'
     : todayVarEfectivo > 0
-      ? `Hoy ingresaron $${todayVarEfectivo.toLocaleString('es-AR')} en efectivo. Buen día de caja.`
+      ? `En el período ingresaron $${todayVarEfectivo.toLocaleString('es-AR')} en efectivo. Buen ritmo de caja.`
       : todayVarEfectivo < 0
-        ? `Hoy salieron $${Math.abs(todayVarEfectivo).toLocaleString('es-AR')} en efectivo. Revisá si hay gastos no planificados.`
-        : 'Sin movimientos de efectivo hoy. Todo estable.'
+        ? `En el período salieron $${Math.abs(todayVarEfectivo).toLocaleString('es-AR')} en efectivo. Revisá si hay gastos no planificados.`
+        : 'Sin movimientos de efectivo en el período. Todo estable.'
 
   const aiTipVirtual = virtualAccounts.length === 0
     ? 'No tenés cuentas virtuales registradas. Agregá tus bancos y billeteras digitales.'
     : todayVarVirtual > 0
-      ? `Hoy ingresaron $${todayVarVirtual.toLocaleString('es-AR')} en cuentas virtuales.`
+      ? `En el período ingresaron $${todayVarVirtual.toLocaleString('es-AR')} en cuentas virtuales.`
       : todayVarVirtual < 0
-        ? `Hoy salieron $${Math.abs(todayVarVirtual).toLocaleString('es-AR')} de cuentas virtuales.`
-        : 'Sin movimientos virtuales hoy.'
+        ? `En el período salieron $${Math.abs(todayVarVirtual).toLocaleString('es-AR')} de cuentas virtuales.`
+        : 'Sin movimientos virtuales en el período.'
 
   return {
     efectivo: { accounts: efectivoAccounts, total: totalEfectivo, todayVariation: todayVarEfectivo },
@@ -2280,10 +2482,25 @@ export async function getProveedoresConDeudaPendiente(): Promise<ProveedorConDeu
 //  BIENES DE USO — CRUD básico
 // =====================================================================
 
-export async function getBienesDeUso(activosOnly = true) {
+export async function getBienesDeUso(
+  activosOnly = true,
+  period?: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   const businessId = await getBusinessId()
+  const dateFilter = period
+    ? (() => {
+        const { to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+        return { fechaAdquisicion: { lte: to } }
+      })()
+    : {}
   return prisma.bienDeUso.findMany({
-    where: { businessId, ...(activosOnly ? { activo: true } : {}) },
+    where: { businessId, ...(activosOnly ? { activo: true } : {}), ...dateFilter },
     orderBy: { nombre: 'asc' },
   })
 }

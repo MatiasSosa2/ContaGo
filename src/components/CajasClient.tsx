@@ -97,45 +97,126 @@ function getOrigin(mov: CajasMovementItem): OriginKey {
   return 'virtual'
 }
 
-function buildChartData(movements: CajasMovementItem[], period: ChartPeriod) {
+
+// Agrupa según granularidad del período
+function buildChartData(
+  movements: CajasMovementItem[],
+  period: ChartPeriod,
+  from?: string,
+  to?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string
+) {
+  let rangeFrom: Date | undefined, rangeTo: Date | undefined, mode: 'hour' | 'day' | 'month' = 'day'
   const now = new Date()
-  const cutoff = new Date()
-  if (period === 'diario') cutoff.setDate(now.getDate() - 30)
-  else if (period === 'semanal') cutoff.setDate(now.getDate() - 84)
-  else cutoff.setMonth(now.getMonth() - 11)
-
-  const sorted = [...movements]
-    .filter(m => new Date(m.date) >= cutoff)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-
-  const groups = new Map<string, { label: string; ingresos: number; egresos: number }>()
-
-  for (const mov of sorted) {
-    const d = new Date(mov.date)
-    let key: string
-    let label: string
-
-    if (period === 'diario') {
-      key = d.toISOString().slice(0, 10)
-      label = d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
-    } else if (period === 'semanal') {
-      const sw = new Date(d)
-      sw.setDate(d.getDate() - d.getDay())
-      key = sw.toISOString().slice(0, 10)
-      label = sw.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
-    } else {
-      key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      label = d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' })
+  if (period === 'diario') {
+    if (selectedDay) {
+      rangeFrom = new Date(selectedDay + 'T00:00:00')
+      rangeTo = new Date(selectedDay + 'T23:59:59.999')
+      mode = 'hour'
     }
-
-    if (!groups.has(key)) groups.set(key, { label, ingresos: 0, egresos: 0 })
-    const g = groups.get(key)!
-    if (mov.type === 'INCOME') g.ingresos += mov.amount
-    else g.egresos += mov.amount
+  } else if (period === 'semanal') {
+    if (selectedWeekStart) {
+      rangeFrom = new Date(selectedWeekStart + 'T00:00:00')
+      rangeTo = new Date(rangeFrom)
+      rangeTo.setDate(rangeFrom.getDate() + 6)
+      rangeTo.setHours(23, 59, 59, 999)
+      mode = 'day'
+    }
+  } else if (period === 'mensual') {
+    const y = selectedYear ?? now.getFullYear()
+    const m = (selectedMonth ?? (now.getMonth() + 1)) - 1
+    rangeFrom = new Date(y, m, 1, 0, 0, 0)
+    rangeTo = new Date(y, m + 1, 0, 23, 59, 59, 999)
+    mode = 'day'
+  } else if (period === 'anual') {
+    const y = selectedYear ?? now.getFullYear()
+    rangeFrom = new Date(y, 0, 1, 0, 0, 0)
+    rangeTo = new Date(y, 11, 31, 23, 59, 59, 999)
+    mode = 'month'
+  } else if (period === 'custom') {
+    if (from) rangeFrom = new Date(from + 'T00:00:00')
+    if (to) rangeTo = new Date(to + 'T23:59:59.999')
+    // Si el rango es <= 62 días, día; si es > 62 días, mes
+    if (rangeFrom && rangeTo) {
+      const days = Math.ceil((rangeTo.getTime() - rangeFrom.getTime()) / (1000 * 60 * 60 * 24))
+      mode = days > 62 ? 'month' : 'day'
+    }
+  }
+  // fallback: últimos 30 días
+  if (!rangeFrom || !rangeTo) {
+    rangeTo = now
+    rangeFrom = new Date(now)
+    rangeFrom.setDate(now.getDate() - 30)
+    mode = 'day'
   }
 
+  const sorted = [...movements]
+    .filter(m => {
+      const d = new Date(m.date)
+      return d >= rangeFrom! && d <= rangeTo!
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+  // Generar buckets
+  const groups = new Map<string, { label: string; ingresos: number; egresos: number; order: number }>()
+  if (mode === 'hour') {
+    for (let h = 0; h < 24; h++) {
+      const key = String(h)
+      groups.set(key, { label: `${h}:00`, ingresos: 0, egresos: 0, order: h })
+    }
+    for (const mov of sorted) {
+      const d = new Date(mov.date)
+      const key = String(d.getHours())
+      const g = groups.get(key)
+      if (g) {
+        if (mov.type === 'INCOME') g.ingresos += mov.amount
+        else g.egresos += mov.amount
+      }
+    }
+  } else if (mode === 'day') {
+    // Generar días del rango
+    const cursor = new Date(rangeFrom!)
+    let order = 0
+    while (cursor <= rangeTo!) {
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
+      const lbl = `${cursor.getDate()}/${cursor.getMonth() + 1}`
+      groups.set(key, { label: lbl, ingresos: 0, egresos: 0, order: order++ })
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    for (const mov of sorted) {
+      const d = new Date(mov.date)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const g = groups.get(key)
+      if (g) {
+        if (mov.type === 'INCOME') g.ingresos += mov.amount
+        else g.egresos += mov.amount
+      }
+    }
+  } else if (mode === 'month') {
+    // Generar meses del año
+    const y = rangeFrom!.getFullYear()
+    for (let m = 0; m < 12; m++) {
+      const key = `${y}-${String(m + 1).padStart(2, '0')}`
+      const lbl = new Date(y, m, 1).toLocaleDateString('es-AR', { month: 'short' })
+      groups.set(key, { label: lbl, ingresos: 0, egresos: 0, order: m })
+    }
+    for (const mov of sorted) {
+      const d = new Date(mov.date)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const g = groups.get(key)
+      if (g) {
+        if (mov.type === 'INCOME') g.ingresos += mov.amount
+        else g.egresos += mov.amount
+      }
+    }
+  }
+
+  // Ordenar y calcular saldo acumulado
   let runSaldo = 0
-  return [...groups.values()].map(e => {
+  return [...groups.values()].sort((a, b) => a.order - b.order).map(e => {
     runSaldo += e.ingresos - e.egresos
     return { label: e.label, ingresos: Math.round(e.ingresos), egresos: Math.round(e.egresos), saldo: Math.round(runSaldo) }
   })
@@ -189,8 +270,7 @@ function EstadoBadge({ type, esCredito }: { type: string; esCredito: boolean }) 
 
 // ── Historial Modal ─────────────────────────────────────────────────────────
 function HistorialModal({ movements, onClose }: { movements: CajasMovementItem[]; onClose: () => void }) {
-  const [period, setPeriod] = useState<ChartPeriod>('mensual')
-  const chartData = useMemo(() => buildChartData(movements, period), [movements, period])
+  const chartData = useMemo(() => buildChartData(movements, 'mensual'), [movements])
 
   const fmtAxis = (v: number) => {
     const abs = Math.abs(v)
@@ -213,20 +293,6 @@ function HistorialModal({ movements, onClose }: { movements: CajasMovementItem[]
             <h3 className="mt-0.5 text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Historial de Caja</h3>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex overflow-hidden rounded-lg border border-stone-200 bg-stone-100 p-0.5 dark:border-white/10 dark:bg-[#1F1F1F]">
-              {(['diario', 'semanal', 'mensual'] as ChartPeriod[]).map(p => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPeriod(p)}
-                  className={`rounded-md px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition ${
-                    period === p ? 'bg-brand-military text-white shadow-sm' : 'text-stone-500 hover:text-stone-700 dark:text-stone-400'
-                  }`}
-                >
-                  {p === 'diario' ? 'Diario' : p === 'semanal' ? 'Semanal' : 'Mensual'}
-                </button>
-              ))}
-            </div>
             <button
               type="button"
               onClick={onClose}
@@ -291,8 +357,41 @@ function HistorialModal({ movements, onClose }: { movements: CajasMovementItem[]
 }
 
 // ── Historial Card ──────────────────────────────────────────────────────────
-function HistorialCard({ movements }: { movements: CajasMovementItem[] }) {
+function HistorialCard({
+  movements,
+  period,
+  customFrom,
+  customTo,
+  selectedYear,
+  selectedMonth,
+  selectedDay,
+  selectedWeekStart,
+}: {
+  movements: CajasMovementItem[]
+  period: ChartPeriod
+  customFrom?: string
+  customTo?: string
+  selectedYear?: number
+  selectedMonth?: number
+  selectedDay?: string
+  selectedWeekStart?: string
+}) {
   const [open, setOpen] = useState(false)
+  const previewData = useMemo(
+    () => buildChartData(movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    [movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart]
+  )
+
+  const totalIng = previewData.reduce((s, d) => s + d.ingresos, 0)
+  const totalEgr = previewData.reduce((s, d) => s + d.egresos, 0)
+  const net = totalIng - totalEgr
+
+  const fmtCompact = (v: number) => {
+    const abs = Math.abs(v)
+    if (abs >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+    if (abs >= 1_000) return `$${(v / 1_000).toFixed(0)}K`
+    return `$${v}`
+  }
 
   return (
     <>
@@ -303,21 +402,68 @@ function HistorialCard({ movements }: { movements: CajasMovementItem[] }) {
               <ChartIcon />
             </div>
             <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Historial</h2>
+            <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
+              {period === 'diario' ? 'Día' : period === 'semanal' ? 'Semana' : period === 'mensual' ? 'Mes' : period === 'anual' ? 'Año' : 'Personalizado'}
+            </span>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-5 py-8">
-          <p className="text-[11px] text-center font-medium uppercase tracking-[0.12em] text-stone-400">
-            Evolución del saldo · Ingresos vs Egresos
-          </p>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="border border-brand-gold bg-brand-gold-light px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-gold-dark transition hover:bg-brand-gold hover:text-white dark:border-[#5B4A2F] dark:bg-[#221A10] dark:text-[#D7B36B] dark:hover:bg-[#7A5821] dark:hover:text-white"
-          >
-            Ver gráfico / Historial
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="group flex flex-1 flex-col gap-3 px-4 pt-3 pb-2 text-left transition hover:bg-[#FAFBFC] dark:hover:bg-[#171717]"
+        >
+          {previewData.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center py-8">
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-400">Sin movimientos</p>
+            </div>
+          ) : (
+            <>
+              <div className="h-28 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={previewData} margin={{ top: 6, right: 6, left: 0, bottom: 0 }} barCategoryGap="20%" barGap={1}>
+                    <defs>
+                      <linearGradient id="histIngFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3A4D39" stopOpacity={0.85} />
+                        <stop offset="100%" stopColor="#3A4D39" stopOpacity={0.35} />
+                      </linearGradient>
+                      <linearGradient id="histEgrFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#A65D57" stopOpacity={0.85} />
+                        <stop offset="100%" stopColor="#A65D57" stopOpacity={0.35} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="label" hide />
+                    <YAxis hide />
+                    <Bar dataKey="ingresos" fill="url(#histIngFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={6} />
+                    <Bar dataKey="egresos" fill="url(#histEgrFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={6} />
+                    <Line type="monotone" dataKey="saldo" stroke="#C5A065" strokeWidth={2} dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1 pt-1">
+                <div className="text-center">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Ingresos</p>
+                  <p className="mt-0.5 font-mono text-[11px] font-bold text-[#3A4D39] dark:text-[#9AC7A8]">{fmtCompact(totalIng)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Egresos</p>
+                  <p className="mt-0.5 font-mono text-[11px] font-bold text-[#A65D57] dark:text-[#F2B272]">{fmtCompact(totalEgr)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Neto</p>
+                  <p className={`mt-0.5 font-mono text-[11px] font-bold ${net >= 0 ? 'text-[#3A4D39] dark:text-[#9AC7A8]' : 'text-[#A65D57] dark:text-[#F2B272]'}`}>
+                    {net < 0 ? '− ' : ''}{fmtCompact(Math.abs(net))}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+
+          <span className="mt-auto block text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 transition group-hover:text-brand-gold-dark dark:group-hover:text-[#D7B36B]">
+            Ver detalle →
+          </span>
+        </button>
       </div>
 
       {open && <HistorialModal movements={movements} onClose={() => setOpen(false)} />}
@@ -748,13 +894,44 @@ function CajaGroupColumn({
 }
 
 // ── Componente principal ──
-export default function CajasClient({ data, movements }: { data: CajasData; movements: CajasMovementItem[] }) {
+interface CajasClientProps {
+  data: CajasData
+  movements: CajasMovementItem[]
+  period: ChartPeriod
+  customFrom?: string
+  customTo?: string
+  selectedYear?: number
+  selectedMonth?: number
+  selectedDay?: string
+  selectedWeekStart?: string
+}
+
+export default function CajasClient({
+  data,
+  movements,
+  period,
+  customFrom,
+  customTo,
+  selectedYear,
+  selectedMonth,
+  selectedDay,
+  selectedWeekStart,
+}: CajasClientProps) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <CajaGroupColumn label="Efectivo" icon={<CashIcon />} group={data.efectivo} variant="military" />
         <CajaGroupColumn label="Virtual" icon={<VirtualIcon />} group={data.virtual} variant="gold" />
-        <HistorialCard movements={movements} />
+        <HistorialCard
+          movements={movements}
+          period={period}
+          customFrom={customFrom}
+          customTo={customTo}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          selectedDay={selectedDay}
+          selectedWeekStart={selectedWeekStart}
+        />
       </div>
       <MovementsPanel movements={movements} />
     </div>

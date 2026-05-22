@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useTransition, useState, useEffect } from 'react'
 import { signOut } from 'next-auth/react'
 import ThemeToggle from '@/components/ThemeToggle'
+import DashboardUserMenu from '@/components/DashboardUserMenu'
 
 const NAV_ITEMS = [
   {
@@ -58,7 +59,17 @@ const NAV_ITEMS = [
   },
 ]
 
-export default function Sidebar() {
+type Role = 'ADMIN' | 'COLLABORATOR' | 'VIEWER'
+type Provider = 'google' | 'apple' | 'credentials' | 'mock'
+type SidebarProps = {
+  sessionContext: {
+    user: { name?: string | null; email: string; image?: string | null; emailVerified: boolean }
+    activeBusiness: { name: string; role: Role }
+    auth: { provider: Provider }
+  }
+}
+
+export default function Sidebar({ sessionContext }: SidebarProps) {
   const pathname = usePathname()
   const [isSigningOut, startSignOut] = useTransition()
   const [collapsed, setCollapsed] = useState(false)
@@ -162,7 +173,6 @@ export default function Sidebar() {
       </nav>
 
       <div className={`px-2 py-3 flex flex-col gap-2 ${collapsed ? 'items-center' : ''}`} style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        {/* Botón colapsar */}
         <button
           onClick={toggleCollapse}
           title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
@@ -177,21 +187,16 @@ export default function Sidebar() {
           {!collapsed && <span>Colapsar</span>}
         </button>
         {!collapsed && <ThemeToggle />}
-        <button
-          onClick={handleSignOut}
-          disabled={isSigningOut}
-          title={collapsed ? 'Cerrar sesión' : undefined}
-          className={`flex items-center gap-2.5 rounded-lg py-2.5 text-sm font-semibold transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
-          style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.12)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.22)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.12)' }}
-        >
-          <svg className="w-[18px] h-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
-          </svg>
-          {!collapsed && (isSigningOut ? 'Cerrando...' : 'Cerrar sesión')}
-        </button>
+        {/* Menú de usuario abajo */}
+        {!collapsed && (
+          <div className="mt-4">
+            <DashboardUserMenu
+              user={sessionContext.user}
+              business={{ name: sessionContext.activeBusiness.name, role: sessionContext.activeBusiness.role }}
+              authProvider={sessionContext.auth.provider}
+            />
+          </div>
+        )}
       </div>
     </aside>
 

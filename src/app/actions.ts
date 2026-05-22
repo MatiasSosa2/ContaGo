@@ -88,10 +88,19 @@ export async function getProveedoresConDeudaPendiente() {
   return databaseActions.getProveedoresConDeudaPendiente();
 }
 
-export async function getBienesDeUso(activosOnly = true) {
+export async function getBienesDeUso(
+  activosOnly = true,
+  period?: string,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   if (USE_MOCK) return [];
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getBienesDeUso(activosOnly);
+  return databaseActions.getBienesDeUso(activosOnly, period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
 export async function createBienDeUso(formData: FormData): Promise<ActionResult> {
@@ -130,10 +139,18 @@ export async function createAccount(formData: FormData): Promise<ActionResult> {
   return databaseActions.createAccount(formData);
 }
 
-export async function getAllTransactions() {
+export async function getAllTransactions(
+  period?: string,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   if (USE_MOCK) return MOCK.MOCK_TRANSACTIONS;
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getAllTransactions();
+  return databaseActions.getAllTransactions(period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
 export async function getReportData(range?: DateRange) {
@@ -235,10 +252,18 @@ export async function deleteCategory(id: string) {
   return databaseActions.deleteCategory(id);
 }
 
-export async function getCreditosDeudas() {
+export async function getCreditosDeudas(
+  period?: string,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   if (USE_MOCK) return [];
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getCreditosDeudas();
+  return databaseActions.getCreditosDeudas(period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
 export async function marcarEstadoCredito(id: string, estado: string): Promise<ActionResult> {
@@ -247,10 +272,18 @@ export async function marcarEstadoCredito(id: string, estado: string): Promise<A
   return databaseActions.marcarEstadoCredito(id, estado);
 }
 
-export async function getProductos() {
+export async function getProductos(
+  period?: string,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   if (USE_MOCK) return MOCK.MOCK_PRODUCTOS;
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getProductos();
+  return databaseActions.getProductos(period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
 export async function getEmpleados(preBusinessId?: string) {
@@ -325,6 +358,15 @@ export async function getDashboardStats(period: string, customFrom?: string, cus
   return databaseActions.getDashboardStats(period as any, customFrom, customTo, preBusinessId, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
+export async function getAssetSnapshotAsOf(period: string, customFrom?: string, customTo?: string, selectedYear?: number, selectedMonth?: number, selectedDay?: string, selectedWeekStart?: string) {
+  if (USE_MOCK) {
+    const empty = { cajaTotal: 0, totalACobrar: 0, totalAPagar: 0, stockTotal: 0, bienesTotal: 0, cmvPeriod: 0 };
+    return { ...empty, prev: empty };
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getAssetSnapshotAsOf(period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
+}
+
 export async function getMonthlyDashboardStats(preBusinessId?: string) {
   if (USE_MOCK) {
     const { getMockDashboardStats } = await import('@/lib/mock');
@@ -370,11 +412,19 @@ export async function getDashboardPresetSummaries(preBusinessId?: string) {
   return databaseActions.getDashboardPresetSummaries(preBusinessId);
 }
 
-export async function getCajasData() {
+export async function getCajasData(
+  period?: string,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
   if (USE_MOCK) {
     const { getMockCajasData } = await import('@/lib/mock');
     return getMockCajasData();
   }
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getCajasData();
+  return databaseActions.getCajasData(period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }

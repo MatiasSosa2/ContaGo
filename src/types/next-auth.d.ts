@@ -26,5 +26,6 @@ declare module 'next-auth/jwt' {
     authProvider?: 'google' | 'apple' | 'credentials' | 'mock'
     challengeSatisfied?: boolean
     emailVerified?: boolean
+    isTemporaryAccess?: boolean
   }
 }
