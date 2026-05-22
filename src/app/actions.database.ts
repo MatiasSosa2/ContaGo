@@ -1250,7 +1250,7 @@ export async function getProductos(
   // Stock asof "to": revertir movimientos posteriores a "to"
   const { to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
   const movsPosteriores = await prisma.movimientoStock.findMany({
-    where: { businessId, fecha: { gt: to } },
+    where: { producto: { businessId }, fecha: { gt: to } },
     select: { productoId: true, tipo: true, cantidad: true },
   })
   const delta: Record<string, number> = {}
