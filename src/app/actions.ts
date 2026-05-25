@@ -153,6 +153,12 @@ export async function getAllTransactions(
   return databaseActions.getAllTransactions(period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
+export async function getLatestTransactionDate() {
+  if (USE_MOCK) return null;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getLatestTransactionDate();
+}
+
 export async function getReportData(range?: DateRange) {
   if (USE_MOCK) {
     // Mock calculations

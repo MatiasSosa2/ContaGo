@@ -187,16 +187,22 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
           {!collapsed && <span>Colapsar</span>}
         </button>
         {!collapsed && <ThemeToggle />}
-        {/* Menú de usuario abajo */}
-        {!collapsed && (
-          <div className="mt-4">
-            <DashboardUserMenu
-              user={sessionContext.user}
-              business={{ name: sessionContext.activeBusiness.name, role: sessionContext.activeBusiness.role }}
-              authProvider={sessionContext.auth.provider}
-            />
-          </div>
-        )}
+        {/* Botón cerrar sesión desktop */}
+        <button
+          onClick={handleSignOut}
+          disabled={isSigningOut}
+          title="Cerrar sesión"
+          className={`flex items-center gap-2 rounded-lg py-2 text-sm font-semibold transition-all duration-150 disabled:opacity-50 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
+          style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.10)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.22)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.10)' }}
+        >
+          <svg className="shrink-0 w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
+          </svg>
+          {!collapsed && <span>{isSigningOut ? 'Cerrando...' : 'Cerrar sesión'}</span>}
+        </button>
       </div>
     </aside>
 

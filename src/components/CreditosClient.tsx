@@ -368,7 +368,6 @@ function CreditoGroupPanel({
               </div>
               <div>
                 <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
-                <p className="text-xs text-[#9CA3AF]">{isCxC ? 'Cuentas por cobrar' : 'Cuentas por pagar'}</p>
               </div>
             </div>
             <button
@@ -448,27 +447,10 @@ export default function CreditosClient({
 
   return (
     <div className="space-y-6">
-      {/* Filtro de estado */}
-      <div className="flex flex-wrap gap-2">
-        {(['TODOS', 'PENDIENTE', 'VENCIDO', 'COBRADO', 'PAGADO'] as const).map(e => (
-          <button
-            key={e}
-            onClick={() => setFiltro(e)}
-            className={`text-xs font-semibold uppercase tracking-wider px-4 py-2 border transition-all
-              ${filtro === e
-                ? 'bg-brand-military text-white border-brand-military'
-                : 'bg-white dark:bg-[#141414] text-[#6B7280] dark:text-gray-400 border-[#E5E7EB] dark:border-white/10 hover:border-brand-military hover:text-brand-military'
-              }`}
-          >
-            {e === 'TODOS' ? 'Todos' : ESTADO_LABELS[e]}
-          </button>
-        ))}
-      </div>
-
       {/* Dos columnas: CxC y CxP */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CreditoGroupPanel
-          label="CxC — Por cobrar"
+          label="Cuentas por Cobrar"
           icon={<CxCIcon />}
           items={cxc}
           filtro={filtro}
@@ -476,7 +458,7 @@ export default function CreditosClient({
           isPending={isPending}
         />
         <CreditoGroupPanel
-          label="CxP — Por pagar"
+          label="Cuentas por Pagar"
           icon={<CxPIcon />}
           items={cxp}
           filtro={filtro}

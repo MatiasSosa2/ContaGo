@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import type { PeriodKey } from '@/components/PeriodSelector'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -56,7 +57,7 @@ const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
 const CAJA_CURRENCIES = ['ARS', 'USD'] as const
 
 type CajaCurrency = typeof CAJA_CURRENCIES[number]
-type ChartPeriod = 'diario' | 'semanal' | 'mensual'
+type ChartPeriod = PeriodKey
 type OriginKey = 'efectivo' | 'virtual' | 'credito' | 'deuda'
 const PAGE_SIZE = 20
 
@@ -269,8 +270,31 @@ function EstadoBadge({ type, esCredito }: { type: string; esCredito: boolean }) 
 }
 
 // ── Historial Modal ─────────────────────────────────────────────────────────
-function HistorialModal({ movements, onClose }: { movements: CajasMovementItem[]; onClose: () => void }) {
-  const chartData = useMemo(() => buildChartData(movements, 'mensual'), [movements])
+function HistorialModal({
+  movements,
+  period,
+  customFrom,
+  customTo,
+  selectedYear,
+  selectedMonth,
+  selectedDay,
+  selectedWeekStart,
+  onClose,
+}: {
+  movements: CajasMovementItem[]
+  period: ChartPeriod
+  customFrom?: string
+  customTo?: string
+  selectedYear?: number
+  selectedMonth?: number
+  selectedDay?: string
+  selectedWeekStart?: string
+  onClose: () => void
+}) {
+  const chartData = useMemo(
+    () => buildChartData(movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    [movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart]
+  )
 
   const fmtAxis = (v: number) => {
     const abs = Math.abs(v)
@@ -466,7 +490,19 @@ function HistorialCard({
         </button>
       </div>
 
-      {open && <HistorialModal movements={movements} onClose={() => setOpen(false)} />}
+      {open && (
+        <HistorialModal
+          movements={movements}
+          period={period}
+          customFrom={customFrom}
+          customTo={customTo}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          selectedDay={selectedDay}
+          selectedWeekStart={selectedWeekStart}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </>
   )
 }
@@ -724,9 +760,14 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                         {esCredito ? (
                           <span className="text-sm text-stone-400">N/A</span>
                         ) : (
-                          <span className="inline-flex border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-semibold text-stone-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-300">
-                            {mov.account?.type === 'CASH' ? 'Efectivo' : 'Virtual'}
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex w-fit border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-semibold text-stone-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-300">
+                              {mov.account?.type === 'CASH' ? 'Efectivo' : 'Virtual'}
+                            </span>
+                            {mov.account?.name && (
+                              <span className="text-[11px] text-stone-400 dark:text-stone-500">{mov.account.name}</span>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -794,9 +835,6 @@ function CajaGroupColumn({
   const filteredTotal = filtered.reduce((s, a) => s + a.currentBalance, 0)
   const isNegative = filteredTotal < 0
 
-  const todayVariation = group.todayVariation
-  const todayIsPositive = todayVariation >= 0
-
   const tone = variant === 'gold'
     ? {
         card: 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]',
@@ -822,33 +860,31 @@ function CajaGroupColumn({
       <div className="flex h-full flex-col gap-5">
         <div className={`flex h-full flex-col overflow-hidden rounded-2xl border shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${tone.card}`}>
 
-          <div className={`border-b px-5 pb-4 pt-5 ${tone.header}`}>
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className={`flex h-9 w-9 items-center justify-center ${tone.iconWrap}`}>
+          <div className={`border-b px-5 pb-6 pt-5 flex flex-col ${tone.header}`}>
+            {/* Fila: icono + título + botón subcajas */}
+            <div className="flex items-center gap-2.5 mb-5">
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center ${tone.iconWrap}`}>
                 {icon}
               </div>
-              <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
-            </div>
-
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 mb-1">Saldo</p>
-                <p className={`text-3xl md:text-[32px] font-mono font-bold num-tabular leading-none ${
-                  isNegative ? 'text-[#B45309] dark:text-[#F2B272]' : 'text-[#1F2937] dark:text-[#E8E8E8]'
-                }`}>
-                  {isNegative ? '− ' : ''}{fmtMoney(Math.abs(filteredTotal), selectedCurrency)}
-                </p>
-              </div>
+              <h2 className="flex-1 text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
               <button
                 type="button"
                 onClick={() => setDetailsOpen(true)}
-                className={`shrink-0 border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${tone.button}`}
+                className={`shrink-0 border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${tone.button}`}
               >
                 Subcajas
               </button>
             </div>
 
-            <div className={`mt-3 inline-flex w-full items-center gap-1 border p-1 ${tone.selectorWrap}`}>
+            {/* Saldo — ancho completo sin competencia */}
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 mb-2">Saldo</p>
+            <p className={`text-[40px] md:text-[44px] font-mono font-bold num-tabular leading-none mb-5 ${
+              isNegative ? 'text-[#B45309] dark:text-[#F2B272]' : 'text-[#1F2937] dark:text-[#E8E8E8]'
+            }`}>
+              {isNegative ? '− ' : ''}{fmtMoney(Math.abs(filteredTotal), selectedCurrency)}
+            </p>
+
+            <div className={`inline-flex w-full items-center gap-1 border p-1 ${tone.selectorWrap}`}>
               {CAJA_CURRENCIES.map((currency) => {
                 const isActive = selectedCurrency === currency
                 const isAvailable = availableCurrencies.has(currency)
@@ -866,15 +902,6 @@ function CajaGroupColumn({
                 )
               })}
             </div>
-          </div>
-
-          <div className="px-5 py-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 mb-1">Hoy</p>
-            <p className={`text-lg font-mono font-semibold num-tabular ${
-              todayIsPositive ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#B45309] dark:text-[#F2B272]'
-            }`}>
-              {todayIsPositive ? '+' : '− '}{fmtMoney(Math.abs(todayVariation), selectedCurrency)}
-            </p>
           </div>
 
         </div>

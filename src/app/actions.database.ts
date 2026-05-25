@@ -817,6 +817,17 @@ export async function getAllTransactions(
   })
 }
 
+export async function getLatestTransactionDate() {
+  const businessId = await getBusinessId()
+  const latest = await prisma.transaction.findFirst({
+    where: { businessId },
+    orderBy: { date: 'desc' },
+    select: { date: true },
+  })
+
+  return latest?.date ?? null
+}
+
 export type DateRange = { from?: Date; to?: Date }
 
 export async function getReportData(range?: DateRange) {

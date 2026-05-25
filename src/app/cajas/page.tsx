@@ -1,4 +1,4 @@
-import { getAllTransactions, getCajasData } from '@/app/actions'
+import { getAllTransactions, getCajasData, getLatestTransactionDate } from '@/app/actions'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
@@ -21,7 +21,11 @@ export default async function CajasPage({
   const periodo = (sp?.periodo ?? 'mensual') as PeriodKey
   const customFrom = sp?.from
   const customTo = sp?.to
-  const today = new Date()
+  const hasExplicitPeriodSelection = Boolean(sp?.year || sp?.month || sp?.day || sp?.weekStart || sp?.from || sp?.to)
+  const fallbackDate = !hasExplicitPeriodSelection && periodo !== 'custom'
+    ? await getLatestTransactionDate()
+    : null
+  const today = fallbackDate ? new Date(fallbackDate) : new Date()
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth() + 1
   const selectedYear = sp?.year ? Number.parseInt(sp.year, 10) : (periodo === 'mensual' || periodo === 'anual' ? currentYear : undefined)
@@ -33,12 +37,6 @@ export default async function CajasPage({
     getCajasData(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getAllTransactions(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])
-
-  // Determinar el tipo de periodo para el preview
-  let chartPeriod: 'diario' | 'semanal' | 'mensual'
-  if (periodo === 'diario') chartPeriod = 'diario'
-  else if (periodo === 'semanal') chartPeriod = 'semanal'
-  else chartPeriod = 'mensual'
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
@@ -66,7 +64,7 @@ export default async function CajasPage({
       <CajasClient
         data={data}
         movements={movements}
-        period={chartPeriod}
+        period={periodo}
         customFrom={customFrom}
         customTo={customTo}
         selectedYear={selectedYear}
