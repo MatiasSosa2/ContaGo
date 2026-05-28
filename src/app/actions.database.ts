@@ -1199,14 +1199,26 @@ export async function getCreditosDeudas(
   selectedWeekStart?: string,
 ) {
   const businessId = await getBusinessId()
-  const dateFilter = period
-    ? (() => {
-        const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
-        return { date: { gte: from, lte: to } }
-      })()
-    : {}
+
+  // Lógica idéntica al dashboard (getAssetSnapshotAsOf):
+  // - Créditos ABIERTOS (PENDIENTE / PARCIAL / VENCIDO): todos los creados hasta el fin del período,
+  //   sin importar cuándo fueron creados → coincide con totalACobrar / totalAPagar.
+  // - Créditos CERRADOS (COBRADO / PAGADO): solo los del período seleccionado (historial).
+  const { from, to } = period
+    ? computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+    : { from: new Date(0), to: new Date() }
+
   return await prisma.transaction.findMany({
-    where: { businessId, esCredito: true, ...dateFilter },
+    where: {
+      businessId,
+      esCredito: true,
+      OR: [
+        // Abiertos al fin del período (creados antes o durante el período)
+        { estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] }, date: { lte: to } },
+        // Cerrados dentro del período (para historial)
+        { estado: { in: ['COBRADO', 'PAGADO'] }, date: { gte: from, lte: to } },
+      ],
+    },
     orderBy: [{ estado: 'asc' }, { fechaVencimiento: 'asc' }],
     include: { contact: true, category: true, account: true, areaNegocio: true },
   })

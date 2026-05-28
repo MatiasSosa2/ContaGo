@@ -1,4 +1,4 @@
-﻿import { getDashboardStats, getAssetSnapshotAsOf } from '@/app/actions'
+﻿import { getDashboardStats, getAssetSnapshotAsOf, getBienesDeUso } from '@/app/actions'
 import { FinancialOverviewChart, EvolutionTabs } from '@/components/DashboardCharts'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
@@ -6,6 +6,7 @@ import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
 import { Suspense } from 'react'
 import Link from 'next/link'
+import BienesDeUsoModal from '@/components/BienesDeUsoModal'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,9 +111,10 @@ async function DashboardContent({
   selectedDay?: string
   selectedWeekStart?: string
 }) {
-  const [stats, snapshot] = await Promise.all([
+  const [stats, snapshot, bienes] = await Promise.all([
     getDashboardStats(periodo, customFrom, customTo, businessId, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getAssetSnapshotAsOf(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    getBienesDeUso(true, periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])
 
   const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, periodLabel } = stats
@@ -296,20 +298,7 @@ async function DashboardContent({
         </Link>
 
         {/* Bienes de Uso */}
-        <Link
-          href="/bienes"
-          className="group flex flex-col rounded-2xl border-2 border-[#92400E]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_20px_rgba(15,23,42,0.08)] dark:border-[#D97706]/40 dark:bg-[#141414] dark:shadow-none"
-        >
-          <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FBF6EB] text-[#B07355] dark:bg-[#2A1810] dark:text-[#D97706]">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Bienes de Uso</span>
-          </div>
-          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{fmt(bienesTotal)}</p>
-          <p className="text-[11px] text-stone-400 dark:text-stone-500">Activos fijos</p>
-          <span className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-lg bg-[#FBF6EB] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#B07355] shadow-sm transition group-hover:bg-[#F2E9D7] dark:bg-[#2A1810] dark:text-[#D97706] dark:group-hover:bg-[#3A2014]">Ver bienes <span aria-hidden>→</span></span>
-        </Link>
+        <BienesDeUsoModal bienes={bienes as any} bienesTotal={bienesTotal} />
       </section>
 
       {/* ══ SECCIÓN 4 — INDICADORES CLAVE ══════════════════════════════════ */}
