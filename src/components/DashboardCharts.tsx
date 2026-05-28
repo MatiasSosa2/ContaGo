@@ -2,7 +2,7 @@
 
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 
 // ── Hook de detección de tema ──────────────────────────────────────────────────
 function useDarkMode() {
@@ -340,6 +340,117 @@ export function ExpenseCategoryDonut({ data, totalLabel = '', height = 220 }: Ex
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 4a. DONUT + ETIQUETAS NATIVAS SIN CRUCES
+// ─────────────────────────────────────────────────────────────────────────────
+export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; height?: number }) {
+  const isDark = useDarkMode()
+  const total = data.reduce((s, d) => s + d.value, 0)
+  const sorted = [...data].sort((a, b) => b.value - a.value)
+
+  const centerTextColor = isDark ? '#f3f4f6' : '#1f2937'
+  const centerLabelColor = isDark ? '#9ca3af' : '#6b7280'
+  const subTextColor = isDark ? '#9ca3af' : '#6b7280'
+
+  const option: EChartsOption = {
+    animation: true,
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: C.tooltip,
+      borderColor: '#374151',
+      textStyle: { color: '#fff', fontSize: 11 },
+      formatter: (p: any) => {
+        const pct = p.percent?.toFixed(1) ?? '0'
+        return `<div style="font-weight:600;margin-bottom:4px;">${p.name}</div>
+          <div style="font-family:monospace;">${fmtARS(p.value)}<span style="color:#9ca3af;margin-left:8px;">${pct}%</span></div>`
+      },
+    },
+    legend: { show: false },
+    graphic: [
+      {
+        type: 'text',
+        left: '29%',
+        top: '41%',
+        style: {
+          text: 'Total',
+          fill: centerLabelColor,
+          fontSize: 10,
+          fontWeight: 400,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          textAlign: 'center',
+        } as any,
+      },
+      {
+        type: 'text',
+        left: '29%',
+        top: '51%',
+        style: {
+          text: fmtARS(total),
+          fill: centerTextColor,
+          fontSize: 15,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          fontWeight: 700,
+          textAlign: 'center',
+        } as any,
+      },
+    ],
+    series: [{
+      type: 'pie',
+      radius: ['44%', '68%'],
+      // Pie desplazado a la izquierda: la mayoría de etiquetas quedan a la derecha
+      center: ['30%', '50%'],
+      padAngle: 2,
+      itemStyle: { borderRadius: 4 },
+      label: {
+        show: true,
+        // alignTo: 'edge' garantiza líneas sin cruce en ambos lados
+        alignTo: 'edge',
+        edgeDistance: 12,
+        formatter: (p: any) => {
+          const pct = p.percent?.toFixed(1) ?? '0'
+          return `{name|${p.name}}\n{val|${fmtARS(p.value)}  ${pct}%}`
+        },
+        rich: {
+          name: {
+            fontSize: 11,
+            fontWeight: 600,
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            lineHeight: 17,
+            color: 'inherit',
+          },
+          val: {
+            fontSize: 10,
+            fontFamily: 'ui-monospace, monospace',
+            color: subTextColor,
+            lineHeight: 15,
+          },
+        },
+      },
+      labelLine: {
+        show: true,
+        length: 10,
+        length2: 16,
+        smooth: 0.4,
+        lineStyle: { width: 1.2 },
+      },
+      data: sorted,
+      emphasis: {
+        scale: true,
+        scaleSize: 4,
+        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
+      },
+    }],
+  }
+
+  return (
+    <ReactECharts
+      option={option}
+      style={{ height, width: '100%' }}
+      opts={{ renderer: 'svg' }}
+    />
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 4b. DONUT 3D — Rentabilidad (Egresos vs Ganancia)
 // ─────────────────────────────────────────────────────────────────────────────
 interface ProfitabilityDonutProps {
@@ -596,12 +707,12 @@ export function EvolutionTabs({ chartData, categoryBreakdown, incomeCategoryBrea
         )}
         {view === 'income_cats' && (
           incomeDonutData.length > 0
-            ? <ExpenseCategoryDonut data={incomeDonutData} height={280} />
+            ? <DonutWithLegend data={incomeDonutData} height={280} />
             : <EmptyChart message="Sin ingresos categorizados" />
         )}
         {view === 'expense_cats' && (
           expenseDonutData.length > 0
-            ? <ExpenseCategoryDonut data={expenseDonutData} height={280} />
+            ? <DonutWithLegend data={expenseDonutData} height={280} />
             : <EmptyChart message="Sin egresos categorizados" />
         )}
         {view === 'net' && (
