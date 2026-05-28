@@ -422,8 +422,12 @@ function CreditoGroupPanel({
 // ── Componente principal ──
 export default function CreditosClient({
   creditos: initialCreditos,
+  totalACobrar: totalACobrarSnapshot,
+  totalAPagar: totalAPagarSnapshot,
 }: {
   creditos: CreditoTx[]
+  totalACobrar?: number
+  totalAPagar?: number
 }) {
   const [creditos, setCreditos] = useState<CreditoTx[]>(initialCreditos)
   const [filtro, setFiltro] = useState<FiltroType>('PENDIENTE')
@@ -441,8 +445,9 @@ export default function CreditosClient({
 
   const cxc = creditos.filter(c => c.type === 'INCOME')
   const cxp = creditos.filter(c => c.type === 'EXPENSE')
-  const totalPorCobrar = getPendingTotal(cxc)
-  const totalPorPagar = getPendingTotal(cxp)
+  // Usar totales del snapshot (misma fuente que Balance General) si están disponibles
+  const totalPorCobrar = totalACobrarSnapshot ?? getPendingTotal(cxc)
+  const totalPorPagar = totalAPagarSnapshot ?? getPendingTotal(cxp)
   const diferenciaNeta = totalPorCobrar - totalPorPagar
 
   return (
