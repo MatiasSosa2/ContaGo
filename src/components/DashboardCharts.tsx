@@ -340,16 +340,51 @@ export function ExpenseCategoryDonut({ data, totalLabel = '', height = 220 }: Ex
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4a. DONUT + ETIQUETAS NATIVAS SIN CRUCES
+// 4a. DONUT + FLECHAS SIN CRUCE (arco derecho → labels)
 // ─────────────────────────────────────────────────────────────────────────────
 export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; height?: number }) {
   const isDark = useDarkMode()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(600)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const measure = () => {
+      if (containerRef.current)
+        setContainerWidth(containerRef.current.getBoundingClientRect().width)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
+
   const total = data.reduce((s, d) => s + d.value, 0)
   const sorted = [...data].sort((a, b) => b.value - a.value)
+  const n = sorted.length
+
+  // ── Layout ────────────────────────────────────────────────────────────────
+  const DONUT_RATIO = 0.42
+  const donutW = containerWidth * DONUT_RATIO
+  const outerR = 0.66 * Math.min(donutW, height) / 2
+  const cx = donutW / 2
+  const cy = height / 2
+  const ELBOW_X = donutW + 14   // X donde el trazo dobla horizontal
+  const LABEL_X = donutW + 48   // X donde empieza el texto (todos alineados)
+
+  // Labels: distribuidos uniformemente de arriba a abajo
+  const V_PAD = height * 0.10
+  const labelSpacing = n > 1 ? (height - V_PAD * 2) / (n - 1) : 0
+  const labelY = (i: number) => (n === 1 ? cy : V_PAD + i * labelSpacing)
+
+  // Puntos de conexión en el arco DERECHO del donut (90° → −90° clockwise).
+  // Ambas secuencias son monótonas en Y → líneas nunca se cruzan.
+  const arcPoint = (i: number) => {
+    const angle = n === 1 ? 0 : Math.PI / 2 - (i * Math.PI) / (n - 1)
+    return { x: cx + outerR * Math.cos(angle), y: cy - outerR * Math.sin(angle) }
+  }
 
   const centerTextColor = isDark ? '#f3f4f6' : '#1f2937'
-  const centerLabelColor = isDark ? '#9ca3af' : '#6b7280'
-  const subTextColor = isDark ? '#9ca3af' : '#6b7280'
 
   const option: EChartsOption = {
     animation: true,
@@ -368,25 +403,12 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
     graphic: [
       {
         type: 'text',
-        left: '29%',
-        top: '41%',
-        style: {
-          text: 'Total',
-          fill: centerLabelColor,
-          fontSize: 10,
-          fontWeight: 400,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          textAlign: 'center',
-        } as any,
-      },
-      {
-        type: 'text',
-        left: '29%',
-        top: '51%',
+        left: 'center',
+        top: '46%',
         style: {
           text: fmtARS(total),
           fill: centerTextColor,
-          fontSize: 15,
+          fontSize: 13,
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           fontWeight: 700,
           textAlign: 'center',
@@ -396,42 +418,11 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
     series: [{
       type: 'pie',
       radius: ['44%', '68%'],
-      // Pie desplazado a la izquierda: la mayoría de etiquetas quedan a la derecha
-      center: ['30%', '50%'],
+      center: ['50%', '50%'],
       padAngle: 2,
       itemStyle: { borderRadius: 4 },
-      label: {
-        show: true,
-        // alignTo: 'edge' garantiza líneas sin cruce en ambos lados
-        alignTo: 'edge',
-        edgeDistance: 12,
-        formatter: (p: any) => {
-          const pct = p.percent?.toFixed(1) ?? '0'
-          return `{name|${p.name}}\n{val|${fmtARS(p.value)}  ${pct}%}`
-        },
-        rich: {
-          name: {
-            fontSize: 11,
-            fontWeight: 600,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            lineHeight: 17,
-            color: 'inherit',
-          },
-          val: {
-            fontSize: 10,
-            fontFamily: 'ui-monospace, monospace',
-            color: subTextColor,
-            lineHeight: 15,
-          },
-        },
-      },
-      labelLine: {
-        show: true,
-        length: 10,
-        length2: 16,
-        smooth: 0.4,
-        lineStyle: { width: 1.2 },
-      },
+      label: { show: false },
+      labelLine: { show: false },
       data: sorted,
       emphasis: {
         scale: true,
@@ -441,12 +432,101 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
     }],
   }
 
+  const mutedText = isDark ? '#9ca3af' : '#6b7280'
+
   return (
-    <ReactECharts
-      option={option}
-      style={{ height, width: '100%' }}
-      opts={{ renderer: 'svg' }}
-    />
+    <div ref={containerRef} style={{ position: 'relative', height, width: '100%' }}>
+      {/* Donut — zona izquierda */}
+      <div style={{ position: 'absolute', left: 0, top: 0, width: `${DONUT_RATIO * 100}%`, height }}>
+        <ReactECharts option={option} style={{ height, width: '100%' }} opts={{ renderer: 'svg' }} />
+      </div>
+
+      {/* SVG: líneas rectas con punta de flecha */}
+      {containerWidth > 0 && (
+        <svg
+          style={{
+            position: 'absolute', left: 0, top: 0,
+            width: containerWidth, height,
+            pointerEvents: 'none', overflow: 'visible',
+          }}
+        >
+          <defs>
+            {sorted.map((item, i) => (
+              <marker
+                key={i}
+                id={`arr-${i}`}
+                markerWidth="5"
+                markerHeight="5"
+                refX="4"
+                refY="2.5"
+                orient="auto"
+              >
+                <polygon points="0,0 5,2.5 0,5" fill={item.itemStyle.color} opacity={0.65} />
+              </marker>
+            ))}
+          </defs>
+
+          {sorted.map((item, i) => {
+            const { x: ax, y: ay } = arcPoint(i)
+            const ly = labelY(i)
+            const color = item.itemStyle.color
+            return (
+              <path
+                key={item.name}
+                d={`M ${ax.toFixed(1)} ${ay.toFixed(1)} L ${ELBOW_X.toFixed(1)} ${ly.toFixed(1)} L ${(LABEL_X - 8).toFixed(1)} ${ly.toFixed(1)}`}
+                fill="none"
+                stroke={color}
+                strokeWidth={1.2}
+                strokeOpacity={0.6}
+                strokeLinejoin="round"
+                markerEnd={`url(#arr-${i})`}
+              />
+            )
+          })}
+        </svg>
+      )}
+
+      {/* Labels */}
+      {sorted.map((item, i) => {
+        const ly = labelY(i)
+        return (
+          <div
+            key={item.name}
+            style={{
+              position: 'absolute',
+              left: LABEL_X,
+              top: ly,
+              right: 4,
+              transform: 'translateY(-50%)',
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 5,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+            }}
+          >
+            <span style={{
+              color: mutedText,
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
+              {item.name}
+            </span>
+            <span style={{
+              color: mutedText,
+              fontSize: 11,
+              fontFamily: 'ui-monospace, monospace',
+              flexShrink: 0,
+            }}>
+              {fmtARS(item.value)}
+            </span>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
