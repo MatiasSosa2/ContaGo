@@ -372,12 +372,12 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
   const ELBOW_X = donutW + 14   // X donde el trazo dobla horizontal
   const LABEL_X = donutW + 48   // X donde empieza el texto (todos alineados)
 
-  // Labels: distribuidos uniformemente de arriba a abajo
+  // Labels: distribuidos uniformemente de arriba a abajo (valor-ordenados)
   const V_PAD = height * 0.10
   const labelSpacing = n > 1 ? (height - V_PAD * 2) / (n - 1) : 0
   const labelY = (i: number) => (n === 1 ? cy : V_PAD + i * labelSpacing)
 
-  // Puntos de conexión en el arco DERECHO del donut (90° → −90° clockwise).
+  // Puntos distribuidos en el arco DERECHO (90° → −90° clockwise).
   // Ambas secuencias son monótonas en Y → líneas nunca se cruzan.
   const arcPoint = (i: number) => {
     const angle = n === 1 ? 0 : Math.PI / 2 - (i * Math.PI) / (n - 1)
@@ -489,6 +489,8 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
       {/* Labels */}
       {sorted.map((item, i) => {
         const ly = labelY(i)
+        const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0'
+        const mainText = isDark ? '#e5e7eb' : '#374151'
         return (
           <div
             key={item.name}
@@ -499,27 +501,43 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
               right: 4,
               transform: 'translateY(-50%)',
               display: 'flex',
-              alignItems: 'baseline',
-              gap: 5,
+              flexDirection: 'column',
+              gap: 1,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
             }}
           >
+            {/* Fila 1: nombre + badge % */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
+              <span style={{
+                color: mainText,
+                fontSize: 11,
+                fontWeight: 600,
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>
+                {item.name}
+              </span>
+              <span style={{
+                flexShrink: 0,
+                background: item.itemStyle.color + '28',
+                color: item.itemStyle.color,
+                fontSize: 9,
+                fontWeight: 700,
+                padding: '1px 4px',
+                borderRadius: 4,
+                fontFamily: 'ui-monospace, monospace',
+                letterSpacing: '0.02em',
+              }}>
+                {pct}%
+              </span>
+            </div>
+            {/* Fila 2: importe */}
             <span style={{
               color: mutedText,
-              fontSize: 12,
-              fontWeight: 600,
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}>
-              {item.name}
-            </span>
-            <span style={{
-              color: mutedText,
-              fontSize: 11,
+              fontSize: 10,
               fontFamily: 'ui-monospace, monospace',
-              flexShrink: 0,
             }}>
               {fmtARS(item.value)}
             </span>
@@ -756,7 +774,15 @@ export function EvolutionTabs({ chartData, categoryBreakdown, incomeCategoryBrea
   }, [chartData, isDark])
 
   const incomeDonutData = incomeCategoryBreakdown.map(c => ({ name: c.name, value: c.value, itemStyle: { color: c.color } }))
-  const expenseDonutData = categoryBreakdown.map(c => ({ name: c.name, value: c.value, itemStyle: { color: c.color } }))
+
+  // Paleta de rojos para egresos (de mayor a menor intensidad)
+  const RED_PALETTE = ['#B91C1C', '#DC2626', '#EF4444', '#F87171', '#FCA5A5', '#FECACA', '#FEE2E2']
+  const expenseSorted = [...categoryBreakdown].sort((a, b) => b.value - a.value)
+  const expenseDonutData = expenseSorted.map((c, i) => ({
+    name: c.name,
+    value: c.value,
+    itemStyle: { color: RED_PALETTE[i % RED_PALETTE.length] },
+  }))
 
   return (
     <div>
