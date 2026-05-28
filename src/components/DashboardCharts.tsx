@@ -773,7 +773,14 @@ export function EvolutionTabs({ chartData, categoryBreakdown, incomeCategoryBrea
     }
   }, [chartData, isDark])
 
-  const incomeDonutData = incomeCategoryBreakdown.map(c => ({ name: c.name, value: c.value, itemStyle: { color: c.color } }))
+  // Paleta de verdes para ingresos (de mayor a menor intensidad)
+  const GREEN_PALETTE = ['#14532D', '#166534', '#15803D', '#16A34A', '#22C55E', '#4ADE80', '#86EFAC']
+  const incomeSorted = [...incomeCategoryBreakdown].sort((a, b) => b.value - a.value)
+  const incomeDonutData = incomeSorted.map((c, i) => ({
+    name: c.name,
+    value: c.value,
+    itemStyle: { color: GREEN_PALETTE[i % GREEN_PALETTE.length] },
+  }))
 
   // Paleta de rojos para egresos (de mayor a menor intensidad)
   const RED_PALETTE = ['#B91C1C', '#DC2626', '#EF4444', '#F87171', '#FCA5A5', '#FECACA', '#FEE2E2']
