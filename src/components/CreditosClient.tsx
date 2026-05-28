@@ -331,6 +331,7 @@ function CreditoGroupPanel({
   icon,
   items,
   filtro,
+  totalResuelto,
   onMarcar,
   isPending,
 }: {
@@ -338,6 +339,7 @@ function CreditoGroupPanel({
   icon: React.ReactNode
   items: CreditoTx[]
   filtro: FiltroType
+  totalResuelto: number
   onMarcar: (id: string, estado: string) => void
   isPending: boolean
 }) {
@@ -349,8 +351,6 @@ function CreditoGroupPanel({
   })
   const orderedFiltered = sortByLatest(filtered)
   const previewItems = orderedFiltered.slice(0, 3)
-
-  const totalPendiente = getPendingTotal(items)
 
   const isCxC = items[0]?.type === 'INCOME' || label === 'CxC'
 
@@ -379,7 +379,7 @@ function CreditoGroupPanel({
             </button>
           </div>
           <p className={`text-3xl md:text-[32px] font-mono font-bold num-tabular leading-none ${isCxC ? 'text-brand-military-dark dark:text-[#6EBC8A]' : 'text-brand-gold-dark dark:text-[#C5A065]'}`}>
-            {fmt(totalPendiente)}
+            {fmt(totalResuelto)}
           </p>
           <p className="text-xs text-[#9CA3AF] mt-1">pendiente de {isCxC ? 'cobro' : 'pago'}</p>
         </div>
@@ -459,6 +459,7 @@ export default function CreditosClient({
           icon={<CxCIcon />}
           items={cxc}
           filtro={filtro}
+          totalResuelto={totalPorCobrar}
           onMarcar={handleMarcar}
           isPending={isPending}
         />
@@ -467,6 +468,7 @@ export default function CreditosClient({
           icon={<CxPIcon />}
           items={cxp}
           filtro={filtro}
+          totalResuelto={totalPorPagar}
           onMarcar={handleMarcar}
           isPending={isPending}
         />

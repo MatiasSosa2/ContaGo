@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getBienesDeUso } from '@/app/actions'
 
 export interface BienItem {
   id: string
@@ -54,13 +55,23 @@ function buildGroups(bienes: BienItem[]): CategoryGroup[] {
 }
 
 export default function BienesDeUsoModal({
-  bienes,
   bienesTotal,
 }: {
-  bienes: BienItem[]
   bienesTotal: number
 }) {
   const [open, setOpen] = useState(false)
+  const [bienes, setBienes] = useState<BienItem[]>([])
+  const [loading, setLoading] = useState(false)
+
+  // Carga los bienes la primera vez que se abre el modal
+  useEffect(() => {
+    if (!open || bienes.length > 0) return
+    setLoading(true)
+    getBienesDeUso(true)
+      .then(data => setBienes(data as BienItem[]))
+      .finally(() => setLoading(false))
+  }, [open])
+
   const groups = buildGroups(bienes)
   const grandTotal = groups.reduce((s, g) => s + g.total, 0)
 
@@ -123,7 +134,11 @@ export default function BienesDeUsoModal({
 
             {/* Cuerpo */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-              {groups.length === 0 ? (
+              {loading ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#D97706] border-t-transparent" />
+                </div>
+              ) : groups.length === 0 ? (
                 <p className="text-center text-sm text-stone-400 py-8">Sin bienes registrados</p>
               ) : (
                 groups.map(group => {

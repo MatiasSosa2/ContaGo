@@ -1,4 +1,4 @@
-﻿import { getDashboardStats, getAssetSnapshotAsOf, getBienesDeUso } from '@/app/actions'
+﻿import { getDashboardStats, getAssetSnapshotAsOf } from '@/app/actions'
 import { FinancialOverviewChart, EvolutionTabs } from '@/components/DashboardCharts'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
@@ -111,10 +111,9 @@ async function DashboardContent({
   selectedDay?: string
   selectedWeekStart?: string
 }) {
-  const [stats, snapshot, bienes] = await Promise.all([
+  const [stats, snapshot] = await Promise.all([
     getDashboardStats(periodo, customFrom, customTo, businessId, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getAssetSnapshotAsOf(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
-    getBienesDeUso(true, periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])
 
   const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, periodLabel } = stats
@@ -298,7 +297,7 @@ async function DashboardContent({
         </Link>
 
         {/* Bienes de Uso */}
-        <BienesDeUsoModal bienes={bienes as any} bienesTotal={bienesTotal} />
+        <BienesDeUsoModal bienesTotal={bienesTotal} />
       </section>
 
       {/* ══ SECCIÓN 4 — INDICADORES CLAVE ══════════════════════════════════ */}
