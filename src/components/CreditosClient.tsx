@@ -90,15 +90,15 @@ function SummarySplitCard({
       >
         <svg className="pointer-events-none absolute inset-0 h-full w-full dark:hidden" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <defs>
-            <linearGradient id="balance-left-fill-light" x1="0" y1="0" x2="68" y2="0" gradientUnits="userSpaceOnUse">
+            <linearGradient id="balance-left-fill-light" x1="0" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#D7EEE4" />
               <stop offset="100%" stopColor="#C6E3D6" />
             </linearGradient>
-            <linearGradient id="balance-right-fill-light" x1="48" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+            <linearGradient id="balance-right-fill-light" x1="34" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#F0D8B7" />
               <stop offset="100%" stopColor="#E3C08F" />
             </linearGradient>
-            <linearGradient id="balance-line-light" x1="16" y1="0" x2="68" y2="0" gradientUnits="userSpaceOnUse">
+            <linearGradient id="balance-line-light" x1="34" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#C6E3D6" />
               <stop offset="48%" stopColor="#C6E3D6" />
               <stop offset="52%" stopColor="#EACCA3" />
@@ -106,10 +106,10 @@ function SummarySplitCard({
             </linearGradient>
           </defs>
 
-          <path d="M0 0 H68 L48 42 H24 L16 98 H0 Z" fill="url(#balance-left-fill-light)" />
-          <path d="M68 0 H100 V100 H16 L24 42 H48 Z" fill="url(#balance-right-fill-light)" />
+          <path d="M0 0 H66 L52 42 L48 58 L34 100 H0 Z" fill="url(#balance-left-fill-light)" />
+          <path d="M66 0 H100 V100 H34 L48 58 L52 42 Z" fill="url(#balance-right-fill-light)" />
           <path
-            d="M68 0 L48 42 L24 42 L16 98"
+            d="M66 0 L52 42 L48 58 L34 100"
             fill="none"
             stroke="url(#balance-line-light)"
             strokeWidth="4.5"
@@ -120,15 +120,15 @@ function SummarySplitCard({
 
         <svg className="pointer-events-none absolute inset-0 hidden h-full w-full dark:block" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <defs>
-            <linearGradient id="balance-left-fill-dark" x1="0" y1="0" x2="68" y2="0" gradientUnits="userSpaceOnUse">
+            <linearGradient id="balance-left-fill-dark" x1="0" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#26483B" />
               <stop offset="100%" stopColor="#1F3A31" />
             </linearGradient>
-            <linearGradient id="balance-right-fill-dark" x1="48" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
+            <linearGradient id="balance-right-fill-dark" x1="34" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#6B4D2D" />
               <stop offset="100%" stopColor="#533A20" />
             </linearGradient>
-            <linearGradient id="balance-line-dark" x1="16" y1="0" x2="68" y2="0" gradientUnits="userSpaceOnUse">
+            <linearGradient id="balance-line-dark" x1="34" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#1F3A31" />
               <stop offset="48%" stopColor="#1F3A31" />
               <stop offset="52%" stopColor="#6B4D2D" />
@@ -136,10 +136,10 @@ function SummarySplitCard({
             </linearGradient>
           </defs>
 
-          <path d="M0 0 H68 L48 42 H24 L16 98 H0 Z" fill="url(#balance-left-fill-dark)" />
-          <path d="M68 0 H100 V100 H16 L24 42 H48 Z" fill="url(#balance-right-fill-dark)" />
+          <path d="M0 0 H66 L52 42 L48 58 L34 100 H0 Z" fill="url(#balance-left-fill-dark)" />
+          <path d="M66 0 H100 V100 H34 L48 58 L52 42 Z" fill="url(#balance-right-fill-dark)" />
           <path
-            d="M68 0 L48 42 L24 42 L16 98"
+            d="M66 0 L52 42 L48 58 L34 100"
             fill="none"
             stroke="url(#balance-line-dark)"
             strokeWidth="4.5"
@@ -167,7 +167,7 @@ function SummarySplitCard({
             <span className="text-[24px] font-mono font-bold leading-none text-[#1A1A1A] num-tabular dark:text-[#FFF7EA]">
               {fmt(porPagar)}
             </span>
-            <span className="mt-0.5 text-[11px] text-[#666666] dark:text-[#D6D3D1]">Pendiente de pago</span>
+            <span className="mt-0.5 text-[11px] text-[#666666] dark:text-[#D6D3D1]">Por pagar</span>
           </div>
         </div>
       </div>
