@@ -828,6 +828,25 @@ export async function getLatestTransactionDate() {
   return latest?.date ?? null
 }
 
+export async function getPrePeriodBalance(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+): Promise<number> {
+  const businessId = await getBusinessId()
+  const { from } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  if (!from) return 0
+  const txns = await prisma.transaction.findMany({
+    where: { businessId, date: { lt: from }, esCredito: false },
+    select: { type: true, amount: true },
+  })
+  return txns.reduce((acc, t) => acc + (t.type === 'INCOME' ? t.amount : -t.amount), 0)
+}
+
 export type DateRange = { from?: Date; to?: Date }
 
 export async function getReportData(range?: DateRange) {

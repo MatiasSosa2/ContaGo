@@ -33,9 +33,10 @@ export default async function CajasPage({
   const selectedDay = sp?.day
   const selectedWeekStart = sp?.weekStart
 
-  const [data, movements] = await Promise.all([
+  const [data, movements, allMovements] = await Promise.all([
     getCajasData(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getAllTransactions(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    getAllTransactions(), // todos los movimientos históricos para el gráfico
   ])
 
   return (
@@ -64,6 +65,7 @@ export default async function CajasPage({
       <CajasClient
         data={data}
         movements={movements}
+        allMovements={allMovements}
         period={periodo}
         customFrom={customFrom}
         customTo={customTo}

@@ -27,6 +27,8 @@ export default function FloatingActionButton() {
   const [saldadaOpen, setSaldadaOpen] = useState(false)
   const [saldadaNombre, setSaldadaNombre] = useState('')
   const [saldadaTipo, setSaldadaTipo] = useState<'cliente' | 'proveedor'>('cliente')
+  const [initialSubType, setInitialSubType] = useState<'COBRO_CREDITO' | 'PAGO_DEUDA' | undefined>(undefined)
+  const [creditoPreset, setCreditoPreset] = useState<{ linkedCreditoId: string; contactId: string; saldoMax: number } | null>(null)
   const fetchPromiseRef = useRef<Promise<CatalogsData> | null>(null)
 
   const isAuthRoute = pathname.startsWith('/auth') || pathname.startsWith('/select-business')
@@ -110,6 +112,8 @@ export default function FloatingActionButton() {
   const handleClose = () => {
     setOpen(false)
     setActiveTab('INCOME')
+    setInitialSubType(undefined)
+    setCreditoPreset(null)
   }
 
   useEffect(() => {
@@ -118,6 +122,35 @@ export default function FloatingActionButton() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
+
+  // Listener para abrir el modal con preset (desde Créditos, Cajas, etc.)
+  useEffect(() => {
+    if (isAuthRoute) return
+    const onOpenWithPreset = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        type: 'INCOME' | 'EXPENSE'
+        subType: 'COBRO_CREDITO' | 'PAGO_DEUDA'
+        linkedCreditoId: string
+        contactId: string
+        saldoMax: number
+      }>).detail
+      if (!detail) return
+      setActiveTab(detail.type)
+      setInitialSubType(detail.subType)
+      setCreditoPreset({
+        linkedCreditoId: detail.linkedCreditoId,
+        contactId: detail.contactId,
+        saldoMax: detail.saldoMax,
+      })
+      setOpen(true)
+      if (!data) {
+        setLoading(true)
+        fetchData().finally(() => setLoading(false))
+      }
+    }
+    window.addEventListener('contago:open-credito-action', onOpenWithPreset as EventListener)
+    return () => window.removeEventListener('contago:open-credito-action', onOpenWithPreset as EventListener)
+  }, [isAuthRoute, data, fetchData])
 
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -231,6 +264,8 @@ export default function FloatingActionButton() {
                   onClienteSaldado={handleClienteSaldado}
                   onProveedorSaldado={handleProveedorSaldado}
                   initialType={activeTab}
+                  initialSubType={initialSubType}
+                  initialCreditoPreset={creditoPreset}
                   onTypeChange={setActiveTab}
                 />
               )}

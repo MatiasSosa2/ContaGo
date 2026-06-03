@@ -194,64 +194,81 @@ function CreditoListRow({
   isPending: boolean
 }) {
   const venc = isVencido(tx.fechaVencimiento, tx.estado)
-  const realEstado = venc ? 'VENCIDO' : tx.estado
-  const isPendOrVenc = tx.estado === 'PENDIENTE' || tx.estado === 'VENCIDO' || venc
+  const isPendOrVenc = tx.estado === 'PENDIENTE' || tx.estado === 'PARCIAL' || tx.estado === 'VENCIDO' || venc
   const principalName = tx.contact?.name || tx.description
+  const fechaCreacion = new Date(tx.date)
+
+  const dispatchOpenAction = () => {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new CustomEvent('contago:open-credito-action', {
+      detail: {
+        type: isCxC ? 'INCOME' : 'EXPENSE',
+        subType: isCxC ? 'COBRO_CREDITO' : 'PAGO_DEUDA',
+        linkedCreditoId: tx.id,
+        contactId: tx.contact?.id ?? '',
+        saldoMax: tx.amount,
+      },
+    }))
+  }
 
   return (
     <div
-      className={`flex items-center justify-between border border-[#ECE7E1] px-3.5 py-3 transition-all duration-150 hover:bg-[#F3F4F6] dark:border-[#2F2F2F] dark:hover:bg-white/5 group ${venc ? 'bg-red-50/60 dark:bg-red-950/20' : ''}`}
+      className={`group flex items-stretch border-b border-[#ECE7E1] bg-white transition hover:bg-[#FAFBFA] dark:border-white/5 dark:bg-transparent dark:hover:bg-white/[0.03] ${
+        isCxC ? 'border-l-[3px] border-l-[#3A4D39]' : 'border-l-[3px] border-l-[#A65D57]'
+      }`}
     >
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-[#1F2937] dark:text-[#E8E8E8] truncate">
-          {principalName}
-        </p>
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-          {tx.contact?.name && tx.description !== tx.contact.name && (
-            <span className="text-xs text-[#6B7280] dark:text-[#A3A3A3] truncate">{tx.description}</span>
+      {/* Fecha + vencimiento */}
+      <div className="flex min-w-[110px] flex-col justify-center px-4 py-3">
+        <span className="text-sm font-medium text-[#4B5563] dark:text-stone-300 whitespace-nowrap">
+          {fmtDate(fechaCreacion)}
+        </span>
+        {tx.fechaVencimiento && (
+          <span className={`mt-0.5 text-[11px] font-mono num-tabular whitespace-nowrap ${venc ? 'text-red-500 font-semibold' : 'text-stone-400'}`}>
+            vence {fmtDate(tx.fechaVencimiento)}
+          </span>
+        )}
+      </div>
+
+      {/* Concepto / Categoría */}
+      <div className="flex flex-1 min-w-0 flex-col justify-center px-4 py-3">
+        <p className="truncate text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{principalName}</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-stone-400">
+          {tx.contact?.name && tx.description && tx.description !== tx.contact.name && (
+            <span className="truncate">{tx.description}</span>
           )}
-          {tx.category && (
-            <span className="text-xs text-[#9CA3AF] truncate">{tx.category.name}</span>
-          )}
-          {tx.fechaVencimiento && (
-            <span className={`text-xs font-mono num-tabular ${venc ? 'text-red-500 font-semibold' : 'text-[#9CA3AF]'}`}>
-              vence {fmtDate(tx.fechaVencimiento)}
-            </span>
-          )}
+          {tx.category && <span className="truncate">{tx.category.name}</span>}
         </div>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0 ml-3">
-        <div className="flex flex-col items-end gap-1">
-          <p className={`text-sm font-mono font-semibold num-tabular ${isCxC ? 'text-brand-military-dark dark:text-[#6EBC8A]' : 'text-brand-gold-dark dark:text-[#C5A065]'}`}>
-            {fmt(tx.amount, tx.currency)}
-          </p>
-          <span className={`inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 border
-            ${realEstado === 'PENDIENTE' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800' : ''}
-            ${realEstado === 'VENCIDO' ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800' : ''}
-            ${realEstado === 'COBRADO' || realEstado === 'PAGADO' ? 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-white/10' : ''}
-          `}>
-            {ESTADO_LABELS[realEstado] || realEstado}
-          </span>
-        </div>
+      {/* Importe */}
+      <div className="flex min-w-[110px] flex-col items-end justify-center px-4 py-3 whitespace-nowrap">
+        <span className={`text-sm font-mono font-bold num-tabular ${
+          isCxC ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'
+        }`}>
+          {isCxC ? '+' : '−'}{fmt(tx.amount, tx.currency)}
+        </span>
+      </div>
 
+      {/* Acción */}
+      <div className="flex items-center px-3 py-3">
         {isPendOrVenc ? (
           <button
-            onClick={() => onMarcar(tx.id, isCxC ? 'COBRADO' : 'PAGADO')}
+            type="button"
+            onClick={dispatchOpenAction}
             disabled={isPending}
-            className={`text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 transition-all
-              ${isCxC
-                ? 'bg-brand-military text-white hover:bg-brand-military-dark'
-                : 'bg-brand-gold text-white hover:bg-brand-gold-dark'
-              } disabled:opacity-50`}
+            className="inline-flex items-center gap-1 border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
           >
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
             {isCxC ? 'Cobrar' : 'Pagar'}
           </button>
         ) : (
           <button
+            type="button"
             onClick={() => onMarcar(tx.id, 'PENDIENTE')}
             disabled={isPending}
-            className="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 bg-white dark:bg-white/5 text-[#6B7280] dark:text-gray-400 border border-[#E5E7EB] dark:border-white/10 hover:border-brand-military hover:text-brand-military transition-all disabled:opacity-50"
+            className="inline-flex border border-stone-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-500 transition hover:border-brand-military hover:text-brand-military disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-400"
           >
             Reabrir
           </button>
@@ -301,13 +318,13 @@ function CreditosListModal({
           <p className="mt-0.5 text-sm text-stone-500 dark:text-[#A3A3A3]">Mostrando {items.length} registro{items.length !== 1 ? 's' : ''}.</p>
         </div>
 
-        <div className="overflow-y-auto px-4 py-4">
+        <div className="overflow-y-auto">
           {items.length === 0 ? (
             <div className="py-10 text-center">
               <p className="text-sm text-[#9CA3AF]">No hay registros para mostrar.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col">
               {items.map(tx => (
                 <CreditoListRow
                   key={tx.id}
@@ -347,6 +364,9 @@ function CreditoGroupPanel({
 
   const filtered = filtro === 'TODOS' ? items : items.filter(c => {
     const realEstado = isVencido(c.fechaVencimiento, c.estado) ? 'VENCIDO' : c.estado
+    // "PENDIENTE" agrupa todos los abiertos (PENDIENTE + PARCIAL + VENCIDO) para que
+    // coincidan con el total mostrado arriba (snapshot de cuentas por cobrar/pagar).
+    if (filtro === 'PENDIENTE') return realEstado === 'PENDIENTE' || realEstado === 'PARCIAL' || realEstado === 'VENCIDO'
     return realEstado === filtro
   })
   const orderedFiltered = sortByLatest(filtered)
@@ -385,14 +405,14 @@ function CreditoGroupPanel({
         </div>
 
         {/* Lista de items */}
-        <div className="px-4 pb-2">
+        <div className="border-t border-[#ECE7E1] dark:border-white/10">
           {orderedFiltered.length === 0 ? (
             <div className="py-8 text-center">
               <p className="text-sm text-[#9CA3AF]">Sin registros para este filtro</p>
               <p className="text-xs text-[#D1D5DB] dark:text-[#555] mt-1">Registrá un movimiento desde el Panel Principal</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col">
               {previewItems.map(tx => (
                 <CreditoListRow
                   key={tx.id}

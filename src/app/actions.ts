@@ -159,6 +159,20 @@ export async function getLatestTransactionDate() {
   return databaseActions.getLatestTransactionDate();
 }
 
+export async function getPrePeriodBalance(
+  period: string,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+): Promise<number> {
+  if (USE_MOCK) return 0;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getPrePeriodBalance(period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
+}
+
 export async function getReportData(range?: DateRange) {
   if (USE_MOCK) {
     // Mock calculations

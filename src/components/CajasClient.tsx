@@ -12,7 +12,18 @@ import {
   Tooltip,
   CartesianGrid,
   Legend,
+  ReferenceLine,
 } from 'recharts'
+
+// ── Paleta del gráfico Historial ──────────────────────────────────────────
+const CHART_COLORS = {
+  ing: '#3A4D39',
+  ingSoft: '#9AC7A8',
+  egr: '#A65D57',
+  egrSoft: '#F2B272',
+  saldo: '#C5A065',
+  saldoSoft: 'rgba(197,160,101,0.18)',
+} as const
 
 interface CajasAccountItem {
   id: string
@@ -100,32 +111,78 @@ function getOrigin(mov: CajasMovementItem): OriginKey {
 
 
 // Agrupa según granularidad del período
-function buildChartData(
-  movements: CajasMovementItem[],
+// Calcula el saldo acumulado de todos los movimientos anteriores al inicio del período
+function computePrePeriodBalance(
+  allMovements: CajasMovementItem[],
   period: ChartPeriod,
-  from?: string,
-  to?: string,
+  customFrom?: string,
+  customTo?: string,
   selectedYear?: number,
   selectedMonth?: number,
   selectedDay?: string,
-  selectedWeekStart?: string
-) {
-  let rangeFrom: Date | undefined, rangeTo: Date | undefined, mode: 'hour' | 'day' | 'month' = 'day'
+  selectedWeekStart?: string,
+): number {
   const now = new Date()
+  let rangeFrom: Date | undefined
+
+  if (period === 'diario') {
+    if (selectedDay) rangeFrom = new Date(selectedDay + 'T00:00:00')
+    else { rangeFrom = new Date(now); rangeFrom.setHours(0, 0, 0, 0) }
+  } else if (period === 'semanal') {
+    if (selectedWeekStart) rangeFrom = new Date(selectedWeekStart + 'T00:00:00')
+    else { rangeFrom = new Date(now); rangeFrom.setDate(now.getDate() - now.getDay()) }
+  } else if (period === 'mensual') {
+    const y = selectedYear ?? now.getFullYear()
+    const m = (selectedMonth ?? (now.getMonth() + 1)) - 1
+    rangeFrom = new Date(y, m, 1, 0, 0, 0)
+  } else if (period === 'anual') {
+    const y = selectedYear ?? now.getFullYear()
+    rangeFrom = new Date(y, 0, 1, 0, 0, 0)
+  } else if (period === 'custom') {
+    if (customFrom) rangeFrom = new Date(customFrom + 'T00:00:00')
+  }
+
+  if (!rangeFrom) return 0
+
+  return allMovements
+    .filter(m => !m.esCredito && new Date(m.date) < rangeFrom!)
+    .reduce((acc, m) => acc + (m.type === 'INCOME' ? m.amount : -m.amount), 0)
+}
+
+// buildChartData: usa la granularidad del período seleccionado,
+// pero el saldo parte del acumulado real (prePeriodBalance)
+function buildChartData(
+  movements: CajasMovementItem[],
+  period: ChartPeriod,
+  prePeriodBalance: number,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
+  let rangeFrom: Date | undefined, rangeTo: Date | undefined
+  let mode: 'hour' | 'day' | 'month' = 'day'
+  const now = new Date()
+
   if (period === 'diario') {
     if (selectedDay) {
       rangeFrom = new Date(selectedDay + 'T00:00:00')
       rangeTo = new Date(selectedDay + 'T23:59:59.999')
-      mode = 'hour'
+    } else {
+      rangeFrom = new Date(now); rangeFrom.setHours(0, 0, 0, 0)
+      rangeTo = new Date(now); rangeTo.setHours(23, 59, 59, 999)
     }
+    mode = 'hour'
   } else if (period === 'semanal') {
     if (selectedWeekStart) {
       rangeFrom = new Date(selectedWeekStart + 'T00:00:00')
       rangeTo = new Date(rangeFrom)
       rangeTo.setDate(rangeFrom.getDate() + 6)
       rangeTo.setHours(23, 59, 59, 999)
-      mode = 'day'
     }
+    mode = 'day'
   } else if (period === 'mensual') {
     const y = selectedYear ?? now.getFullYear()
     const m = (selectedMonth ?? (now.getMonth() + 1)) - 1
@@ -138,85 +195,65 @@ function buildChartData(
     rangeTo = new Date(y, 11, 31, 23, 59, 59, 999)
     mode = 'month'
   } else if (period === 'custom') {
-    if (from) rangeFrom = new Date(from + 'T00:00:00')
-    if (to) rangeTo = new Date(to + 'T23:59:59.999')
-    // Si el rango es <= 62 días, día; si es > 62 días, mes
+    if (customFrom) rangeFrom = new Date(customFrom + 'T00:00:00')
+    if (customTo) rangeTo = new Date(customTo + 'T23:59:59.999')
     if (rangeFrom && rangeTo) {
-      const days = Math.ceil((rangeTo.getTime() - rangeFrom.getTime()) / (1000 * 60 * 60 * 24))
+      const days = Math.ceil((rangeTo.getTime() - rangeFrom.getTime()) / 86_400_000)
       mode = days > 62 ? 'month' : 'day'
     }
   }
-  // fallback: últimos 30 días
-  if (!rangeFrom || !rangeTo) {
-    rangeTo = now
-    rangeFrom = new Date(now)
-    rangeFrom.setDate(now.getDate() - 30)
-    mode = 'day'
-  }
+
+  if (!rangeFrom || !rangeTo) return []
 
   const sorted = [...movements]
-    .filter(m => {
-      const d = new Date(m.date)
-      return d >= rangeFrom! && d <= rangeTo!
-    })
+    .filter(m => !m.esCredito)
+    .filter(m => { const d = new Date(m.date); return d >= rangeFrom! && d <= rangeTo! })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  // Generar buckets
   const groups = new Map<string, { label: string; ingresos: number; egresos: number; order: number }>()
+
   if (mode === 'hour') {
     for (let h = 0; h < 24; h++) {
-      const key = String(h)
-      groups.set(key, { label: `${h}:00`, ingresos: 0, egresos: 0, order: h })
+      groups.set(String(h), { label: `${h}:00`, ingresos: 0, egresos: 0, order: h })
     }
     for (const mov of sorted) {
-      const d = new Date(mov.date)
-      const key = String(d.getHours())
-      const g = groups.get(key)
-      if (g) {
-        if (mov.type === 'INCOME') g.ingresos += mov.amount
-        else g.egresos += mov.amount
-      }
+      const g = groups.get(String(new Date(mov.date).getHours()))
+      if (g) { if (mov.type === 'INCOME') g.ingresos += mov.amount; else g.egresos += mov.amount }
     }
   } else if (mode === 'day') {
-    // Generar días del rango
-    const cursor = new Date(rangeFrom!)
+    const cursor = new Date(rangeFrom)
     let order = 0
-    while (cursor <= rangeTo!) {
+    while (cursor <= rangeTo) {
       const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
-      const lbl = `${cursor.getDate()}/${cursor.getMonth() + 1}`
-      groups.set(key, { label: lbl, ingresos: 0, egresos: 0, order: order++ })
+      groups.set(key, { label: `${cursor.getDate()}/${cursor.getMonth() + 1}`, ingresos: 0, egresos: 0, order: order++ })
       cursor.setDate(cursor.getDate() + 1)
     }
     for (const mov of sorted) {
       const d = new Date(mov.date)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       const g = groups.get(key)
-      if (g) {
-        if (mov.type === 'INCOME') g.ingresos += mov.amount
-        else g.egresos += mov.amount
-      }
+      if (g) { if (mov.type === 'INCOME') g.ingresos += mov.amount; else g.egresos += mov.amount }
     }
   } else if (mode === 'month') {
-    // Generar meses del año
-    const y = rangeFrom!.getFullYear()
-    for (let m = 0; m < 12; m++) {
-      const key = `${y}-${String(m + 1).padStart(2, '0')}`
-      const lbl = new Date(y, m, 1).toLocaleDateString('es-AR', { month: 'short' })
-      groups.set(key, { label: lbl, ingresos: 0, egresos: 0, order: m })
+    const startY = rangeFrom.getFullYear(), startM = rangeFrom.getMonth()
+    const endY = rangeTo.getFullYear(), endM = rangeTo.getMonth()
+    let cy = startY, cm = startM, order = 0
+    while (cy < endY || (cy === endY && cm <= endM)) {
+      const key = `${cy}-${String(cm + 1).padStart(2, '0')}`
+      const lbl = new Date(cy, cm, 1).toLocaleDateString('es-AR', { month: 'short' })
+      groups.set(key, { label: lbl, ingresos: 0, egresos: 0, order: order++ })
+      cm++; if (cm > 11) { cm = 0; cy++ }
     }
     for (const mov of sorted) {
       const d = new Date(mov.date)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       const g = groups.get(key)
-      if (g) {
-        if (mov.type === 'INCOME') g.ingresos += mov.amount
-        else g.egresos += mov.amount
-      }
+      if (g) { if (mov.type === 'INCOME') g.ingresos += mov.amount; else g.egresos += mov.amount }
     }
   }
 
-  // Ordenar y calcular saldo acumulado
-  let runSaldo = 0
+  // El saldo arranca desde el acumulado real antes del período
+  let runSaldo = prePeriodBalance
   return [...groups.values()].sort((a, b) => a.order - b.order).map(e => {
     runSaldo += e.ingresos - e.egresos
     return { label: e.label, ingresos: Math.round(e.ingresos), egresos: Math.round(e.egresos), saldo: Math.round(runSaldo) }
@@ -250,6 +287,7 @@ function MovementIcon() {
   )
 }
 
+// ── Chart Modal ──────────────────────────────────────────────────────────────
 function ChartIcon() {
   return (
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -271,6 +309,7 @@ function EstadoBadge({ type, esCredito }: { type: string; esCredito: boolean }) 
 
 // ── Historial Modal ─────────────────────────────────────────────────────────
 function HistorialModal({
+  allMovements,
   movements,
   period,
   customFrom,
@@ -279,8 +318,10 @@ function HistorialModal({
   selectedMonth,
   selectedDay,
   selectedWeekStart,
+  totalBalance,
   onClose,
 }: {
+  allMovements: CajasMovementItem[]
   movements: CajasMovementItem[]
   period: ChartPeriod
   customFrom?: string
@@ -289,12 +330,16 @@ function HistorialModal({
   selectedMonth?: number
   selectedDay?: string
   selectedWeekStart?: string
+  totalBalance: number
   onClose: () => void
 }) {
-  const chartData = useMemo(
-    () => buildChartData(movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
-    [movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart]
-  )
+  const { chartData, prePeriodBalance } = useMemo(() => {
+    const pre = computePrePeriodBalance(allMovements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+    return {
+      chartData: buildChartData(movements, period, pre, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+      prePeriodBalance: pre,
+    }
+  }, [allMovements, movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart])
 
   const fmtAxis = (v: number) => {
     const abs = Math.abs(v)
@@ -305,7 +350,6 @@ function HistorialModal({
 
   const totalIng = chartData.reduce((s, d) => s + d.ingresos, 0)
   const totalEgr = chartData.reduce((s, d) => s + d.egresos, 0)
-  const net = totalIng - totalEgr
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -333,26 +377,55 @@ function HistorialModal({
           {chartData.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-sm text-stone-400">Sin datos para este período</div>
           ) : (
-            <div className="h-72">
+            <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 4, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+                <ComposedChart data={chartData} margin={{ top: 12, right: 16, left: 4, bottom: 4 }} barCategoryGap="22%" barGap={2}>
+                  <defs>
+                    <linearGradient id="modalIngFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.ing} stopOpacity={0.95} />
+                      <stop offset="100%" stopColor={CHART_COLORS.ing} stopOpacity={0.45} />
+                    </linearGradient>
+                    <linearGradient id="modalEgrFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.egr} stopOpacity={0.95} />
+                      <stop offset="100%" stopColor={CHART_COLORS.egr} stopOpacity={0.45} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-stone-200 dark:text-white/10" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={48} />
+                  <YAxis yAxisId="left" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={48} />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: CHART_COLORS.saldo }} axisLine={false} tickLine={false} width={52} />
                   <Tooltip
+                    cursor={{ fill: 'rgba(197,160,101,0.08)' }}
                     formatter={(value, name) => {
                       const labels: Record<string, string> = { ingresos: 'Ingresos', egresos: 'Egresos', saldo: 'Saldo acumulado' }
                       return [`$${Math.abs(Number(value)).toLocaleString('es-AR')}`, labels[String(name)] ?? String(name)]
                     }}
                     contentStyle={{ fontSize: 12, borderRadius: 10, border: '1px solid #E5E7EB', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
                   />
-                  <Legend formatter={(value) => {
-                    const m: Record<string, string> = { ingresos: 'Ingresos', egresos: 'Egresos', saldo: 'Saldo' }
-                    return <span style={{ fontSize: 11, color: '#6B7280' }}>{m[String(value)] ?? String(value)}</span>
-                  }} />
-                  <Bar dataKey="ingresos" fill="#3A4D39" opacity={0.8} radius={[2, 2, 0, 0] as [number, number, number, number]} />
-                  <Bar dataKey="egresos" fill="#A65D57" opacity={0.8} radius={[2, 2, 0, 0] as [number, number, number, number]} />
-                  <Line type="monotone" dataKey="saldo" stroke="#C5A065" strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: '#C5A065' }} />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ paddingBottom: 8 }}
+                    formatter={(value) => {
+                      const m: Record<string, string> = { ingresos: 'Ingresos', egresos: 'Egresos', saldo: 'Saldo' }
+                      return <span style={{ fontSize: 11, color: '#6B7280' }}>{m[String(value)] ?? String(value)}</span>
+                    }}
+                  />
+                  {prePeriodBalance !== 0 && (
+                    <ReferenceLine
+                      yAxisId="right"
+                      y={prePeriodBalance}
+                      stroke={CHART_COLORS.saldo}
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.55}
+                      label={{ value: 'Saldo acumulado', position: 'insideTopRight', fill: CHART_COLORS.saldo, fontSize: 10 }}
+                    />
+                  )}
+                  <Bar yAxisId="left" dataKey="ingresos" fill="url(#modalIngFill)" radius={[4, 4, 0, 0] as [number, number, number, number]} maxBarSize={28} />
+                  <Bar yAxisId="left" dataKey="egresos" fill="url(#modalEgrFill)" radius={[4, 4, 0, 0] as [number, number, number, number]} maxBarSize={28} />
+                  <Line yAxisId="right" type="monotone" dataKey="saldo" stroke={CHART_COLORS.saldo} strokeWidth={2.25} dot={false} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: CHART_COLORS.saldo }} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -369,9 +442,9 @@ function HistorialModal({
             <p className="mt-1 font-mono text-sm font-bold text-[#A65D57]">${totalEgr.toLocaleString('es-AR')}</p>
           </div>
           <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Neto</p>
-            <p className={`mt-1 font-mono text-sm font-bold ${net >= 0 ? 'text-[#3A4D39]' : 'text-[#A65D57]'}`}>
-              {net < 0 ? '− ' : ''}${Math.abs(net).toLocaleString('es-AR')}
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Saldo total</p>
+            <p className={`mt-1 font-mono text-sm font-bold ${totalBalance >= 0 ? 'text-[#3A4D39]' : 'text-[#A65D57]'}`}>
+              {totalBalance < 0 ? '− ' : ''}${Math.abs(totalBalance).toLocaleString('es-AR')}
             </p>
           </div>
         </div>
@@ -382,6 +455,7 @@ function HistorialModal({
 
 // ── Historial Card ──────────────────────────────────────────────────────────
 function HistorialCard({
+  allMovements,
   movements,
   period,
   customFrom,
@@ -390,7 +464,9 @@ function HistorialCard({
   selectedMonth,
   selectedDay,
   selectedWeekStart,
+  totalBalance,
 }: {
+  allMovements: CajasMovementItem[]
   movements: CajasMovementItem[]
   period: ChartPeriod
   customFrom?: string
@@ -399,16 +475,18 @@ function HistorialCard({
   selectedMonth?: number
   selectedDay?: string
   selectedWeekStart?: string
+  totalBalance: number
 }) {
   const [open, setOpen] = useState(false)
-  const previewData = useMemo(
-    () => buildChartData(movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
-    [movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart]
-  )
-
-  const totalIng = previewData.reduce((s, d) => s + d.ingresos, 0)
-  const totalEgr = previewData.reduce((s, d) => s + d.egresos, 0)
-  const net = totalIng - totalEgr
+  const { previewData, totalIng, totalEgr } = useMemo(() => {
+    const prePeriodBalance = computePrePeriodBalance(allMovements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+    const data = buildChartData(movements, period, prePeriodBalance, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+    return {
+      previewData: data,
+      totalIng: data.reduce((s, d) => s + d.ingresos, 0),
+      totalEgr: data.reduce((s, d) => s + d.egresos, 0),
+    }
+  }, [allMovements, movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart])
 
   const fmtCompact = (v: number) => {
     const abs = Math.abs(v)
@@ -427,7 +505,7 @@ function HistorialCard({
             </div>
             <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Historial</h2>
             <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
-              {period === 'diario' ? 'Día' : period === 'semanal' ? 'Semana' : period === 'mensual' ? 'Mes' : period === 'anual' ? 'Año' : 'Personalizado'}
+              Acumulado
             </span>
           </div>
         </div>
@@ -445,22 +523,23 @@ function HistorialCard({
             <>
               <div className="h-28 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={previewData} margin={{ top: 6, right: 6, left: 0, bottom: 0 }} barCategoryGap="20%" barGap={1}>
+                  <ComposedChart data={previewData} margin={{ top: 6, right: 6, left: 0, bottom: 0 }} barCategoryGap="22%" barGap={1}>
                     <defs>
                       <linearGradient id="histIngFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3A4D39" stopOpacity={0.85} />
-                        <stop offset="100%" stopColor="#3A4D39" stopOpacity={0.35} />
+                        <stop offset="0%" stopColor={CHART_COLORS.ing} stopOpacity={0.9} />
+                        <stop offset="100%" stopColor={CHART_COLORS.ing} stopOpacity={0.35} />
                       </linearGradient>
                       <linearGradient id="histEgrFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#A65D57" stopOpacity={0.85} />
-                        <stop offset="100%" stopColor="#A65D57" stopOpacity={0.35} />
+                        <stop offset="0%" stopColor={CHART_COLORS.egr} stopOpacity={0.9} />
+                        <stop offset="100%" stopColor={CHART_COLORS.egr} stopOpacity={0.35} />
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="label" hide />
-                    <YAxis hide />
-                    <Bar dataKey="ingresos" fill="url(#histIngFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={6} />
-                    <Bar dataKey="egresos" fill="url(#histEgrFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={6} />
-                    <Line type="monotone" dataKey="saldo" stroke="#C5A065" strokeWidth={2} dot={false} />
+                    <YAxis yAxisId="left" hide />
+                    <YAxis yAxisId="right" orientation="right" hide />
+                    <Bar yAxisId="left" dataKey="ingresos" fill="url(#histIngFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={5} />
+                    <Bar yAxisId="left" dataKey="egresos" fill="url(#histEgrFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={5} />
+                    <Line yAxisId="right" type="monotone" dataKey="saldo" stroke={CHART_COLORS.saldo} strokeWidth={2.25} dot={false} activeDot={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
@@ -475,9 +554,9 @@ function HistorialCard({
                   <p className="mt-0.5 font-mono text-[11px] font-bold text-[#A65D57] dark:text-[#F2B272]">{fmtCompact(totalEgr)}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Neto</p>
-                  <p className={`mt-0.5 font-mono text-[11px] font-bold ${net >= 0 ? 'text-[#3A4D39] dark:text-[#9AC7A8]' : 'text-[#A65D57] dark:text-[#F2B272]'}`}>
-                    {net < 0 ? '− ' : ''}{fmtCompact(Math.abs(net))}
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Saldo</p>
+                  <p className={`mt-0.5 font-mono text-[11px] font-bold ${totalBalance >= 0 ? 'text-[#3A4D39] dark:text-[#9AC7A8]' : 'text-[#A65D57] dark:text-[#F2B272]'}`}>
+                    {totalBalance < 0 ? '− ' : ''}{fmtCompact(Math.abs(totalBalance))}
                   </p>
                 </div>
               </div>
@@ -492,6 +571,7 @@ function HistorialCard({
 
       {open && (
         <HistorialModal
+          allMovements={allMovements}
           movements={movements}
           period={period}
           customFrom={customFrom}
@@ -500,6 +580,7 @@ function HistorialCard({
           selectedMonth={selectedMonth}
           selectedDay={selectedDay}
           selectedWeekStart={selectedWeekStart}
+          totalBalance={totalBalance}
           onClose={() => setOpen(false)}
         />
       )}
@@ -857,12 +938,12 @@ function CajaGroupColumn({
 
   return (
     <>
-      <div className="flex h-full flex-col gap-5">
+      <div className="flex h-full flex-col">
         <div className={`flex h-full flex-col overflow-hidden rounded-2xl border shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${tone.card}`}>
 
-          <div className={`border-b px-5 pb-6 pt-5 flex flex-col ${tone.header}`}>
+          <div className={`flex-1 px-5 pb-5 pt-6 flex flex-col ${tone.header}`}>
             {/* Fila: icono + título + botón subcajas */}
-            <div className="flex items-center gap-2.5 mb-5">
+            <div className="flex items-center gap-2.5 mb-6">
               <div className={`flex h-9 w-9 shrink-0 items-center justify-center ${tone.iconWrap}`}>
                 {icon}
               </div>
@@ -877,14 +958,14 @@ function CajaGroupColumn({
             </div>
 
             {/* Saldo — ancho completo sin competencia */}
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 mb-2">Saldo</p>
-            <p className={`text-[40px] md:text-[44px] font-mono font-bold num-tabular leading-none mb-5 ${
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400 mb-2">Saldo</p>
+            <p className={`text-[40px] md:text-[44px] font-mono font-bold num-tabular leading-none ${
               isNegative ? 'text-[#B45309] dark:text-[#F2B272]' : 'text-[#1F2937] dark:text-[#E8E8E8]'
             }`}>
               {isNegative ? '− ' : ''}{fmtMoney(Math.abs(filteredTotal), selectedCurrency)}
             </p>
 
-            <div className={`inline-flex w-full items-center gap-1 border p-1 ${tone.selectorWrap}`}>
+            <div className={`mt-auto inline-flex w-full items-center gap-1 border p-1 ${tone.selectorWrap}`}>
               {CAJA_CURRENCIES.map((currency) => {
                 const isActive = selectedCurrency === currency
                 const isAvailable = availableCurrencies.has(currency)
@@ -924,6 +1005,7 @@ function CajaGroupColumn({
 interface CajasClientProps {
   data: CajasData
   movements: CajasMovementItem[]
+  allMovements: CajasMovementItem[]
   period: ChartPeriod
   customFrom?: string
   customTo?: string
@@ -936,6 +1018,7 @@ interface CajasClientProps {
 export default function CajasClient({
   data,
   movements,
+  allMovements,
   period,
   customFrom,
   customTo,
@@ -946,10 +1029,11 @@ export default function CajasClient({
 }: CajasClientProps) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-stretch">
         <CajaGroupColumn label="Efectivo" icon={<CashIcon />} group={data.efectivo} variant="military" />
         <CajaGroupColumn label="Virtual" icon={<VirtualIcon />} group={data.virtual} variant="gold" />
         <HistorialCard
+          allMovements={allMovements}
           movements={movements}
           period={period}
           customFrom={customFrom}
@@ -958,6 +1042,7 @@ export default function CajasClient({
           selectedMonth={selectedMonth}
           selectedDay={selectedDay}
           selectedWeekStart={selectedWeekStart}
+          totalBalance={data.efectivo.total + data.virtual.total}
         />
       </div>
       <MovementsPanel movements={movements} />

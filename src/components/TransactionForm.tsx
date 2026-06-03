@@ -54,6 +54,8 @@ type Props = {
   onClienteSaldado?: (nombre: string) => void
   onProveedorSaldado?: (nombre: string) => void
   initialType?: 'INCOME' | 'EXPENSE'
+  initialSubType?: SubType
+  initialCreditoPreset?: { linkedCreditoId: string; contactId: string; saldoMax: number } | null
   onTypeChange?: (type: 'INCOME' | 'EXPENSE') => void
 }
 
@@ -91,6 +93,8 @@ export default function TransactionForm({
   onClienteSaldado,
   onProveedorSaldado,
   initialType = 'INCOME',
+  initialSubType,
+  initialCreditoPreset = null,
   onTypeChange,
 }: Props) {
   void _categories
@@ -106,13 +110,13 @@ export default function TransactionForm({
     return 'SALE_PRODUCT'
   }
 
-  const [subType, setSubType] = useState<SubType>(defaultSubType(initialType))
+  const [subType, setSubType] = useState<SubType>(initialSubType ?? defaultSubType(initialType))
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [productoId, setProductoId] = useState('')
   const [bienDeUsoId, setBienDeUsoId] = useState('')
-  const [linkedCreditoId, setLinkedCreditoId] = useState('')
-  const [creditoSaldoMax, setCreditoSaldoMax] = useState(0)
-  const [creditoContactId, setCreditoContactId] = useState('')
+  const [linkedCreditoId, setLinkedCreditoId] = useState(initialCreditoPreset?.linkedCreditoId ?? '')
+  const [creditoSaldoMax, setCreditoSaldoMax] = useState(initialCreditoPreset?.saldoMax ?? 0)
+  const [creditoContactId, setCreditoContactId] = useState(initialCreditoPreset?.contactId ?? '')
   const [cantidad, setCantidad] = useState('')
   const [precioUnitario, setPrecioUnitario] = useState('')
   const [contactId, setContactId] = useState('')
@@ -122,7 +126,7 @@ export default function TransactionForm({
   const [accountId, setAccountId] = useState(accounts[0]?.id || '')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [description, setDescription] = useState('')
-  const [montoDirecto, setMontoDirecto] = useState('')
+  const [montoDirecto, setMontoDirecto] = useState(initialCreditoPreset?.saldoMax ? initialCreditoPreset.saldoMax.toFixed(2) : '')
   // Quick-create de bien de uso (compra)
   const [bienNombre, setBienNombre] = useState('')
   const [bienCategoria, setBienCategoria] = useState('')
@@ -132,9 +136,19 @@ export default function TransactionForm({
 
   useEffect(() => {
     setType(initialType)
-    setSubType(defaultSubType(initialType))
+    setSubType(initialSubType ?? defaultSubType(initialType))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialType])
+  }, [initialType, initialSubType])
+
+  useEffect(() => {
+    if (initialCreditoPreset && initialCreditoPreset.linkedCreditoId) {
+      setLinkedCreditoId(initialCreditoPreset.linkedCreditoId)
+      setCreditoContactId(initialCreditoPreset.contactId)
+      setCreditoSaldoMax(initialCreditoPreset.saldoMax)
+      setMontoDirecto(initialCreditoPreset.saldoMax.toFixed(2))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCreditoPreset?.linkedCreditoId])
 
   const handleTypeChange = (newType: 'INCOME' | 'EXPENSE') => {
     setType(newType)
