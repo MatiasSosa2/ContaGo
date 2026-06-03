@@ -10,6 +10,9 @@ type Producto = {
   marca: string | null; unidad: string; metodoCosteo: string; enTransito: number
   precioVenta: number; precioCosto: number; stockActual: number
   tipo?: 'MERCADERIA' | 'SERVICIO'
+  stockInicialPeriodo?: number
+  entradasPeriodo?: number
+  salidasPeriodo?: number
 }
 
 type Movimiento = {
@@ -63,6 +66,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const [showMovForm, setShowMovForm] = useState(false)
   const [showMovimientosModal, setShowMovimientosModal] = useState(false)
   const [busqueda, setBusqueda] = useState('')
+  const [vistaInventario, setVistaInventario] = useState<'UNIDADES' | 'PESOS'>('PESOS')
   const [isPending, startTransition] = useTransition()
   const [formError, setFormError] = useState('')
   const [movError, setMovError] = useState('')
@@ -181,6 +185,31 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const totalStockValue = resumenGeneral.valorCosto
   const valorVentaTotal = resumenGeneral.valorVenta
   const gananciaPotencial = resumenGeneral.gananciaPotencial
+
+  // Flujo de inventario del período (valorizado al costo)
+  const flujoPeriodo = productos.reduce((acc, p) => {
+    const costo = p.precioCosto ?? 0
+    const inicial = p.stockInicialPeriodo ?? 0
+    const entradas = p.entradasPeriodo ?? 0
+    const salidas = p.salidasPeriodo ?? 0
+    acc.inventarioInicial += inicial * costo
+    acc.inventarioComprado += entradas * costo
+    acc.inventarioVendido += salidas * costo
+    acc.inicialUnidades += inicial
+    acc.compradoUnidades += entradas
+    acc.vendidoUnidades += salidas
+    return acc
+  }, { inventarioInicial: 0, inventarioComprado: 0, inventarioVendido: 0, inicialUnidades: 0, compradoUnidades: 0, vendidoUnidades: 0 })
+  const inventarioInicial = flujoPeriodo.inventarioInicial
+  const inventarioVendido = flujoPeriodo.inventarioVendido
+  const inventarioComprado = flujoPeriodo.inventarioComprado
+  const stockFinalPeriodo = inventarioInicial - inventarioVendido + inventarioComprado
+  const inicialUnidades = flujoPeriodo.inicialUnidades
+  const vendidoUnidades = flujoPeriodo.vendidoUnidades
+  const compradoUnidades = flujoPeriodo.compradoUnidades
+  const stockFinalUnidades = inicialUnidades - vendidoUnidades + compradoUnidades
+  const enUnidades = vistaInventario === 'UNIDADES'
+  const formatCard = (valor: number) => enUnidades ? `${fmtUnits(valor)} u` : `$${fmt(valor)}`
   const sinStock = productos.filter(p => p.stockActual <= 0).length
   const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual < 5).length
   const editingProd = editingId ? productos.find(p => p.id === editingId) : null
@@ -212,28 +241,99 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
     URL.revokeObjectURL(url)
   }
 
+  // ── Diagnóstico inteligente del inventario ──
+  const diagnostico = (() => {
+    const totalMovido = vendidoUnidades + compradoUnidades
+    if (totalMovido === 0 && inicialUnidades === 0) {
+      return { tono: 'neutral' as const, titulo: 'Sin actividad', mensaje: 'No hay movimientos ni stock en el período seleccionado.' }
+    }
+    if (stockFinalUnidades <= 0 && vendidoUnidades > 0) {
+      return { tono: 'critico' as const, titulo: 'Stock agotado', mensaje: 'Vendiste todo el stock disponible. Reponé urgente para no perder ventas.' }
+    }
+    if (vendidoUnidades > 0 && compradoUnidades === 0 && stockFinalUnidades < inicialUnidades * 0.3) {
+      return { tono: 'alerta' as const, titulo: 'Sobrevendido', mensaje: 'Tus ventas redujeron el stock más del 70% y no hubo reposición. Conviene comprar pronto.' }
+    }
+    if (vendidoUnidades > compradoUnidades * 1.8 && compradoUnidades > 0) {
+      return { tono: 'alerta' as const, titulo: 'Rotación alta', mensaje: 'Vendiste casi el doble de lo que compraste. Aumentá las compras para sostener el ritmo.' }
+    }
+    if (compradoUnidades > vendidoUnidades * 2.5 && vendidoUnidades > 0) {
+      return { tono: 'alerta' as const, titulo: 'Sobrecomprado', mensaje: 'Compraste mucho más de lo que vendiste. Revisá si hay capital inmovilizado innecesario.' }
+    }
+    if (vendidoUnidades === 0 && inicialUnidades > 0) {
+      return { tono: 'alerta' as const, titulo: 'Sin ventas', mensaje: 'No hubo salidas en el período. Evaluá estrategia comercial o estacionalidad.' }
+    }
+    if (compradoUnidades > 0 && vendidoUnidades === 0) {
+      return { tono: 'neutral' as const, titulo: 'Stock en reposición', mensaje: 'Compraste sin vender. Esperable si recién arrancás el período.' }
+    }
+    if (stockFinalUnidades > inicialUnidades * 2 && compradoUnidades > vendidoUnidades) {
+      return { tono: 'alerta' as const, titulo: 'Stock excesivo', mensaje: 'Tu stock final duplica el inicial. Hay capital inmovilizado.' }
+    }
+    return { tono: 'ok' as const, titulo: 'Inventario equilibrado', mensaje: 'Compras y ventas mantienen un flujo saludable en el período.' }
+  })()
+
+  const diagnosticoStyles = {
+    ok:       { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#16A34A] dark:text-[#6EE7B7]', dot: 'bg-[#22C55E]' },
+    neutral:  { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#6B7280] dark:text-[#9CA3AF]', dot: 'bg-[#9CA3AF]' },
+    alerta:   { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#B45309] dark:text-[#F59E0B]', dot: 'bg-[#F59E0B]' },
+    critico:  { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#B91C1C] dark:text-[#FCA5A5]', dot: 'bg-[#EF4444]' },
+  }[diagnostico.tono]
+
   return (
     <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-stretch">
+        <div className="inline-flex items-stretch border border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={enUnidades}
+            onClick={() => setVistaInventario('UNIDADES')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${enUnidades ? 'bg-brand-military text-white' : 'text-[#6B7280] hover:text-brand-military dark:text-[#9CA3AF] dark:hover:text-white'}`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            Unidades
+          </button>
+          <div className="w-px bg-[#E5E7EB] dark:bg-white/10" aria-hidden />
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!enUnidades}
+            onClick={() => setVistaInventario('PESOS')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${!enUnidades ? 'bg-brand-military text-white' : 'text-[#6B7280] hover:text-brand-military dark:text-[#9CA3AF] dark:hover:text-white'}`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Valorizado
+          </button>
+        </div>
+
+        <div className={`flex items-center gap-2.5 border px-3.5 py-1.5 ${diagnosticoStyles.border} ${diagnosticoStyles.bg}`} style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
+          <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${diagnosticoStyles.dot}`} aria-hidden />
+          <div className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
+            <p className={`text-[11px] font-semibold tracking-wide whitespace-nowrap ${diagnosticoStyles.accent}`}>{diagnostico.titulo}</p>
+            <p className={`truncate text-xs ${diagnosticoStyles.text}`}>{diagnostico.mensaje}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Cantidad en stock</p>
-          <p className="text-[28px] font-mono font-bold text-brand-military-dark dark:text-[#6EBC8A] num-tabular">{fmtUnits(totalUnidades)}</p>
-          <p className="text-xs text-[#9CA3AF] mt-0.5">total de unidades disponibles</p>
+          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Inventario inicial</p>
+          <p className="text-[28px] font-mono font-bold text-brand-military-dark dark:text-[#6EBC8A] num-tabular">{formatCard(enUnidades ? inicialUnidades : inventarioInicial)}</p>
         </div>
         <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Stock valorizado costo</p>
-          <p className="text-[28px] font-mono font-bold text-brand-military-dark dark:text-[#6EBC8A] num-tabular">${fmt(totalStockValue)}</p>
-          <p className="text-xs text-[#9CA3AF] mt-0.5">cantidades por costo unitario</p>
+          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Inventario vendido</p>
+          <p className="text-[28px] font-mono font-bold text-[#9A3412] dark:text-[#F59E0B] num-tabular">{formatCard(enUnidades ? vendidoUnidades : inventarioVendido)}</p>
         </div>
         <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Stock valorizado venta</p>
-          <p className="text-[28px] font-mono font-bold text-[#1F2937] dark:text-[#E8E8E8] num-tabular">${fmt(valorVentaTotal)}</p>
-          <p className="text-xs text-[#9CA3AF] mt-0.5">cantidades por precio de venta</p>
+          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Inventario comprado</p>
+          <p className="text-[28px] font-mono font-bold text-brand-military-dark dark:text-[#6EBC8A] num-tabular">{formatCard(enUnidades ? compradoUnidades : inventarioComprado)}</p>
         </div>
         <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Ganancia potencial</p>
-          <p className="text-[28px] font-mono font-bold text-brand-gold-dark dark:text-[#E0B36A] num-tabular">${fmt(gananciaPotencial)}</p>
-          <p className="text-xs text-[#9CA3AF] mt-0.5">sobre stock actual</p>
+          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Stock final</p>
+          <p className="text-[28px] font-mono font-bold text-brand-gold-dark dark:text-[#E0B36A] num-tabular">{formatCard(enUnidades ? stockFinalUnidades : stockFinalPeriodo)}</p>
         </div>
       </div>
 

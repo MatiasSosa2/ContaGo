@@ -1287,10 +1287,17 @@ export async function getProductos(
     orderBy: { nombre: 'asc' },
   })
 
-  if (!period) return productos
+  if (!period) {
+    return productos.map(p => ({
+      ...p,
+      stockInicialPeriodo: 0,
+      entradasPeriodo: 0,
+      salidasPeriodo: 0,
+    }))
+  }
 
   // Stock asof "to": revertir movimientos posteriores a "to"
-  const { to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
   const movsPosteriores = await prisma.movimientoStock.findMany({
     where: { producto: { businessId }, fecha: { gt: to } },
     select: { productoId: true, tipo: true, cantidad: true },
@@ -1300,7 +1307,35 @@ export async function getProductos(
     const signed = m.tipo === 'ENTRADA' ? m.cantidad : m.tipo === 'SALIDA' ? -m.cantidad : m.cantidad
     delta[m.productoId] = (delta[m.productoId] || 0) + signed
   }
-  return productos.map(p => ({ ...p, stockActual: (p.stockActual ?? 0) - (delta[p.id] || 0) }))
+
+  // Movimientos dentro del período seleccionado
+  const movsEnPeriodo = await prisma.movimientoStock.findMany({
+    where: { producto: { businessId }, fecha: { gte: from, lte: to } },
+    select: { productoId: true, tipo: true, cantidad: true },
+  })
+  const entradas: Record<string, number> = {}
+  const salidas: Record<string, number> = {}
+  const ajusteNeto: Record<string, number> = {}
+  for (const m of movsEnPeriodo) {
+    if (m.tipo === 'ENTRADA') entradas[m.productoId] = (entradas[m.productoId] || 0) + m.cantidad
+    else if (m.tipo === 'SALIDA') salidas[m.productoId] = (salidas[m.productoId] || 0) + m.cantidad
+    else ajusteNeto[m.productoId] = (ajusteNeto[m.productoId] || 0) + m.cantidad
+  }
+
+  return productos.map(p => {
+    const stockFinal = (p.stockActual ?? 0) - (delta[p.id] || 0)
+    const ent = entradas[p.id] || 0
+    const sal = salidas[p.id] || 0
+    const aj = ajusteNeto[p.id] || 0
+    const stockInicial = stockFinal - ent + sal - aj
+    return {
+      ...p,
+      stockActual: stockFinal,
+      stockInicialPeriodo: stockInicial,
+      entradasPeriodo: ent,
+      salidasPeriodo: sal,
+    }
+  })
 }
 
 export async function createProducto(formData: FormData): Promise<ActionResult> {
