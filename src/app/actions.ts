@@ -121,12 +121,6 @@ export async function createCategoryWithContable(formData: FormData): Promise<Ac
   return databaseActions.createCategoryWithContable(formData);
 }
 
-export async function createProductoQuick(formData: FormData): Promise<ActionResult<{ id: string; nombre: string; tipo: string }>> {
-  if (USE_MOCK) return { success: true, data: { id: 'mock', nombre: 'mock', tipo: 'MERCADERIA' } };
-  const databaseActions = await getDatabaseActions();
-  return databaseActions.createProductoQuick(formData);
-}
-
 export async function deleteTransaction(id: string) {
   if (USE_MOCK) { revalidatePath('/'); return; }
   const databaseActions = await getDatabaseActions();

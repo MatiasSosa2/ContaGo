@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 
 export type ProductoItem = {
   id: string
@@ -18,7 +19,6 @@ type Props = {
   filterTipo?: 'MERCADERIA' | 'SERVICIO' // si está seteado, filtra
   value: string
   onChange: (id: string) => void
-  onAddNew?: () => void
   placeholder?: string
 }
 
@@ -35,7 +35,7 @@ function score(p: ProductoItem, q: string): number {
   return 0
 }
 
-export default function ProductoServicioCombobox({ productos, filterTipo, value, onChange, onAddNew, placeholder }: Props) {
+export default function ProductoServicioCombobox({ productos, filterTipo, value, onChange, placeholder }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -113,17 +113,17 @@ export default function ProductoServicioCombobox({ productos, filterTipo, value,
               </button>
             ))
           )}
-          {onAddNew && (
-            <button
-              type="button"
-              onClick={() => { setOpen(false); onAddNew() }}
+          {pool.length === 0 && (
+            <Link
+              href="/stock"
+              onClick={() => setOpen(false)}
               className="flex w-full items-center gap-2 border-t border-black/[0.06] bg-gray-50/50 px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-brand-military hover:bg-brand-military/5 dark:border-white/10 dark:bg-zinc-800/50"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              Agregar nuevo
-            </button>
+              Crear en Inventario
+            </Link>
           )}
         </div>
       )}

@@ -210,6 +210,8 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const stockFinalUnidades = inicialUnidades - vendidoUnidades + compradoUnidades
   const enUnidades = vistaInventario === 'UNIDADES'
   const formatCard = (valor: number) => enUnidades ? `${fmtUnits(valor)} u` : `$${fmt(valor)}`
+  const sobreVendiendo = inventarioVendido > inventarioComprado
+  const sobreStockeando = inventarioComprado > inventarioVendido
   const sinStock = productos.filter(p => p.stockActual <= 0).length
   const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual < 5).length
   const editingProd = editingId ? productos.find(p => p.id === editingId) : null
@@ -321,19 +323,21 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
           <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Inventario inicial</p>
-          <p className="text-[28px] font-mono font-bold text-brand-military-dark dark:text-[#6EBC8A] num-tabular">{formatCard(enUnidades ? inicialUnidades : inventarioInicial)}</p>
+          <p className="text-[28px] font-mono font-bold text-black dark:text-white num-tabular">{formatCard(enUnidades ? inicialUnidades : inventarioInicial)}</p>
         </div>
-        <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Inventario vendido</p>
-          <p className="text-[28px] font-mono font-bold text-[#9A3412] dark:text-[#F59E0B] num-tabular">{formatCard(enUnidades ? vendidoUnidades : inventarioVendido)}</p>
+        <div className={`border px-5 py-4 ${sobreVendiendo ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]'}`} style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
+          <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${sobreVendiendo ? 'text-emerald-700' : 'text-[#9CA3AF]'}`}>Inventario vendido</p>
+          {sobreVendiendo && <p className="mt-0.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">Estás sobrevendiendo — vendiste más de lo que compraste.</p>}
+          <p className={`text-[28px] font-mono font-bold num-tabular ${sobreVendiendo ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-military-dark dark:text-[#6EBC8A]'}`}>{formatCard(enUnidades ? vendidoUnidades : inventarioVendido)}</p>
         </div>
-        <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Inventario comprado</p>
-          <p className="text-[28px] font-mono font-bold text-brand-military-dark dark:text-[#6EBC8A] num-tabular">{formatCard(enUnidades ? compradoUnidades : inventarioComprado)}</p>
+        <div className={`border px-5 py-4 ${sobreStockeando ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]'}`} style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
+          <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${sobreStockeando ? 'text-emerald-700' : 'text-[#9CA3AF]'}`}>Inventario comprado</p>
+          {sobreStockeando && <p className="mt-0.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">Estás sobrestockeando — compraste más de lo que vendiste.</p>}
+          <p className={`text-[28px] font-mono font-bold num-tabular ${sobreStockeando ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}`}>{formatCard(enUnidades ? compradoUnidades : inventarioComprado)}</p>
         </div>
         <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
           <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Stock final</p>
-          <p className="text-[28px] font-mono font-bold text-brand-gold-dark dark:text-[#E0B36A] num-tabular">{formatCard(enUnidades ? stockFinalUnidades : stockFinalPeriodo)}</p>
+          <p className="text-[28px] font-mono font-bold text-black dark:text-white num-tabular">{formatCard(enUnidades ? stockFinalUnidades : stockFinalPeriodo)}</p>
         </div>
       </div>
 
