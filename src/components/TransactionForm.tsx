@@ -60,12 +60,18 @@ type Props = {
 }
 
 const SELECT_CLS =
-  'w-full appearance-none rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all focus:border-brand-military dark:border-white/10 dark:bg-zinc-900 dark:text-gray-200'
+  'h-9 w-full appearance-none rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] outline-none transition focus:border-brand-military focus:ring-2 focus:ring-brand-military/25 dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8]'
 
 const INPUT_CLS =
-  'w-full rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all placeholder:text-gray-300 focus:border-brand-military dark:border-white/10 dark:bg-zinc-900 dark:text-gray-200'
+  'h-9 w-full rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-brand-military focus:ring-2 focus:ring-brand-military/25 dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8] dark:placeholder:text-[#6B7280]'
 
-const LABEL_CLS = 'mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500'
+const LABEL_CLS = 'mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4B5563] dark:text-[#9CA3AF]'
+
+const SECTION_HEADING_CLS = 'text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#9CA3AF]'
+
+const PANEL_CLS = 'flex flex-col gap-3 rounded-md border border-[#E5E7EB] bg-[#FAFAF9] p-4 dark:border-white/10 dark:bg-[#141414]'
+
+const MONTO_INPUT_BASE = 'w-full rounded-md border border-[#D1D5DB] bg-white py-2.5 pl-9 pr-4 font-mono text-xl font-semibold tabular-nums text-[#111827] outline-none transition focus:ring-2 dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8]'
 
 function SelectWrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -361,11 +367,11 @@ export default function TransactionForm({
   return (
     <form onSubmit={handleSubmit} className="flex h-full flex-col gap-0">
       {!onTypeChange && (
-        <div className="mb-5 flex gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-zinc-800">
+        <div className="mb-5 flex gap-1 rounded-md border border-[#E5E7EB] bg-[#F3F4F6] p-1 dark:border-white/10 dark:bg-[#161616]">
           <button
             type="button"
             onClick={() => handleTypeChange('INCOME')}
-            className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+            className={`flex-1 rounded-md py-2 text-xs font-semibold uppercase tracking-wide transition-all ${
               isIngreso ? 'bg-brand-military text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
             }`}
           >
@@ -374,7 +380,7 @@ export default function TransactionForm({
           <button
             type="button"
             onClick={() => handleTypeChange('EXPENSE')}
-            className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+            className={`flex-1 rounded-md py-2 text-xs font-semibold uppercase tracking-wide transition-all ${
               !isIngreso ? 'bg-brand-oxide text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
             }`}
           >
@@ -384,7 +390,7 @@ export default function TransactionForm({
       )}
 
       {error && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border-l-4 border-red-500 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-400">
+        <div className="mb-4 flex items-center justify-between rounded-md border border-red-200 border-l-4 border-l-red-500 bg-red-50 p-3 text-xs font-semibold text-red-700 dark:border-red-900 dark:border-l-red-500 dark:bg-red-950/40 dark:text-red-300">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} className="ml-3 text-red-400 hover:text-red-600">×</button>
         </div>
@@ -435,10 +441,8 @@ export default function TransactionForm({
         )}
 
         {showProductSection && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-gray-50/80 p-4 dark:border-white/[0.06] dark:bg-zinc-800/50">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-              Producto
-            </p>
+          <div className={PANEL_CLS}>
+            <p className={SECTION_HEADING_CLS}>Producto</p>
             <ProductoServicioCombobox
               productos={productos}
               filterTipo={productoFilterTipo}
@@ -456,7 +460,7 @@ export default function TransactionForm({
                   value={cantidad}
                   onChange={(e) => setCantidad(e.target.value)}
                   placeholder="0"
-                  className={INPUT_CLS}
+                  className={INPUT_CLS + ' font-mono tabular-nums'}
                   required
                 />
               </div>
@@ -471,15 +475,15 @@ export default function TransactionForm({
                     value={precioUnitario}
                     onChange={(e) => setPrecioUnitario(e.target.value)}
                     placeholder="0.00"
-                    className={INPUT_CLS + ' pl-6'}
+                    className={INPUT_CLS + ' pl-6 font-mono tabular-nums'}
                     required
                   />
                 </div>
               </div>
               <div>
                 <label className={LABEL_CLS}>Total</label>
-                <div className={`flex h-[42px] items-center rounded-xl border px-3 ${isIngreso ? 'border-brand-military-light bg-brand-military-light' : 'border-[#F5CFC9] bg-[#FDF2F0]'}`}>
-                  <span className={`text-sm font-bold ${isIngreso ? 'text-brand-military-dark' : 'text-brand-oxide'}`}>
+                <div className={`flex h-9 items-center rounded-md border px-3 ${isIngreso ? 'border-brand-military-light bg-brand-military-light' : 'border-[#F5CFC9] bg-[#FDF2F0]'}`}>
+                  <span className={`font-mono tabular-nums text-sm font-bold ${isIngreso ? 'text-brand-military-dark' : 'text-brand-oxide'}`}>
                     {total !== null
                       ? `${CURRENCY_SYMBOL[selectedCurrency]} ${total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : '-'}
@@ -491,8 +495,8 @@ export default function TransactionForm({
         )}
 
         {showServiceSection && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-gray-50/80 p-4 dark:border-white/[0.06] dark:bg-zinc-800/50">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Servicio</p>
+          <div className={PANEL_CLS}>
+            <p className={SECTION_HEADING_CLS}>Servicio</p>
             <ProductoServicioCombobox
               productos={productos}
               filterTipo="SERVICIO"
@@ -510,7 +514,7 @@ export default function TransactionForm({
                   value={montoDirecto}
                   onChange={(e) => setMontoDirecto(e.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-xl border border-black/[0.08] bg-white py-3 pl-9 pr-4 font-mono text-2xl font-light text-gray-900 outline-none focus:border-brand-military dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                  className={`${MONTO_INPUT_BASE} focus:border-brand-military focus:ring-brand-military/25`}
                   required
                 />
               </div>
@@ -519,8 +523,8 @@ export default function TransactionForm({
         )}
 
         {isSaleBienUso && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-gray-50/80 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Bien de uso</p>
+          <div className={PANEL_CLS}>
+            <p className={SECTION_HEADING_CLS}>Bien de uso</p>
             <BienDeUsoCombobox bienes={bienesDeUso} value={bienDeUsoId} onChange={setBienDeUsoId} />
             <div>
               <label className={LABEL_CLS}>Precio de venta</label>
@@ -533,7 +537,7 @@ export default function TransactionForm({
                   value={montoDirecto}
                   onChange={(e) => setMontoDirecto(e.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-xl border border-black/[0.08] bg-white py-3 pl-9 pr-4 font-mono text-2xl font-light text-gray-900 outline-none focus:border-brand-military"
+                  className={`${MONTO_INPUT_BASE} focus:border-brand-military focus:ring-brand-military/25`}
                   required
                 />
               </div>
@@ -542,8 +546,8 @@ export default function TransactionForm({
         )}
 
         {isPurchaseBienUso && (
-          <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-gray-50/80 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Bien de uso a incorporar</p>
+          <div className={PANEL_CLS}>
+            <p className={SECTION_HEADING_CLS}>Bien de uso a incorporar</p>
             <div>
               <label className={LABEL_CLS}>Nombre</label>
               <input
@@ -588,7 +592,7 @@ export default function TransactionForm({
                   value={montoDirecto}
                   onChange={(e) => setMontoDirecto(e.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-xl border border-black/[0.08] bg-white py-3 pl-9 pr-4 font-mono text-2xl font-light text-gray-900 outline-none focus:border-brand-oxide"
+                  className={`${MONTO_INPUT_BASE} focus:border-brand-oxide focus:ring-brand-oxide/25`}
                   required
                 />
               </div>
@@ -608,7 +612,7 @@ export default function TransactionForm({
                 value={montoDirecto}
                 onChange={(e) => setMontoDirecto(e.target.value)}
                 placeholder="0.00"
-                className="w-full rounded-xl border border-black/[0.08] bg-white py-3 pl-9 pr-4 font-mono text-2xl font-light text-gray-900 outline-none focus:border-brand-military dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+                className={`${MONTO_INPUT_BASE} ${isIngreso ? 'focus:border-brand-military focus:ring-brand-military/25' : 'focus:border-brand-oxide focus:ring-brand-oxide/25'}`}
                 required
               />
             </div>
@@ -653,12 +657,12 @@ export default function TransactionForm({
                 key={opt.value}
                 type="button"
                 onClick={() => setMetodoPago(opt.value)}
-                className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all ${
+                className={`flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-[11px] font-semibold uppercase tracking-wide transition-all ${
                   metodoPago === opt.value
                     ? isIngreso
                       ? 'border-brand-military bg-brand-military-light text-brand-military-dark'
                       : 'border-brand-oxide bg-[#F9EDE9] text-[#7A3025]'
-                    : 'border-black/[0.08] bg-white text-gray-500 hover:border-gray-300 dark:border-white/10 dark:bg-zinc-900 dark:text-gray-400'
+                    : 'border-[#D1D5DB] bg-white text-gray-500 hover:border-gray-400 dark:border-white/15 dark:bg-[#161616] dark:text-gray-400'
                 }`}
               >
                 <MetodoPagoIcon icon={opt.icon} />
@@ -682,8 +686,8 @@ export default function TransactionForm({
         )}
 
         {esCreditoAuto && (
-          <div className="rounded-2xl border border-l-4 bg-sky-50/50 p-4 dark:bg-sky-950/20" style={{ borderColor: '#e2e8f0', borderLeftColor: isIngreso ? '#3A4D39' : '#A65D57' }}>
-            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-400">
+          <div className="rounded-md border border-[#E5E7EB] border-l-4 bg-[#FAFAF9] p-4 dark:border-white/10 dark:bg-[#141414]" style={{ borderLeftColor: isIngreso ? '#3A4D39' : '#A65D57' }}>
+            <p className={`mb-3 ${SECTION_HEADING_CLS}`}>
               {isIngreso ? 'Cuenta por cobrar' : 'Cuenta por pagar'}
             </p>
             <div>
@@ -708,11 +712,11 @@ export default function TransactionForm({
       <button
         type="submit"
         disabled={submitting}
-        className={`mt-5 w-full rounded-xl py-4 text-sm font-bold transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`mt-5 w-full rounded-md py-3 text-xs font-bold uppercase tracking-[0.15em] transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 ${
           isIngreso ? 'bg-brand-military text-white hover:bg-brand-military-dark' : 'bg-brand-oxide text-white hover:bg-[#8B4A3F]'
         }`}
       >
-        {submitting ? 'Guardando...' : 'Registrar operación'}
+        {submitting ? 'Guardando…' : 'Registrar operación'}
       </button>
     </form>
   )

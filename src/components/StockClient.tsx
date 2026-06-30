@@ -27,6 +27,12 @@ function fmt(v: number | null | undefined) { return (v ?? 0).toLocaleString('es-
 function fmtUnits(v: number | null | undefined) { return (v ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) }
 function fmtDate(d: Date | string) { return new Date(d).toLocaleDateString('es-AR') }
 
+const LABEL_CLS = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4B5563] dark:text-[#9CA3AF]'
+const FIELD_CLS = 'h-9 rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8] dark:placeholder:text-[#6B7280]'
+const SELECT_CLS = FIELD_CLS
+const TEXTAREA_CLS = 'rounded-md border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8] dark:placeholder:text-[#6B7280] resize-none'
+const SECTION_HEADING_CLS = 'mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#9CA3AF]'
+
 const TIPO_COLORS = {
   ENTRADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900',
   SALIDA: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900',
@@ -36,12 +42,13 @@ const TIPO_COLORS = {
 function InputField({ label, name, type = 'text', step, defaultValue, required }: {
   label: string; name: string; type?: string; step?: string; defaultValue?: string | number; required?: boolean
 }) {
+  const isNumeric = type === 'number'
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{label}</label>
+      <label className={LABEL_CLS}>{label}</label>
       <input
         name={name} type={type} step={step} defaultValue={defaultValue} required={required}
-        className="border border-[#E5E7EB] dark:border-white/10 bg-[#F9FAFB] dark:bg-[#1F1F1F] rounded-xl px-3 py-2 text-sm font-mono text-[#1F2937] dark:text-[#E8E8E8] focus:outline-none focus:border-brand-military transition"
+        className={`${FIELD_CLS} ${isNumeric ? 'font-mono tabular-nums' : ''}`}
       />
     </div>
   )
@@ -53,6 +60,151 @@ function BoxIcon() {
     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
     </svg>
+  )
+}
+
+function ProductoFormBody({
+  editingProd,
+  editingId,
+  categoriasExistentes,
+  isPending,
+  formError,
+  onSubmit,
+  onCancel,
+}: {
+  editingProd: Producto | null
+  editingId: string | null
+  categoriasExistentes: string[]
+  isPending: boolean
+  formError: string
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
+  onCancel: () => void
+}) {
+  const initialCat = editingProd?.categoria?.trim() || ''
+  const initialCatExists = !!initialCat && categoriasExistentes.includes(initialCat)
+  const [catMode, setCatMode] = useState<'pick' | 'new'>(initialCat && !initialCatExists ? 'new' : 'pick')
+  const [catPick, setCatPick] = useState(initialCatExists ? initialCat : '')
+  const [catNew, setCatNew] = useState(initialCatExists ? '' : initialCat)
+  const categoriaValue = (catMode === 'pick' ? catPick : catNew).trim()
+
+  return (
+    <form onSubmit={onSubmit} className="bg-white dark:bg-[#0F0F0F]">
+      <section className="px-5 py-4">
+        <h4 className={SECTION_HEADING_CLS}>Datos generales</h4>
+        <div className="grid grid-cols-12 gap-3">
+          <div className="col-span-8">
+            <InputField label="Nombre del producto *" name="nombre" required defaultValue={editingProd?.nombre} />
+          </div>
+          <div className="col-span-4 flex flex-col gap-1">
+            <label className={LABEL_CLS}>Tipo</label>
+            <select name="tipo" defaultValue={editingProd?.tipo || 'MERCADERIA'} className={SELECT_CLS}>
+              <option value="MERCADERIA">Mercadería</option>
+              <option value="SERVICIO">Servicio</option>
+            </select>
+          </div>
+
+          <div className="col-span-4 flex flex-col gap-1">
+            <label className={LABEL_CLS}>Categoría</label>
+            <select
+              value={catMode === 'pick' ? catPick : '__new__'}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  setCatMode('new')
+                } else {
+                  setCatMode('pick')
+                  setCatPick(e.target.value)
+                }
+              }}
+              className={SELECT_CLS}
+            >
+              <option value="">— Sin categoría —</option>
+              {categoriasExistentes.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+              <option value="__new__">+ Nueva categoría…</option>
+            </select>
+            {catMode === 'new' && (
+              <input
+                type="text"
+                value={catNew}
+                onChange={(e) => setCatNew(e.target.value)}
+                placeholder="Escribí la nueva categoría"
+                className={FIELD_CLS}
+              />
+            )}
+            <input type="hidden" name="categoria" value={categoriaValue} />
+          </div>
+          <div className="col-span-4">
+            <InputField label="Marca" name="marca" defaultValue={editingProd?.marca || ''} />
+          </div>
+          <div className="col-span-4">
+            <InputField label="Unidad" name="unidad" defaultValue={editingProd?.unidad || 'unidad'} />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-[#E5E7EB] px-5 py-4 dark:border-white/10">
+        <h4 className={SECTION_HEADING_CLS}>Inventario y precios</h4>
+        <div className="grid grid-cols-12 gap-3">
+          <div className="col-span-4 flex flex-col gap-1">
+            <label className={LABEL_CLS}>Método de costeo</label>
+            <select name="metodoCosteo" defaultValue={editingProd?.metodoCosteo || 'PROMEDIO'} className={SELECT_CLS}>
+              <option value="PROMEDIO">Promedio Ponderado</option>
+              <option value="FIFO">FIFO</option>
+              <option value="LIFO">LIFO</option>
+            </select>
+          </div>
+          <div className="col-span-2">
+            <InputField label="Stock inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
+          </div>
+          <div className="col-span-2">
+            <InputField label="En tránsito" name="enTransito" type="number" step="0.01" defaultValue={editingProd?.enTransito ?? 0} />
+          </div>
+          <div className="col-span-2">
+            <InputField label="Precio costo" name="precioCosto" type="number" step="0.01" defaultValue={editingProd?.precioCosto ?? 0} />
+          </div>
+          <div className="col-span-2">
+            <InputField label="Precio venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-[#E5E7EB] px-5 py-4 dark:border-white/10">
+        <div className="flex flex-col gap-1">
+          <label className={LABEL_CLS}>Descripción</label>
+          <textarea
+            name="descripcion"
+            rows={2}
+            defaultValue={editingProd?.descripcion || ''}
+            placeholder="Opcional"
+            className={TEXTAREA_CLS}
+          />
+        </div>
+      </section>
+
+      {formError && (
+        <div className="mx-5 mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+          {formError}
+        </div>
+      )}
+
+      <div className="flex justify-end gap-3 border-t border-[#E5E7EB] bg-[#FAFAF9] px-5 py-3 dark:border-white/10 dark:bg-[#0B0B0B]">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-md border border-[#D1D5DB] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#4B5563] transition hover:border-gray-400 hover:text-[#1F2937] dark:border-white/10 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="rounded-md bg-brand-military px-5 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-brand-military-dark disabled:opacity-50"
+        >
+          {editingId ? 'Guardar cambios' : 'Crear producto'}
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -216,12 +368,19 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual < 5).length
   const editingProd = editingId ? productos.find(p => p.id === editingId) : null
   const selectedProducto = selectedProductoId ? productos.find(p => p.id === selectedProductoId) : null
+  const categoriasExistentes = Array.from(
+    new Set(
+      productos
+        .map(p => p.categoria?.trim())
+        .filter((c): c is string => !!c)
+    )
+  ).sort((a, b) => a.localeCompare(b, 'es'))
 
   function handleExportar() {
     const rows = filtrados.map(prod => [
       prod.nombre,
-      prod.marca || '',
       prod.categoria || '',
+      prod.marca || '',
       fmtUnits(prod.stockActual),
       prod.unidad,
       fmt(prod.precioCosto),
@@ -230,7 +389,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
     ])
 
     const csv = [
-      ['Producto', 'Marca', 'Categoria', 'Stock', 'Unidad', 'Precio costo', 'Precio venta', 'Valor inventario'].join(','),
+      ['Producto', 'Categoria', 'Marca', 'Stock', 'Unidad', 'Precio costo', 'Precio venta', 'Valor inventario'].join(','),
       ...rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')),
     ].join('\n')
 
@@ -393,7 +552,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               <input
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
-                placeholder="Buscar producto, marca o categoría"
+                placeholder="Buscar producto, categoría o marca"
                 className="w-full border border-[#E5E7EB] bg-[#F9FAFB] py-2 pl-10 pr-3 text-sm text-[#374151] placeholder:text-[#9CA3AF] focus:border-brand-military focus:outline-none dark:border-white/10 dark:bg-[#1F1F1F] dark:text-[#D1D5DB]"
               />
             </div>
@@ -421,8 +580,8 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               <thead>
                 <tr className="border-y border-[#E5E7EB] bg-[#244C3A] text-[10px] font-semibold uppercase tracking-wider text-white dark:border-white/10 dark:bg-[#1D3A2F]">
                   <th className="px-4 py-3 text-left">Producto</th>
-                  <th className="px-4 py-3 text-left">Marca</th>
                   <th className="px-4 py-3 text-left">Categoría</th>
+                  <th className="px-4 py-3 text-left">Marca</th>
                   <th className="px-4 py-3 text-center">Stock</th>
                   <th className="px-4 py-3 text-right">Precio costo</th>
                   <th className="px-4 py-3 text-right">Precio venta</th>
@@ -446,12 +605,12 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                         <div className="font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{prod.nombre}</div>
                         {prod.descripcion && <div className="mt-0.5 text-[10px] text-[#9CA3AF] truncate max-w-[220px]">{prod.descripcion}</div>}
                       </td>
-                      <td className="px-4 py-3.5 text-[#6B7280] dark:text-[#C9CDD3]">{prod.marca || '—'}</td>
                       <td className="px-4 py-3.5">
                         <span className="inline-flex border border-[#E5E7EB] bg-[#F9FAFB] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#6B7280] dark:border-white/10 dark:bg-white/5 dark:text-[#D1D5DB]">
                           {prod.categoria || 'Sin categoría'}
                         </span>
                       </td>
+                      <td className="px-4 py-3.5 text-[#6B7280] dark:text-[#C9CDD3]">{prod.marca || '—'}</td>
                       <td className="px-4 py-3.5 text-center">
                         <div className={`font-mono font-bold num-tabular ${isOut ? 'text-red-500' : isLow ? 'text-amber-600 dark:text-amber-400' : 'text-[#1F2937] dark:text-[#E8E8E8]'}`}>
                           {fmtUnits(prod.stockActual)}
@@ -495,59 +654,31 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
 
       {/* ── Modal crear/editar producto ── */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#141414] rounded-2xl shadow-2xl w-full max-w-lg border border-[#E5E7EB] dark:border-white/10">
-            <div className="px-5 pt-5 pb-4 bg-gradient-to-b from-brand-military to-brand-military-dark rounded-t-2xl flex justify-between items-center">
-              <h3 className="text-sm font-semibold text-white uppercase tracking-wider">
-                {editingId ? 'Editar Producto' : 'Nuevo Producto'}
-              </h3>
-              <button onClick={() => { setShowForm(false); setEditingId(null) }} className="text-white/60 hover:text-white text-lg leading-none">✕</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl overflow-hidden rounded-md border border-[#D1D5DB] bg-white shadow-2xl dark:border-white/10 dark:bg-[#0F0F0F]">
+            <div className="flex items-start justify-between border-b border-black/10 bg-[#1B2E25] px-5 py-3 dark:border-white/10">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/55">Inventario · Productos</p>
+                <h3 className="mt-1 text-base font-semibold text-white">
+                  {editingId ? 'Editar producto' : 'Nuevo producto'}
+                </h3>
+              </div>
+              <button
+                onClick={() => { setShowForm(false); setEditingId(null); setFormError('') }}
+                className="text-xl leading-none text-white/60 transition hover:text-white"
+                aria-label="Cerrar"
+              >✕</button>
             </div>
-            <form onSubmit={handleCreateOrUpdate} className="p-5 grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <InputField label="Nombre del Producto *" name="nombre" required defaultValue={editingProd?.nombre} />
-              </div>
-              <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Tipo</label>
-                <select
-                  name="tipo"
-                  defaultValue={editingProd?.tipo || 'MERCADERIA'}
-                  className="border border-[#E5E7EB] dark:border-white/10 bg-[#F9FAFB] dark:bg-[#1F1F1F] rounded-xl px-3 py-2 text-sm text-[#1F2937] dark:text-[#E8E8E8] focus:outline-none focus:border-brand-military transition"
-                >
-                  <option value="MERCADERIA">Mercadería (con stock)</option>
-                  <option value="SERVICIO">Servicio (sin stock)</option>
-                </select>
-              </div>
-              <InputField label="Marca" name="marca" defaultValue={editingProd?.marca || ''} />
-              <InputField label="Categoría" name="categoria" defaultValue={editingProd?.categoria || ''} />
-              <InputField label="Unidad de Medida" name="unidad" defaultValue={editingProd?.unidad || 'unidad'} />
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Método de Costeo</label>
-                <select
-                  name="metodoCosteo"
-                  defaultValue={editingProd?.metodoCosteo || 'PROMEDIO'}
-                  className="border border-[#E5E7EB] dark:border-white/10 bg-[#F9FAFB] dark:bg-[#1F1F1F] rounded-xl px-3 py-2 text-sm text-[#1F2937] dark:text-[#E8E8E8] focus:outline-none focus:border-brand-military transition"
-                >
-                  <option value="PROMEDIO">Promedio Ponderado</option>
-                  <option value="FIFO">FIFO</option>
-                  <option value="LIFO">LIFO</option>
-                </select>
-              </div>
-              <InputField label="Precio de Costo" name="precioCosto" type="number" step="0.01" defaultValue={editingProd?.precioCosto ?? 0} />
-              <InputField label="Precio de Venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
-              <InputField label="Stock Inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
-              <InputField label="En Tránsito" name="enTransito" type="number" step="0.01" defaultValue={editingProd?.enTransito ?? 0} />
-              <div className="col-span-2">
-                <InputField label="Descripción" name="descripcion" defaultValue={editingProd?.descripcion || ''} />
-              </div>
-              {formError && <div className="col-span-2 text-xs text-red-600 font-semibold bg-red-50 dark:bg-red-950/30 px-3 py-2 border border-red-200 dark:border-red-900 rounded-xl">{formError}</div>}
-              <div className="col-span-2 flex gap-3 justify-end pt-2 border-t border-[#E5E7EB] dark:border-white/10">
-                <button type="button" onClick={() => { setShowForm(false); setEditingId(null) }} className="text-xs font-semibold uppercase tracking-wide px-4 py-2.5 border border-[#E5E7EB] dark:border-white/10 text-[#6B7280] dark:text-gray-400 hover:border-gray-400 rounded-xl">Cancelar</button>
-                <button type="submit" disabled={isPending} className="text-xs font-bold uppercase tracking-wide px-4 py-2.5 bg-brand-military text-white rounded-xl hover:bg-brand-military-dark transition disabled:opacity-50">
-                  {editingId ? 'Guardar Cambios' : 'Crear Producto'}
-                </button>
-              </div>
-            </form>
+            <ProductoFormBody
+              key={editingId ?? 'new'}
+              editingProd={editingProd ?? null}
+              editingId={editingId}
+              categoriasExistentes={categoriasExistentes}
+              isPending={isPending}
+              formError={formError}
+              onSubmit={handleCreateOrUpdate}
+              onCancel={() => { setShowForm(false); setEditingId(null); setFormError('') }}
+            />
           </div>
         </div>
       )}
@@ -676,13 +807,14 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                 </div>
 
                 {showMovForm ? (
-                  <form onSubmit={handleAgregarMov} className="space-y-3 border border-[#E5E7EB] bg-[#FCFCFB] p-4 dark:border-white/10 dark:bg-[#101010]">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Tipo</label>
+                  <form onSubmit={handleAgregarMov} className="space-y-4 rounded-md border border-[#D1D5DB] bg-[#FAFAF9] p-4 dark:border-white/10 dark:bg-[#0F0F0F]">
+                    <h4 className={SECTION_HEADING_CLS}>Registrar movimiento</h4>
+                    <div className="flex flex-col gap-1.5">
+                      <label className={LABEL_CLS}>Tipo</label>
                       <select
                         name="tipo"
                         defaultValue="ENTRADA"
-                        className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-sm text-[#1F2937] focus:border-brand-military focus:outline-none dark:border-white/10 dark:bg-[#1F1F1F] dark:text-[#E8E8E8]"
+                        className={SELECT_CLS}
                       >
                         <option value="ENTRADA">Entrada</option>
                         <option value="SALIDA">Salida</option>
@@ -692,29 +824,29 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                     <InputField label="Cantidad" name="cantidad" type="number" step="0.01" required defaultValue={1} />
                     <InputField label="Motivo" name="motivo" defaultValue="" />
                     {movError && (
-                      <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 dark:border-red-900 dark:bg-red-950/30">
+                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                         {movError}
                       </div>
                     )}
-                    <div className="flex justify-end gap-2 pt-2">
+                    <div className="flex justify-end gap-2 border-t border-[#E5E7EB] pt-3 dark:border-white/10">
                       <button
                         type="button"
                         onClick={() => { setShowMovForm(false); setMovError('') }}
-                        className="rounded-xl border border-[#E5E7EB] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280] hover:border-gray-400 dark:border-white/10 dark:text-gray-400"
+                        className="rounded-md border border-[#D1D5DB] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#4B5563] transition hover:border-gray-400 hover:text-[#1F2937] dark:border-white/10 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
                         disabled={isPending}
-                        className="rounded-xl bg-brand-military px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition hover:bg-brand-military-dark disabled:opacity-50"
+                        className="rounded-md bg-brand-military px-5 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-brand-military-dark disabled:opacity-50"
                       >
                         Guardar movimiento
                       </button>
                     </div>
                   </form>
                 ) : (
-                  <div className="border border-dashed border-[#D1D5DB] px-4 py-10 text-center text-sm text-[#9CA3AF] dark:border-white/10">
+                  <div className="rounded-md border border-dashed border-[#D1D5DB] px-4 py-10 text-center text-sm text-[#9CA3AF] dark:border-white/10">
                     Usá Registrar movimiento para cargar una entrada, salida o ajuste.
                   </div>
                 )}
