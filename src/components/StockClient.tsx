@@ -198,13 +198,8 @@ function ProductoFormBody({
 
       <section className="border-t border-[#E5E7EB] px-5 py-4 dark:border-white/10">
         <h4 className={SECTION_HEADING_CLS}>Inventario y precios</h4>
+        <input type="hidden" name="metodoCosteo" value="PROMEDIO" />
         <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-4 flex flex-col gap-1">
-            <label className={LABEL_CLS}>Método de costeo</label>
-            <select name="metodoCosteo" defaultValue="PROMEDIO" className={SELECT_CLS}>
-              <option value="PROMEDIO">Promedio Ponderado</option>
-            </select>
-          </div>
           <div className="col-span-3">
             <InputField label="Stock inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
           </div>
@@ -215,8 +210,8 @@ function ProductoFormBody({
             <InputField label="Precio de Venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
           </div>
           <div className="col-span-3 flex flex-col gap-1">
-            <label className={`${LABEL_CLS} flex items-center gap-1.5`}>
-              <span>Alerta de Bajo Stock</span>
+            <label className={`${LABEL_CLS} flex items-center gap-1.5 whitespace-nowrap`}>
+              <span>Alerta bajo stock</span>
               <span
                 className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-amber-400 bg-amber-50 text-[9px] font-bold text-amber-700 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300"
                 title="Cuando el stock de este producto baje hasta este valor, se mostrará una alerta avisando que está por agotarse. Dejalo vacío para desactivar la alerta."
