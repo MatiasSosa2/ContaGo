@@ -9,6 +9,7 @@ type Producto = {
   id: string; nombre: string; descripcion: string | null; categoria: string | null
   marca: string | null; unidad: string; metodoCosteo: string; enTransito: number
   precioVenta: number; precioCosto: number; stockActual: number
+  alertaStock?: number | null
   tipo?: 'MERCADERIA' | 'SERVICIO'
   stockInicialPeriodo?: number
   entradasPeriodo?: number
@@ -67,6 +68,7 @@ function ProductoFormBody({
   editingProd,
   editingId,
   categoriasExistentes,
+  marcasPorCategoria,
   isPending,
   formError,
   onSubmit,
@@ -75,6 +77,7 @@ function ProductoFormBody({
   editingProd: Producto | null
   editingId: string | null
   categoriasExistentes: string[]
+  marcasPorCategoria: Record<string, string[]>
   isPending: boolean
   formError: string
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
@@ -86,6 +89,27 @@ function ProductoFormBody({
   const [catPick, setCatPick] = useState(initialCatExists ? initialCat : '')
   const [catNew, setCatNew] = useState(initialCatExists ? '' : initialCat)
   const categoriaValue = (catMode === 'pick' ? catPick : catNew).trim()
+
+  const initialMarca = editingProd?.marca?.trim() || ''
+  const marcasDisponibles = categoriaValue ? (marcasPorCategoria[categoriaValue] || []) : []
+  const initialMarcaExists = !!initialMarca && marcasDisponibles.includes(initialMarca)
+  const [marcaMode, setMarcaMode] = useState<'pick' | 'new'>(initialMarca && !initialMarcaExists ? 'new' : 'pick')
+  const [marcaPick, setMarcaPick] = useState(initialMarcaExists ? initialMarca : '')
+  const [marcaNew, setMarcaNew] = useState(initialMarcaExists ? '' : initialMarca)
+  const marcaValue = categoriaValue ? (marcaMode === 'pick' ? marcaPick : marcaNew).trim() : ''
+
+  function handleCategoriaChange(value: string) {
+    if (value === '__new__') {
+      setCatMode('new')
+    } else {
+      setCatMode('pick')
+      setCatPick(value)
+    }
+    // Reset marca cuando cambia la categoría
+    setMarcaMode('pick')
+    setMarcaPick('')
+    setMarcaNew('')
+  }
 
   return (
     <form onSubmit={onSubmit} className="bg-white dark:bg-[#0F0F0F]">
@@ -107,14 +131,7 @@ function ProductoFormBody({
             <label className={LABEL_CLS}>Categoría</label>
             <select
               value={catMode === 'pick' ? catPick : '__new__'}
-              onChange={(e) => {
-                if (e.target.value === '__new__') {
-                  setCatMode('new')
-                } else {
-                  setCatMode('pick')
-                  setCatPick(e.target.value)
-                }
-              }}
+              onChange={(e) => handleCategoriaChange(e.target.value)}
               className={SELECT_CLS}
             >
               <option value="">— Sin categoría —</option>
@@ -134,8 +151,44 @@ function ProductoFormBody({
             )}
             <input type="hidden" name="categoria" value={categoriaValue} />
           </div>
-          <div className="col-span-4">
-            <InputField label="Marca" name="marca" defaultValue={editingProd?.marca || ''} />
+          <div className="col-span-4 flex flex-col gap-1">
+            <label className={LABEL_CLS}>Marca</label>
+            {categoriaValue ? (
+              <>
+                <select
+                  value={marcaMode === 'pick' ? marcaPick : '__new__'}
+                  onChange={(e) => {
+                    if (e.target.value === '__new__') {
+                      setMarcaMode('new')
+                    } else {
+                      setMarcaMode('pick')
+                      setMarcaPick(e.target.value)
+                    }
+                  }}
+                  className={SELECT_CLS}
+                >
+                  <option value="">— Sin marca —</option>
+                  {marcasDisponibles.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  <option value="__new__">+ Nueva marca…</option>
+                </select>
+                {marcaMode === 'new' && (
+                  <input
+                    type="text"
+                    value={marcaNew}
+                    onChange={(e) => setMarcaNew(e.target.value)}
+                    placeholder="Escribí la nueva marca"
+                    className={FIELD_CLS}
+                  />
+                )}
+              </>
+            ) : (
+              <div className={`${FIELD_CLS} flex items-center text-[#9CA3AF] dark:text-[#6B7280] italic`}>
+                Elegí categoría
+              </div>
+            )}
+            <input type="hidden" name="marca" value={marcaValue} />
           </div>
           <div className="col-span-4">
             <InputField label="Unidad" name="unidad" defaultValue={editingProd?.unidad || 'unidad'} />
@@ -148,24 +201,41 @@ function ProductoFormBody({
         <div className="grid grid-cols-12 gap-3">
           <div className="col-span-4 flex flex-col gap-1">
             <label className={LABEL_CLS}>Método de costeo</label>
-            <select name="metodoCosteo" defaultValue={editingProd?.metodoCosteo || 'PROMEDIO'} className={SELECT_CLS}>
+            <select name="metodoCosteo" defaultValue="PROMEDIO" className={SELECT_CLS}>
               <option value="PROMEDIO">Promedio Ponderado</option>
-              <option value="FIFO">FIFO</option>
-              <option value="LIFO">LIFO</option>
             </select>
           </div>
-          <div className="col-span-2">
+          <div className="col-span-3">
             <InputField label="Stock inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
           </div>
-          <div className="col-span-2">
-            <InputField label="En tránsito" name="enTransito" type="number" step="0.01" defaultValue={editingProd?.enTransito ?? 0} />
+          <div className="col-span-3">
+            <InputField label="Costo unitario" name="precioCosto" type="number" step="0.01" defaultValue={editingProd?.precioCosto ?? 0} />
           </div>
-          <div className="col-span-2">
-            <InputField label="Precio costo" name="precioCosto" type="number" step="0.01" defaultValue={editingProd?.precioCosto ?? 0} />
+          <div className="col-span-3">
+            <InputField label="Precio de Venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
           </div>
-          <div className="col-span-2">
-            <InputField label="Precio venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
+          <div className="col-span-3 flex flex-col gap-1">
+            <label className={`${LABEL_CLS} flex items-center gap-1.5`}>
+              <span>Alerta de Bajo Stock</span>
+              <span
+                className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-amber-400 bg-amber-50 text-[9px] font-bold text-amber-700 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300"
+                title="Cuando el stock de este producto baje hasta este valor, se mostrará una alerta avisando que está por agotarse. Dejalo vacío para desactivar la alerta."
+                aria-label="Información sobre la alerta de bajo stock"
+              >
+                !
+              </span>
+            </label>
+            <input
+              name="alertaStock"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Sin alerta"
+              defaultValue={editingProd?.alertaStock ?? ''}
+              className={`${FIELD_CLS} font-mono tabular-nums`}
+            />
           </div>
+          <input type="hidden" name="enTransito" value={editingProd?.enTransito ?? 0} />
         </div>
       </section>
 
@@ -365,7 +435,11 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const sobreVendiendo = inventarioVendido > inventarioComprado
   const sobreStockeando = inventarioComprado > inventarioVendido
   const sinStock = productos.filter(p => p.stockActual <= 0).length
-  const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual < 5).length
+  const bajoStock = productos.filter(p => {
+    if (p.stockActual <= 0) return false
+    const umbral = p.alertaStock ?? 5
+    return p.stockActual <= umbral
+  }).length
   const editingProd = editingId ? productos.find(p => p.id === editingId) : null
   const selectedProducto = selectedProductoId ? productos.find(p => p.id === selectedProductoId) : null
   const categoriasExistentes = Array.from(
@@ -375,6 +449,17 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
         .filter((c): c is string => !!c)
     )
   ).sort((a, b) => a.localeCompare(b, 'es'))
+  const marcasPorCategoria = productos.reduce<Record<string, string[]>>((acc, p) => {
+    const cat = p.categoria?.trim()
+    const marca = p.marca?.trim()
+    if (!cat || !marca) return acc
+    if (!acc[cat]) acc[cat] = []
+    if (!acc[cat].includes(marca)) acc[cat].push(marca)
+    return acc
+  }, {})
+  Object.keys(marcasPorCategoria).forEach((k) => {
+    marcasPorCategoria[k].sort((a, b) => a.localeCompare(b, 'es'))
+  })
 
   function handleExportar() {
     const rows = filtrados.map(prod => [
@@ -674,6 +759,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               editingProd={editingProd ?? null}
               editingId={editingId}
               categoriasExistentes={categoriasExistentes}
+              marcasPorCategoria={marcasPorCategoria}
               isPending={isPending}
               formError={formError}
               onSubmit={handleCreateOrUpdate}

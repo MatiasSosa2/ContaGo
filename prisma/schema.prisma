@@ -296,6 +296,7 @@ model Producto {
   precioCosto   Float             @default(0)
   stockActual   Float             @default(0)
   enTransito    Float             @default(0)
+  alertaStock   Float?            // Umbral de stock bajo. Si es null, no alerta.
   activo        Boolean           @default(true)
   movimientos   MovimientoStock[]
   transactions  Transaction[]

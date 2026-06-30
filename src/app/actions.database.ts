@@ -1339,6 +1339,8 @@ export async function getProductos(
 }
 
 export async function createProducto(formData: FormData): Promise<ActionResult> {
+  const alertaRaw = formData.get('alertaStock') as string | null
+  const alertaStockParsed = alertaRaw && alertaRaw.trim() !== '' ? parseFloat(alertaRaw) : null
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
@@ -1351,6 +1353,7 @@ export async function createProducto(formData: FormData): Promise<ActionResult> 
     precioCosto: parseFloat(formData.get('precioCosto') as string) || 0,
     stockActual: parseFloat(formData.get('stockActual') as string) || 0,
     enTransito: parseFloat(formData.get('enTransito') as string) || 0,
+    alertaStock: alertaStockParsed !== null && !Number.isNaN(alertaStockParsed) ? alertaStockParsed : null,
   }
 
   const parsed = createProductoSchema.safeParse(raw)
@@ -1371,6 +1374,8 @@ export async function createProducto(formData: FormData): Promise<ActionResult> 
 
 export async function updateProducto(id: string, formData: FormData): Promise<ActionResult> {
   const businessId = await getBusinessId()
+  const alertaRaw = formData.get('alertaStock') as string | null
+  const alertaStockParsed = alertaRaw && alertaRaw.trim() !== '' ? parseFloat(alertaRaw) : null
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
@@ -1383,6 +1388,7 @@ export async function updateProducto(id: string, formData: FormData): Promise<Ac
     precioCosto: parseFloat(formData.get('precioCosto') as string) || 0,
     stockActual: parseFloat(formData.get('stockActual') as string) || 0,
     enTransito: parseFloat(formData.get('enTransito') as string) || 0,
+    alertaStock: alertaStockParsed !== null && !Number.isNaN(alertaStockParsed) ? alertaStockParsed : null,
   }
 
   const parsed = createProductoSchema.safeParse(raw)

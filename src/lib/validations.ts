@@ -97,6 +97,7 @@ export const createProductoSchema = z.object({
   precioCosto: z.number().min(0).default(0),
   stockActual: z.number().default(0),
   enTransito: z.number().min(0).default(0),
+  alertaStock: z.number().min(0).nullable().optional(),
 })
 
 // ---- Bien de Uso ----
