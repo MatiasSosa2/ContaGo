@@ -203,8 +203,24 @@ function ProductoFormBody({
           <div className="col-span-3">
             <InputField label="Stock inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
           </div>
-          <div className="col-span-3">
-            <InputField label="Costo unitario" name="precioCosto" type="number" step="0.01" defaultValue={editingProd?.precioCosto ?? 0} />
+          <div className="col-span-3 flex flex-col gap-1">
+            <label className={`${LABEL_CLS} flex items-center gap-1.5 whitespace-nowrap`}>
+              <span>Costo unitario</span>
+              <span
+                className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-sky-400 bg-sky-50 text-[9px] font-bold text-sky-700 dark:border-sky-500 dark:bg-sky-950/40 dark:text-sky-300"
+                title="El costo se calcula automáticamente usando el método de Costo Promedio Ponderado (CPP): promedia el costo de todas las entradas de stock de este producto."
+                aria-label="Información sobre el cálculo del costo unitario"
+              >
+                !
+              </span>
+            </label>
+            <input
+              name="precioCosto"
+              type="number"
+              step="0.01"
+              defaultValue={editingProd?.precioCosto ?? 0}
+              className={`${FIELD_CLS} font-mono tabular-nums`}
+            />
           </div>
           <div className="col-span-3">
             <InputField label="Precio de Venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
