@@ -1341,18 +1341,21 @@ export async function getProductos(
 export async function createProducto(formData: FormData): Promise<ActionResult> {
   const alertaRaw = formData.get('alertaStock') as string | null
   const alertaStockParsed = alertaRaw && alertaRaw.trim() !== '' ? parseFloat(alertaRaw) : null
+  const imagenRaw = (formData.get('imagenUrl') as string | null)?.trim() || ''
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
+    imagenUrl: imagenRaw,
     tipo: ((formData.get('tipo') as string) || 'MERCADERIA') as 'MERCADERIA' | 'SERVICIO',
     categoria: (formData.get('categoria') as string)?.trim(),
     marca: (formData.get('marca') as string)?.trim(),
     unidad: (formData.get('unidad') as string)?.trim() || 'unidad',
     metodoCosteo: (formData.get('metodoCosteo') as string) || 'PROMEDIO',
     precioVenta: parseFloat(formData.get('precioVenta') as string) || 0,
-    precioCosto: parseFloat(formData.get('precioCosto') as string) || 0,
-    stockActual: parseFloat(formData.get('stockActual') as string) || 0,
-    enTransito: parseFloat(formData.get('enTransito') as string) || 0,
+    // Costo, stock inicial y en tránsito arrancan siempre en 0: se calculan vía movimientos.
+    precioCosto: 0,
+    stockActual: 0,
+    enTransito: 0,
     alertaStock: alertaStockParsed !== null && !Number.isNaN(alertaStockParsed) ? alertaStockParsed : null,
   }
 
@@ -1364,6 +1367,7 @@ export async function createProducto(formData: FormData): Promise<ActionResult> 
   await prisma.producto.create({ data: {
     ...parsed.data,
     descripcion: parsed.data.descripcion || null,
+    imagenUrl: parsed.data.imagenUrl || null,
     categoria: parsed.data.categoria || null,
     marca: parsed.data.marca || null,
     businessId,
@@ -1374,20 +1378,33 @@ export async function createProducto(formData: FormData): Promise<ActionResult> 
 
 export async function updateProducto(id: string, formData: FormData): Promise<ActionResult> {
   const businessId = await getBusinessId()
+
+  // Preservar campos calculados desde DB (no se editan por form)
+  const existente = await prisma.producto.findFirst({
+    where: { id, businessId },
+    select: { precioCosto: true, stockActual: true, enTransito: true },
+  })
+  if (!existente) {
+    return { success: false, error: 'El producto no existe o no pertenece al negocio activo' }
+  }
+
   const alertaRaw = formData.get('alertaStock') as string | null
   const alertaStockParsed = alertaRaw && alertaRaw.trim() !== '' ? parseFloat(alertaRaw) : null
+  const imagenRaw = (formData.get('imagenUrl') as string | null)?.trim() || ''
   const raw = {
     nombre: (formData.get('nombre') as string)?.trim(),
     descripcion: (formData.get('descripcion') as string)?.trim(),
+    imagenUrl: imagenRaw,
     tipo: ((formData.get('tipo') as string) || 'MERCADERIA') as 'MERCADERIA' | 'SERVICIO',
     categoria: (formData.get('categoria') as string)?.trim(),
     marca: (formData.get('marca') as string)?.trim(),
     unidad: (formData.get('unidad') as string)?.trim() || 'unidad',
     metodoCosteo: (formData.get('metodoCosteo') as string) || 'PROMEDIO',
     precioVenta: parseFloat(formData.get('precioVenta') as string) || 0,
-    precioCosto: parseFloat(formData.get('precioCosto') as string) || 0,
-    stockActual: parseFloat(formData.get('stockActual') as string) || 0,
-    enTransito: parseFloat(formData.get('enTransito') as string) || 0,
+    // Preservados desde DB (no editables por form)
+    precioCosto: existente.precioCosto,
+    stockActual: existente.stockActual,
+    enTransito: existente.enTransito,
     alertaStock: alertaStockParsed !== null && !Number.isNaN(alertaStockParsed) ? alertaStockParsed : null,
   }
 
@@ -1397,6 +1414,7 @@ export async function updateProducto(id: string, formData: FormData): Promise<Ac
   const result = await prisma.producto.updateMany({ where: { id, businessId }, data: {
     ...parsed.data,
     descripcion: parsed.data.descripcion || null,
+    imagenUrl: parsed.data.imagenUrl || null,
     categoria: parsed.data.categoria || null,
     marca: parsed.data.marca || null,
   }})

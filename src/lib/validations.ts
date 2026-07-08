@@ -88,6 +88,7 @@ export const createEmpleadoSchema = z.object({
 export const createProductoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio').max(100),
   descripcion: z.string().max(300).optional().or(z.literal('')),
+  imagenUrl: z.string().url().nullable().optional().or(z.literal('')),
   tipo: z.enum(['MERCADERIA', 'SERVICIO']).default('MERCADERIA'),
   categoria: z.string().max(80).optional().or(z.literal('')),
   marca: z.string().max(80).optional().or(z.literal('')),

@@ -1,10 +1,13 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 
 export const PERIOD_KEYS = ['diario', 'semanal', 'mensual', 'anual', 'custom'] as const
 export type PeriodKey = typeof PERIOD_KEYS[number]
+
+const PERIOD_QUERY_KEYS = ['periodo', 'day', 'weekStart', 'year', 'month', 'from', 'to'] as const
+const PERIOD_STORAGE_KEY = 'contago:period'
 
 const TABS: Array<{ key: PeriodKey; label: string }> = [
   { key: 'diario', label: 'Día' },
@@ -106,8 +109,53 @@ export default function PeriodSelector({
   function navigate(mutator: (params: URLSearchParams) => void) {
     const params = new URLSearchParams(searchParams.toString())
     mutator(params)
-    startTransition(() => router.replace(`${pathname}?${params.toString()}`))
+    const query = params.toString()
+    try {
+      const saved: Record<string, string> = {}
+      for (const key of PERIOD_QUERY_KEYS) {
+        const value = params.get(key)
+        if (value) saved[key] = value
+      }
+      if (Object.keys(saved).length > 0) {
+        sessionStorage.setItem(PERIOD_STORAGE_KEY, JSON.stringify(saved))
+      } else {
+        sessionStorage.removeItem(PERIOD_STORAGE_KEY)
+      }
+    } catch {
+      // sessionStorage unavailable (SSR, privacy mode) — ignore
+    }
+    startTransition(() => router.replace(`${pathname}?${query}`))
   }
+
+  // Restore period selection from sessionStorage when URL has no period params.
+  // Runs once per pathname change so navegando entre secciones mantiene el período.
+  useEffect(() => {
+    try {
+      const currentParams = new URLSearchParams(searchParams.toString())
+      const hasAnyPeriodParam = PERIOD_QUERY_KEYS.some((key) => currentParams.has(key))
+      if (hasAnyPeriodParam) return
+
+      const raw = sessionStorage.getItem(PERIOD_STORAGE_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw) as Record<string, string>
+      if (!saved || typeof saved !== 'object') return
+
+      let touched = false
+      for (const key of PERIOD_QUERY_KEYS) {
+        const value = saved[key]
+        if (typeof value === 'string' && value.length > 0) {
+          currentParams.set(key, value)
+          touched = true
+        }
+      }
+      if (!touched) return
+
+      startTransition(() => router.replace(`${pathname}?${currentParams.toString()}`))
+    } catch {
+      // sessionStorage unavailable or corrupted — ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   function clearAllPeriodParams(params: URLSearchParams) {
     params.delete('day')

@@ -258,25 +258,23 @@ export default async function ReportsPage({
           </svg>
         }
         actions={
-          <>
-            <Suspense fallback={null}>
-              <PeriodSelector
-                active={periodo}
-                customFrom={params?.from}
-                customTo={params?.to}
-                selectedYear={selectedYear}
-                selectedMonth={selectedMonth}
-                selectedDay={selectedDay}
-                selectedWeekStart={selectedWeekStart}
-              />
-            </Suspense>
-            <PrintButton />
-          </>
+          <Suspense fallback={null}>
+            <PeriodSelector
+              active={periodo}
+              customFrom={params?.from}
+              customTo={params?.to}
+              selectedYear={selectedYear}
+              selectedMonth={selectedMonth}
+              selectedDay={selectedDay}
+              selectedWeekStart={selectedWeekStart}
+            />
+          </Suspense>
         }
       />
 
       <FinancialStatementsPanel
         periodLabel={periodLabel}
+        exportSlot={<PrintButton />}
         results={{
           currency: cur,
           income: totals.income,

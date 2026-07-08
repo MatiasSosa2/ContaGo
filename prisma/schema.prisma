@@ -285,6 +285,7 @@ model Producto {
   id            String            @id @default(uuid())
   nombre        String
   descripcion   String?
+  imagenUrl     String?
   // Tipo: MERCADERIA (con stock) | SERVICIO (sin stock)
   tipo          String            @default("MERCADERIA")
   categoria     String?

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import React, { useState, useTransition } from 'react'
 import {
   getProductos, createProducto, updateProducto, deleteProducto, addMovimientoStock, getMovimientosStock,
 } from '@/app/actions'
@@ -9,7 +9,6 @@ type Producto = {
   id: string; nombre: string; descripcion: string | null; categoria: string | null
   marca: string | null; unidad: string; metodoCosteo: string; enTransito: number
   precioVenta: number; precioCosto: number; stockActual: number
-  alertaStock?: number | null
   tipo?: 'MERCADERIA' | 'SERVICIO'
   stockInicialPeriodo?: number
   entradasPeriodo?: number
@@ -68,7 +67,6 @@ function ProductoFormBody({
   editingProd,
   editingId,
   categoriasExistentes,
-  marcasPorCategoria,
   isPending,
   formError,
   onSubmit,
@@ -77,7 +75,6 @@ function ProductoFormBody({
   editingProd: Producto | null
   editingId: string | null
   categoriasExistentes: string[]
-  marcasPorCategoria: Record<string, string[]>
   isPending: boolean
   formError: string
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
@@ -89,27 +86,6 @@ function ProductoFormBody({
   const [catPick, setCatPick] = useState(initialCatExists ? initialCat : '')
   const [catNew, setCatNew] = useState(initialCatExists ? '' : initialCat)
   const categoriaValue = (catMode === 'pick' ? catPick : catNew).trim()
-
-  const initialMarca = editingProd?.marca?.trim() || ''
-  const marcasDisponibles = categoriaValue ? (marcasPorCategoria[categoriaValue] || []) : []
-  const initialMarcaExists = !!initialMarca && marcasDisponibles.includes(initialMarca)
-  const [marcaMode, setMarcaMode] = useState<'pick' | 'new'>(initialMarca && !initialMarcaExists ? 'new' : 'pick')
-  const [marcaPick, setMarcaPick] = useState(initialMarcaExists ? initialMarca : '')
-  const [marcaNew, setMarcaNew] = useState(initialMarcaExists ? '' : initialMarca)
-  const marcaValue = categoriaValue ? (marcaMode === 'pick' ? marcaPick : marcaNew).trim() : ''
-
-  function handleCategoriaChange(value: string) {
-    if (value === '__new__') {
-      setCatMode('new')
-    } else {
-      setCatMode('pick')
-      setCatPick(value)
-    }
-    // Reset marca cuando cambia la categoría
-    setMarcaMode('pick')
-    setMarcaPick('')
-    setMarcaNew('')
-  }
 
   return (
     <form onSubmit={onSubmit} className="bg-white dark:bg-[#0F0F0F]">
@@ -131,7 +107,14 @@ function ProductoFormBody({
             <label className={LABEL_CLS}>Categoría</label>
             <select
               value={catMode === 'pick' ? catPick : '__new__'}
-              onChange={(e) => handleCategoriaChange(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value === '__new__') {
+                  setCatMode('new')
+                } else {
+                  setCatMode('pick')
+                  setCatPick(e.target.value)
+                }
+              }}
               className={SELECT_CLS}
             >
               <option value="">— Sin categoría —</option>
@@ -151,44 +134,8 @@ function ProductoFormBody({
             )}
             <input type="hidden" name="categoria" value={categoriaValue} />
           </div>
-          <div className="col-span-4 flex flex-col gap-1">
-            <label className={LABEL_CLS}>Marca</label>
-            {categoriaValue ? (
-              <>
-                <select
-                  value={marcaMode === 'pick' ? marcaPick : '__new__'}
-                  onChange={(e) => {
-                    if (e.target.value === '__new__') {
-                      setMarcaMode('new')
-                    } else {
-                      setMarcaMode('pick')
-                      setMarcaPick(e.target.value)
-                    }
-                  }}
-                  className={SELECT_CLS}
-                >
-                  <option value="">— Sin marca —</option>
-                  {marcasDisponibles.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                  <option value="__new__">+ Nueva marca…</option>
-                </select>
-                {marcaMode === 'new' && (
-                  <input
-                    type="text"
-                    value={marcaNew}
-                    onChange={(e) => setMarcaNew(e.target.value)}
-                    placeholder="Escribí la nueva marca"
-                    className={FIELD_CLS}
-                  />
-                )}
-              </>
-            ) : (
-              <div className={`${FIELD_CLS} flex items-center text-[#9CA3AF] dark:text-[#6B7280] italic`}>
-                Elegí categoría
-              </div>
-            )}
-            <input type="hidden" name="marca" value={marcaValue} />
+          <div className="col-span-4">
+            <InputField label="Marca" name="marca" defaultValue={editingProd?.marca || ''} />
           </div>
           <div className="col-span-4">
             <InputField label="Unidad" name="unidad" defaultValue={editingProd?.unidad || 'unidad'} />
@@ -198,55 +145,27 @@ function ProductoFormBody({
 
       <section className="border-t border-[#E5E7EB] px-5 py-4 dark:border-white/10">
         <h4 className={SECTION_HEADING_CLS}>Inventario y precios</h4>
-        <input type="hidden" name="metodoCosteo" value="PROMEDIO" />
         <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-3">
+          <div className="col-span-4 flex flex-col gap-1">
+            <label className={LABEL_CLS}>Método de costeo</label>
+            <select name="metodoCosteo" defaultValue={editingProd?.metodoCosteo || 'PROMEDIO'} className={SELECT_CLS}>
+              <option value="PROMEDIO">Promedio Ponderado</option>
+              <option value="FIFO">FIFO</option>
+              <option value="LIFO">LIFO</option>
+            </select>
+          </div>
+          <div className="col-span-2">
             <InputField label="Stock inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
           </div>
-          <div className="col-span-3 flex flex-col gap-1">
-            <label className={`${LABEL_CLS} flex items-center gap-1.5 whitespace-nowrap`}>
-              <span>Costo unitario</span>
-              <span
-                className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-sky-400 bg-sky-50 text-[9px] font-bold text-sky-700 dark:border-sky-500 dark:bg-sky-950/40 dark:text-sky-300"
-                title="El costo se calcula automáticamente usando el método de Costo Promedio Ponderado (CPP): promedia el costo de todas las entradas de stock de este producto."
-                aria-label="Información sobre el cálculo del costo unitario"
-              >
-                !
-              </span>
-            </label>
-            <input
-              name="precioCosto"
-              type="number"
-              step="0.01"
-              defaultValue={editingProd?.precioCosto ?? 0}
-              className={`${FIELD_CLS} font-mono tabular-nums`}
-            />
+          <div className="col-span-2">
+            <InputField label="En tránsito" name="enTransito" type="number" step="0.01" defaultValue={editingProd?.enTransito ?? 0} />
           </div>
-          <div className="col-span-3">
-            <InputField label="Precio de Venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
+          <div className="col-span-2">
+            <InputField label="Precio costo" name="precioCosto" type="number" step="0.01" defaultValue={editingProd?.precioCosto ?? 0} />
           </div>
-          <div className="col-span-3 flex flex-col gap-1">
-            <label className={`${LABEL_CLS} flex items-center gap-1.5 whitespace-nowrap`}>
-              <span>Alerta bajo stock</span>
-              <span
-                className="inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-amber-400 bg-amber-50 text-[9px] font-bold text-amber-700 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300"
-                title="Cuando el stock de este producto baje hasta este valor, se mostrará una alerta avisando que está por agotarse. Dejalo vacío para desactivar la alerta."
-                aria-label="Información sobre la alerta de bajo stock"
-              >
-                !
-              </span>
-            </label>
-            <input
-              name="alertaStock"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Sin alerta"
-              defaultValue={editingProd?.alertaStock ?? ''}
-              className={`${FIELD_CLS} font-mono tabular-nums`}
-            />
+          <div className="col-span-2">
+            <InputField label="Precio venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
           </div>
-          <input type="hidden" name="enTransito" value={editingProd?.enTransito ?? 0} />
         </div>
       </section>
 
@@ -293,6 +212,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const [productos, setProductos] = useState<Producto[]>(initialProductos)
   const [showForm, setShowForm] = useState(false)
   const [showCategoriasModal, setShowCategoriasModal] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [selectedProductoId, setSelectedProductoId] = useState<string | null>(null)
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
@@ -446,11 +366,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const sobreVendiendo = inventarioVendido > inventarioComprado
   const sobreStockeando = inventarioComprado > inventarioVendido
   const sinStock = productos.filter(p => p.stockActual <= 0).length
-  const bajoStock = productos.filter(p => {
-    if (p.stockActual <= 0) return false
-    const umbral = p.alertaStock ?? 5
-    return p.stockActual <= umbral
-  }).length
+  const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual < 5).length
   const editingProd = editingId ? productos.find(p => p.id === editingId) : null
   const selectedProducto = selectedProductoId ? productos.find(p => p.id === selectedProductoId) : null
   const categoriasExistentes = Array.from(
@@ -460,36 +376,101 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
         .filter((c): c is string => !!c)
     )
   ).sort((a, b) => a.localeCompare(b, 'es'))
-  const marcasPorCategoria = productos.reduce<Record<string, string[]>>((acc, p) => {
-    const cat = p.categoria?.trim()
-    const marca = p.marca?.trim()
-    if (!cat || !marca) return acc
-    if (!acc[cat]) acc[cat] = []
-    if (!acc[cat].includes(marca)) acc[cat].push(marca)
-    return acc
-  }, {})
-  Object.keys(marcasPorCategoria).forEach((k) => {
-    marcasPorCategoria[k].sort((a, b) => a.localeCompare(b, 'es'))
-  })
+
+  // ── Agrupar productos por categoría (para tabla + exportar) ──
+  type GrupoInventario = {
+    categoria: string
+    productos: Producto[]
+    unidades: number
+    valorizado: number
+    ingresos: number
+    ganancia: number
+  }
+  const gruposInventario: GrupoInventario[] = (() => {
+    const map = new Map<string, GrupoInventario>()
+    for (const p of filtrados) {
+      const key = (p.categoria?.trim() || 'Sin categoría')
+      const g = map.get(key) ?? { categoria: key, productos: [], unidades: 0, valorizado: 0, ingresos: 0, ganancia: 0 }
+      g.productos.push(p)
+      g.unidades += p.stockActual
+      g.valorizado += p.stockActual * p.precioCosto
+      g.ingresos += p.stockActual * p.precioVenta
+      g.ganancia += p.stockActual * (p.precioVenta - p.precioCosto)
+      map.set(key, g)
+    }
+    return Array.from(map.values()).sort((a, b) => a.categoria.localeCompare(b.categoria, 'es'))
+  })()
+  const totalGeneral = gruposInventario.reduce(
+    (acc, g) => ({
+      unidades: acc.unidades + g.unidades,
+      valorizado: acc.valorizado + g.valorizado,
+      ingresos: acc.ingresos + g.ingresos,
+      ganancia: acc.ganancia + g.ganancia,
+    }),
+    { unidades: 0, valorizado: 0, ingresos: 0, ganancia: 0 }
+  )
+  const pctMargen = (ganancia: number, ingresos: number) =>
+    ingresos > 0 ? (ganancia / ingresos) * 100 : 0
+
+  function handleImprimir() {
+    document.body.classList.add('printing-inventario')
+    // Damos un tick para que el navegador aplique el CSS antes del diálogo
+    setTimeout(() => {
+      window.print()
+      document.body.classList.remove('printing-inventario')
+    }, 50)
+  }
 
   function handleExportar() {
-    const rows = filtrados.map(prod => [
-      prod.nombre,
-      prod.categoria || '',
-      prod.marca || '',
-      fmtUnits(prod.stockActual),
-      prod.unidad,
-      fmt(prod.precioCosto),
-      fmt(prod.precioVenta),
-      fmt(prod.stockActual * prod.precioCosto),
-    ])
+    const esc = (v: unknown) => `"${String(v ?? '').replaceAll('"', '""')}"`
+    const money = (v: number) => v.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    const pct = (v: number) => `${v.toFixed(1).replace('.', ',')}%`
 
-    const csv = [
-      ['Producto', 'Categoria', 'Marca', 'Stock', 'Unidad', 'Precio costo', 'Precio venta', 'Valor inventario'].join(','),
-      ...rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(',')),
-    ].join('\n')
+    const lines: string[] = []
+    lines.push(['Producto', 'Categoría', 'Unidades', 'Valorizado', 'Ingresos', 'Ganancias', '% Margen'].map(esc).join(','))
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    for (const g of gruposInventario) {
+      // Encabezado de grupo
+      lines.push([g.categoria.toUpperCase(), '', `${g.productos.length} productos`, `${g.unidades} unidades`, '', '', ''].map(esc).join(','))
+      for (const p of g.productos) {
+        const gan = p.stockActual * (p.precioVenta - p.precioCosto)
+        const ing = p.stockActual * p.precioVenta
+        lines.push([
+          p.nombre,
+          g.categoria,
+          fmtUnits(p.stockActual),
+          money(p.stockActual * p.precioCosto),
+          money(ing),
+          money(gan),
+          pct(pctMargen(gan, ing)),
+        ].map(esc).join(','))
+      }
+      // Subtotal
+      lines.push([
+        'Subtotal ' + g.categoria,
+        '',
+        fmtUnits(g.unidades),
+        money(g.valorizado),
+        money(g.ingresos),
+        money(g.ganancia),
+        pct(pctMargen(g.ganancia, g.ingresos)),
+      ].map(esc).join(','))
+      lines.push('')
+    }
+    // Total general
+    lines.push([
+      'TOTAL GENERAL',
+      '',
+      fmtUnits(totalGeneral.unidades),
+      money(totalGeneral.valorizado),
+      money(totalGeneral.ingresos),
+      money(totalGeneral.ganancia),
+      pct(pctMargen(totalGeneral.ganancia, totalGeneral.ingresos)),
+    ].map(esc).join(','))
+
+    const csv = lines.join('\n')
+
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -628,15 +609,45 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                 </svg>
                 Nuevo producto
               </button>
-              <button
-                onClick={handleExportar}
-                className="flex items-center gap-1.5 border border-[#D1D5DB] px-3 py-2 text-xs font-semibold text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB]"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
-                </svg>
-                Exportar
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowExportMenu(v => !v)}
+                  className="flex items-center gap-1.5 border border-[#D1D5DB] px-3 py-2 text-xs font-semibold text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB]"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
+                  </svg>
+                  Exportar
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showExportMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} aria-hidden />
+                    <div className="absolute right-0 top-full z-20 mt-1 min-w-[160px] border border-[#D1D5DB] bg-white shadow-lg dark:border-white/10 dark:bg-[#1A1A1A]">
+                      <button
+                        onClick={() => { setShowExportMenu(false); handleExportar() }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#374151] hover:bg-[#F3F4F6] dark:text-[#D1D5DB] dark:hover:bg-white/5"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-6 4h6M9 9h1M5 21h14a2 2 0 002-2V7l-5-5H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Descargar CSV
+                      </button>
+                      <button
+                        onClick={() => { setShowExportMenu(false); handleImprimir() }}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#374151] hover:bg-[#F3F4F6] dark:text-[#D1D5DB] dark:hover:bg-white/5"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                        Imprimir
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -671,72 +682,127 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
             <p className="mt-1 text-xs text-[#C1C7D0] dark:text-[#666]">Usá Nuevo producto para cargar inventario.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1280px] text-xs">
+          <div id="inventario-tabla" className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-xs">
               <thead>
-                <tr className="border-y border-[#E5E7EB] bg-[#244C3A] text-[10px] font-semibold uppercase tracking-wider text-white dark:border-white/10 dark:bg-[#1D3A2F]">
-                  <th className="px-4 py-3 text-left">Producto</th>
-                  <th className="px-4 py-3 text-left">Categoría</th>
-                  <th className="px-4 py-3 text-left">Marca</th>
-                  <th className="px-4 py-3 text-center">Stock</th>
-                  <th className="px-4 py-3 text-right">Precio costo</th>
-                  <th className="px-4 py-3 text-right">Precio venta</th>
-                  <th className="px-4 py-3 text-right">Ganancia unitaria</th>
-                  <th className="px-4 py-3 text-right">Valor a costo</th>
-                  <th className="px-4 py-3 text-right">Valor a venta</th>
-                  <th className="px-4 py-3 text-center">Acciones</th>
+                <tr className="border-b border-white/10 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#9CA3AF]">
+                  <th className="px-5 py-3 text-left w-[38%]">Producto</th>
+                  <th className="px-4 py-3 text-right">Unidades</th>
+                  <th className="px-4 py-3 text-right">Valorizado</th>
+                  <th className="px-4 py-3 text-right">Ingresos</th>
+                  <th className="px-4 py-3 text-right">Ganancias</th>
+                  <th className="px-4 py-3 text-right w-[80px] print-hide" aria-label="Acciones"></th>
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map(prod => {
-                  const isLow = prod.stockActual > 0 && prod.stockActual < 5
-                  const isOut = prod.stockActual <= 0
+                {gruposInventario.map((grupo, gIdx) => {
+                  const marginGrupo = pctMargen(grupo.ganancia, grupo.ingresos)
                   return (
-                    <tr
-                      key={prod.id}
-                      onClick={() => handleSelectProducto(prod.id)}
-                      className="border-b border-[#E5E7EB] transition-colors hover:bg-[#F8FAFC] dark:border-white/5 dark:hover:bg-white/5"
-                    >
-                      <td className="px-4 py-3.5">
-                        <div className="font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{prod.nombre}</div>
-                        {prod.descripcion && <div className="mt-0.5 text-[10px] text-[#9CA3AF] truncate max-w-[220px]">{prod.descripcion}</div>}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <span className="inline-flex border border-[#E5E7EB] bg-[#F9FAFB] px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#6B7280] dark:border-white/10 dark:bg-white/5 dark:text-[#D1D5DB]">
-                          {prod.categoria || 'Sin categoría'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-[#6B7280] dark:text-[#C9CDD3]">{prod.marca || '—'}</td>
-                      <td className="px-4 py-3.5 text-center">
-                        <div className={`font-mono font-bold num-tabular ${isOut ? 'text-red-500' : isLow ? 'text-amber-600 dark:text-amber-400' : 'text-[#1F2937] dark:text-[#E8E8E8]'}`}>
-                          {fmtUnits(prod.stockActual)}
-                        </div>
-                        <div className="mt-0.5 text-[10px] text-[#9CA3AF]">{prod.unidad}</div>
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-mono text-[#6B7280] dark:text-[#C9CDD3] num-tabular">${fmt(prod.precioCosto)}</td>
-                      <td className="px-4 py-3.5 text-right font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8] num-tabular">${fmt(prod.precioVenta)}</td>
-                      <td className="px-4 py-3.5 text-right font-mono font-bold text-brand-gold-dark dark:text-[#E0B36A] num-tabular">${fmt(prod.precioVenta - prod.precioCosto)}</td>
-                      <td className="px-4 py-3.5 text-right font-mono font-bold text-brand-military-dark dark:text-[#6EBC8A] num-tabular">${fmt(prod.stockActual * prod.precioCosto)}</td>
-                      <td className="px-4 py-3.5 text-right font-mono font-bold text-[#1F2937] dark:text-[#E8E8E8] num-tabular">${fmt(prod.stockActual * prod.precioVenta)}</td>
-                      <td className="px-4 py-3.5 text-center" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-center gap-1.5">
-                          <button
+                    <React.Fragment key={grupo.categoria}>
+                      {/* Header de grupo */}
+                      <tr className="bg-[#111111] group-header">
+                        <td className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#D1D5DB]">
+                          {grupo.categoria}
+                        </td>
+                        <td colSpan={5} className="px-4 py-2.5 text-right text-[11px] text-[#6B7280]">
+                          {grupo.productos.length} producto{grupo.productos.length !== 1 ? 's' : ''} · {fmtUnits(grupo.unidades)} unidades
+                        </td>
+                      </tr>
+
+                      {/* Filas de producto */}
+                      {grupo.productos.map(prod => {
+                        const valorizado = prod.stockActual * prod.precioCosto
+                        const ingresos = prod.stockActual * prod.precioVenta
+                        const ganancia = prod.stockActual * (prod.precioVenta - prod.precioCosto)
+                        const margen = pctMargen(ganancia, ingresos)
+                        return (
+                          <tr
+                            key={prod.id}
                             onClick={() => handleOpenMovimientos(prod.id)}
-                            className="border border-[#E5E7EB] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-brand-military transition hover:border-brand-military hover:bg-brand-military hover:text-white dark:border-white/10"
-                          >Movs.</button>
-                          <button
-                            onClick={() => { setEditingId(prod.id); setShowForm(true); setFormError('') }}
-                            className="border border-[#E5E7EB] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#6B7280] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB]"
-                          >Editar</button>
-                          <button
-                            onClick={() => handleDelete(prod.id)}
-                            className="border border-[#E5E7EB] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#9CA3AF] transition hover:border-red-300 hover:text-red-500 dark:border-white/10"
-                          >Eliminar</button>
-                        </div>
-                      </td>
-                    </tr>
+                            className="border-b border-white/5 transition-colors hover:bg-white/[0.03] cursor-pointer"
+                          >
+                            <td className="px-5 py-3">
+                              <div className="font-semibold text-white text-[13px]">{prod.nombre}</div>
+                              {prod.descripcion && (
+                                <div className="mt-0.5 text-[10px] text-[#6B7280] truncate max-w-[280px]">{prod.descripcion}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono font-bold text-white num-tabular">
+                              {fmtUnits(prod.stockActual)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono text-[#D1D5DB] num-tabular">
+                              ${fmt(valorizado)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-400 num-tabular">
+                              ${fmt(ingresos)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono num-tabular">
+                              <span className="font-semibold text-sky-400">${fmt(ganancia)}</span>
+                              <span className="ml-1.5 text-[10px] font-medium text-[#6B7280]">{margen.toFixed(1).replace('.', ',')}%</span>
+                            </td>
+                            <td className="px-4 py-3 text-right print-hide" onClick={e => e.stopPropagation()}>
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  onClick={() => { setEditingId(prod.id); setShowForm(true); setFormError('') }}
+                                  aria-label="Editar producto"
+                                  title="Editar"
+                                  className="p-1 text-[#9CA3AF] transition hover:text-white"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.5-9.5a2.121 2.121 0 1 1 3 3L12 21l-4 1 1-4 10.5-10.5Z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(prod.id)}
+                                  aria-label="Eliminar producto"
+                                  title="Eliminar"
+                                  className="p-1 text-red-400 transition hover:text-red-300"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+
+                      {/* Subtotal del grupo */}
+                      <tr className="border-b border-white/10 subtotal-row">
+                        <td className="px-5 py-2.5 text-[11px] text-[#6B7280]">Subtotal</td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">{fmtUnits(grupo.unidades)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">${fmt(grupo.valorizado)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">${fmt(grupo.ingresos)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono num-tabular">
+                          <span className="text-[#9CA3AF]">${fmt(grupo.ganancia)}</span>
+                          <span className="ml-1.5 text-[10px] text-[#6B7280]">{marginGrupo.toFixed(1).replace('.', ',')}%</span>
+                        </td>
+                        <td className="px-4 py-2.5 print-hide"></td>
+                      </tr>
+
+                      {/* Separador entre grupos */}
+                      {gIdx < gruposInventario.length - 1 && (
+                        <tr aria-hidden><td colSpan={6} className="h-2"></td></tr>
+                      )}
+                    </React.Fragment>
                   )
                 })}
+
+                {/* Total general */}
+                <tr className="border-t-2 border-white/20 total-general-row">
+                  <td className="px-5 py-4 text-[13px] font-bold text-white">Total general</td>
+                  <td className="px-4 py-4 text-right font-mono font-bold text-white num-tabular">{fmtUnits(totalGeneral.unidades)}</td>
+                  <td className="px-4 py-4 text-right font-mono font-bold text-white num-tabular">${fmt(totalGeneral.valorizado)}</td>
+                  <td className="px-4 py-4 text-right font-mono font-bold text-emerald-400 num-tabular">${fmt(totalGeneral.ingresos)}</td>
+                  <td className="px-4 py-4 text-right font-mono num-tabular">
+                    <span className="font-bold text-sky-400">${fmt(totalGeneral.ganancia)}</span>
+                    <span className="ml-1.5 text-[10px] font-medium text-[#9CA3AF]">
+                      {pctMargen(totalGeneral.ganancia, totalGeneral.ingresos).toFixed(1).replace('.', ',')}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 print-hide"></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -770,7 +836,6 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               editingProd={editingProd ?? null}
               editingId={editingId}
               categoriasExistentes={categoriasExistentes}
-              marcasPorCategoria={marcasPorCategoria}
               isPending={isPending}
               formError={formError}
               onSubmit={handleCreateOrUpdate}
@@ -952,6 +1017,74 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
           </div>
         </div>
       )}
+
+      {/* ── Estilos print-friendly para inventario ── */}
+      <style jsx global>{`
+        @media print {
+          @page { size: A4; margin: 14mm; }
+          body.printing-inventario {
+            background: #ffffff !important;
+            color: #111111 !important;
+          }
+          /* Ocultar todo menos la tabla del inventario */
+          body.printing-inventario * { visibility: hidden !important; }
+          body.printing-inventario #inventario-tabla,
+          body.printing-inventario #inventario-tabla * { visibility: visible !important; }
+          body.printing-inventario #inventario-tabla {
+            position: absolute !important;
+            top: 0; left: 0; right: 0;
+            width: 100% !important;
+          }
+          body.printing-inventario .print-hide { display: none !important; }
+
+          /* Reset colores para papel */
+          body.printing-inventario #inventario-tabla,
+          body.printing-inventario #inventario-tabla table,
+          body.printing-inventario #inventario-tabla thead,
+          body.printing-inventario #inventario-tabla tbody,
+          body.printing-inventario #inventario-tabla tr,
+          body.printing-inventario #inventario-tabla td,
+          body.printing-inventario #inventario-tabla th {
+            background: #ffffff !important;
+            color: #111111 !important;
+            border-color: #d1d5db !important;
+            box-shadow: none !important;
+          }
+          body.printing-inventario #inventario-tabla table {
+            min-width: 0 !important;
+            width: 100% !important;
+            font-size: 11px !important;
+          }
+          body.printing-inventario #inventario-tabla thead tr {
+            border-bottom: 2px solid #111 !important;
+          }
+          body.printing-inventario #inventario-tabla thead th {
+            color: #111 !important;
+            font-weight: 700 !important;
+          }
+          body.printing-inventario #inventario-tabla .group-header td {
+            background: #f3f4f6 !important;
+            font-weight: 700 !important;
+            border-top: 1px solid #111 !important;
+          }
+          body.printing-inventario #inventario-tabla .subtotal-row td {
+            background: #fafafa !important;
+            font-style: italic !important;
+            border-top: 1px dashed #9ca3af !important;
+          }
+          body.printing-inventario #inventario-tabla .total-general-row td {
+            background: #ffffff !important;
+            font-weight: 800 !important;
+            border-top: 2px solid #111 !important;
+            border-bottom: 2px solid #111 !important;
+          }
+          body.printing-inventario #inventario-tabla .text-emerald-400,
+          body.printing-inventario #inventario-tabla .text-sky-400 {
+            color: #111 !important;
+          }
+          body.printing-inventario tr { page-break-inside: avoid !important; }
+        }
+      `}</style>
     </div>
   )
 }
