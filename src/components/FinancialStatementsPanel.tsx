@@ -193,7 +193,7 @@ export default function FinancialStatementsPanel({
   const activeTitle = useMemo(() => {
     if (activeView === 'results') return 'Estado de resultados'
     if (activeView === 'cashflow') return 'Estado de flujo de efectivo'
-    return 'Estado de situaciÃ³n patrimonial'
+    return 'Estado de situación patrimonial'
   }, [activeView])
 
   const activeIndex = activeView === 'results' ? 0 : activeView === 'cashflow' ? 1 : 2
@@ -300,7 +300,7 @@ export default function FinancialStatementsPanel({
                     style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}
                   >
                     <StatementRow label="Ingresos" amount={results.income} pct={100} currency={results.currency} variant="positive" />
-                    <StatementRow label="Costo de mercaderÃ­a vendida" amount={results.cogs} pct={results.income > 0 ? (results.cogs / results.income) * 100 : 0} currency={results.currency} variant="negative" />
+                    <StatementRow label="Costo de mercadería vendida" amount={results.cogs} pct={results.income > 0 ? (results.cogs / results.income) * 100 : 0} currency={results.currency} variant="negative" />
                     <StatementRow label="Ganancia bruta" amount={results.grossProfit} pct={results.grossMargin} currency={results.currency} variant="highlight" />
 
                     <div className="pt-4">
@@ -308,7 +308,7 @@ export default function FinancialStatementsPanel({
                       <div className="mt-2">
                         {results.operatingExpenses.length === 0 ? (
                           <div className="border border-dashed border-[#E5E7EB] px-4 py-5 text-sm text-[#9CA3AF] dark:border-white/10 dark:text-[#737373]">
-                            Sin otros gastos clasificados en el perÃ­odo.
+                            Sin otros gastos clasificados en el período.
                           </div>
                         ) : (
                           results.operatingExpenses.map((line) => (
@@ -322,7 +322,7 @@ export default function FinancialStatementsPanel({
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-military-light/80">Ganancia neta</p>
-                          <p className="mt-1 text-sm text-brand-military-light/80">DespuÃ©s de CMV y gastos operativos</p>
+                          <p className="mt-1 text-sm text-brand-military-light/80">Después de CMV y gastos operativos</p>
                         </div>
                         <div className="text-right">
                           <p className="font-mono text-xl font-light num-tabular">{fmtAmount(results.netProfit, results.currency, true)}</p>
@@ -338,7 +338,7 @@ export default function FinancialStatementsPanel({
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <MetricChip label="Saldo inicial" value={fmtAmount(cashFlow.openingBalance, cashFlow.currency)} tone="ink" />
-                    <MetricChip label="VariaciÃ³n neta" value={fmtAmount(cashFlow.netVariation, cashFlow.currency, true)} tone="sand" />
+                    <MetricChip label="Variación neta" value={fmtAmount(cashFlow.netVariation, cashFlow.currency, true)} tone="sand" />
                     <MetricChip label="Saldo final" value={fmtAmount(cashFlow.closingBalance, cashFlow.currency)} tone="green" />
                   </div>
 
@@ -354,7 +354,7 @@ export default function FinancialStatementsPanel({
                       <div className="mt-2">
                         {cashFlow.expenseLines.length === 0 ? (
                           <div className="border border-dashed border-[#E5E7EB] px-4 py-5 text-sm text-[#9CA3AF] dark:border-white/10 dark:text-[#737373]">
-                            No se registran egresos cobrados o pagados en el perÃ­odo.
+                            No se registran egresos cobrados o pagados en el período.
                           </div>
                         ) : (
                           cashFlow.expenseLines.map((line) => (
@@ -364,13 +364,13 @@ export default function FinancialStatementsPanel({
                       </div>
                     </div>
 
-                    <StatementRow label="VariaciÃ³n neta del mes" amount={cashFlow.netVariation} pct={cashFlow.openingBalance !== 0 ? (cashFlow.netVariation / Math.max(Math.abs(cashFlow.openingBalance), 1)) * 100 : 100} currency={cashFlow.currency} variant="highlight" />
+                    <StatementRow label="Variación neta del mes" amount={cashFlow.netVariation} pct={cashFlow.openingBalance !== 0 ? (cashFlow.netVariation / Math.max(Math.abs(cashFlow.openingBalance), 1)) * 100 : 100} currency={cashFlow.currency} variant="highlight" />
 
                     <div className="mt-4 border border-[#D5E3D8] bg-[#F5FAF7] px-4 py-4 dark:border-[#294235] dark:bg-[#162019]">
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5A7A57] dark:text-[#9AC7A8]">Saldo final</p>
-                          <p className="mt-1 text-sm text-[#6B7280] dark:text-[#A3A3A3]">Caja y bancos al cierre del perÃ­odo</p>
+                          <p className="mt-1 text-sm text-[#6B7280] dark:text-[#A3A3A3]">Caja y bancos al cierre del período</p>
                         </div>
                         <p className="font-mono text-xl font-light text-[#1F2937] num-tabular dark:text-[#E8E8E8]">{fmtAmount(cashFlow.closingBalance, cashFlow.currency)}</p>
                       </div>
