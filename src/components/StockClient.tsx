@@ -743,7 +743,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                             className="border-b border-white/5 transition-colors hover:bg-white/[0.03] cursor-pointer"
                           >
                             <td className="px-5 py-3">
-                              <div className="font-semibold text-white text-[13px]">{prod.nombre}</div>
+                              <div className="font-semibold text-black text-[13px]">{prod.nombre}</div>
                               {prod.descripcion && (
                                 <div className="mt-0.5 text-[10px] text-[#6B7280] truncate max-w-[280px]">{prod.descripcion}</div>
                               )}
