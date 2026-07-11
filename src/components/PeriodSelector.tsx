@@ -83,6 +83,14 @@ export default function PeriodSelector({
   const searchParams = useSearchParams()
   const [pending, startTransition] = useTransition()
 
+  // Diferimos el uso de `new Date()` hasta después de montar en cliente para
+  // evitar mismatches de hidratación entre la zona horaria/fecha del servidor
+  // y la del navegador. Durante SSR y el primer render de cliente, `mounted`
+  // es false y el componente devuelve null (el <Suspense fallback={null}> ya
+  // reserva el espacio, así que la UX no cambia).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   const now = useMemo(() => new Date(), [])
   const todayISO = toISO(now)
   const todayWeekISO = toISO(getMondayOf(now))
@@ -343,6 +351,9 @@ export default function PeriodSelector({
 
   const tabBaseClass = 'rounded-lg px-2.5 py-1 text-[11px] font-semibold leading-none transition-colors'
   const navBtnClass = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-[#1B4332]/40 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-stone-300 dark:hover:text-emerald-300'
+
+  // Evita mismatch de hidratación por dependencia de `new Date()`.
+  if (!mounted) return null
 
   return (
     <div className="w-full print:hidden">

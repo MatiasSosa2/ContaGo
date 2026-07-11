@@ -50,21 +50,24 @@ function GoogleIcon() {
   )
 }
 
-function AppleIcon() {
+function MicrosoftIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 fill-current">
-      <path d="M16.68 12.5c.02 2.18 1.92 2.9 1.94 2.91-.02.05-.3 1.02-.99 2.02-.59.86-1.2 1.72-2.16 1.74-.94.02-1.24-.56-2.31-.56-1.08 0-1.42.54-2.29.58-.93.04-1.63-.93-2.22-1.79-1.2-1.73-2.11-4.9-.88-7.03.61-1.06 1.7-1.73 2.89-1.75.9-.02 1.75.61 2.31.61.56 0 1.61-.75 2.72-.64.46.02 1.77.19 2.61 1.42-.07.05-1.56.91-1.54 2.49Zm-2.14-5.7c.49-.59.81-1.41.72-2.23-.71.03-1.57.47-2.08 1.06-.45.51-.84 1.35-.73 2.14.79.06 1.59-.4 2.09-.97Z" />
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0">
+      <path fill="#F25022" d="M2 2h9.5v9.5H2z" />
+      <path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z" />
+      <path fill="#00A4EF" d="M2 12.5h9.5V22H2z" />
+      <path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z" />
     </svg>
   )
 }
 
 export default function LoginPanel({
   googleEnabled,
-  appleEnabled,
+  microsoftEnabled,
   temporaryAccessEnabled,
 }: {
   googleEnabled: boolean
-  appleEnabled: boolean
+  microsoftEnabled: boolean
   temporaryAccessEnabled: boolean
 }) {
   const searchParams = useSearchParams()
@@ -74,7 +77,7 @@ export default function LoginPanel({
   )
   const [isPending, startTransition] = useTransition()
 
-  function handleProviderSignIn(provider: 'google' | 'apple') {
+  function handleProviderSignIn(provider: 'google' | 'azure-ad') {
     startTransition(async () => {
       setError(null)
       setMessage(null)
@@ -151,12 +154,12 @@ export default function LoginPanel({
         </button>
         <button
           type="button"
-          disabled={!appleEnabled || isPending}
-          onClick={() => handleProviderSignIn('apple')}
+          disabled={!microsoftEnabled || isPending}
+          onClick={() => handleProviderSignIn('azure-ad')}
           className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50 lg:py-2.5"
         >
-          <AppleIcon />
-          Continuar con Apple
+          <MicrosoftIcon />
+          Continuar con Microsoft
         </button>
       </div>
 

@@ -4,6 +4,7 @@ import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { getSessionContext } from "@/server/auth/get-session-context";
 import FloatingActionButton from "@/components/FloatingActionButton";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -70,6 +71,7 @@ export default async function RootLayout({
           {children}
         </main>
         {isAuthenticatedWithBusiness && <FloatingActionButton />}
+        <Analytics />
       </body>
     </html>
   );

@@ -23,9 +23,30 @@ type Movimiento = {
   motivo: string | null
 }
 
-function fmt(v: number | null | undefined) { return (v ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 2 }) }
-function fmtUnits(v: number | null | undefined) { return (v ?? 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) }
-function fmtDate(d: Date | string) { return new Date(d).toLocaleDateString('es-AR') }
+// Formateadores deterministas (evitan mismatch de hidratación entre Node ICU y el navegador).
+function formatNumberAR(value: number, minFrac: number, maxFrac: number): string {
+  const n = Number.isFinite(value) ? value : 0
+  const sign = n < 0 ? '-' : ''
+  const abs = Math.abs(n)
+  const factor = Math.pow(10, maxFrac)
+  const rounded = Math.round(abs * factor) / factor
+  const [intPart, decPartRaw = ''] = rounded.toFixed(maxFrac).split('.')
+  const intWithSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  let decPart = decPartRaw
+  // Recortar ceros extra hasta minFrac.
+  while (decPart.length > minFrac && decPart.endsWith('0')) decPart = decPart.slice(0, -1)
+  return decPart ? `${sign}${intWithSep},${decPart}` : `${sign}${intWithSep}`
+}
+function fmt(v: number | null | undefined) { return formatNumberAR(v ?? 0, 2, 2) }
+function fmtUnits(v: number | null | undefined) { return formatNumberAR(v ?? 0, 0, 2) }
+function fmtDate(d: Date | string) {
+  const date = d instanceof Date ? d : new Date(d)
+  if (Number.isNaN(date.getTime())) return ''
+  const dd = String(date.getDate()).padStart(2, '0')
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const yyyy = date.getFullYear()
+  return `${dd}/${mm}/${yyyy}`
+}
 
 const LABEL_CLS = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4B5563] dark:text-[#9CA3AF]'
 const FIELD_CLS = 'h-9 rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8] dark:placeholder:text-[#6B7280]'

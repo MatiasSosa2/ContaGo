@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import type { JWT } from 'next-auth/jwt'
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import AppleProvider from "next-auth/providers/apple";
+import AzureADProvider from "next-auth/providers/azure-ad";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -43,11 +43,12 @@ function getConfiguredProviders() {
     )
   }
 
-  if (process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET) {
+  if (process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET) {
     providers.push(
-      AppleProvider({
-        clientId: process.env.APPLE_CLIENT_ID,
-        clientSecret: process.env.APPLE_CLIENT_SECRET,
+      AzureADProvider({
+        clientId: process.env.AZURE_AD_CLIENT_ID,
+        clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
+        tenantId: process.env.AZURE_AD_TENANT_ID || 'common',
       }),
     )
   }

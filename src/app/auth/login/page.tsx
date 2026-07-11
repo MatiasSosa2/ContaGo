@@ -12,7 +12,7 @@ export default function LoginPage() {
       <Suspense fallback={null}>
         <LoginPanel
           googleEnabled={Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)}
-          appleEnabled={Boolean(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET)}
+          microsoftEnabled={Boolean(process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET)}
           temporaryAccessEnabled={Boolean(process.env.TEMP_ACCESS_ADMIN_EMAIL)}
         />
       </Suspense>
