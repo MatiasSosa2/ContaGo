@@ -72,13 +72,10 @@ function MetricChip({ label, value, tone }: { label: string; value: string; tone
       ? 'text-[#2D5A41] dark:text-[#9AC7A8]'
       : tone === 'sand'
       ? 'text-[#8A6118] dark:text-[#D7B36B]'
-      : 'text-black dark:text-white'
+      : 'text-[#111827] dark:text-white'
 
   return (
-    <div
-      className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]"
-      style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}
-    >
+    <div className="executive-metric px-5 py-4">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{label}</p>
       <p className={`font-mono text-xl font-bold num-tabular ${valueClass}`}>{value}</p>
     </div>
@@ -164,8 +161,7 @@ function TriggerCard({
       type="button"
       onClick={onClick}
       aria-pressed={isActive}
-      className={`flex flex-col items-start border bg-white p-5 text-left transition dark:bg-[#141414] ${isActive ? activeRingClass : 'border-[#E5E7EB] dark:border-white/10 hover:border-brand-military/60 dark:hover:border-white/30'}`}
-      style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}
+      className={`executive-metric flex flex-col items-start p-5 text-left transition ${isActive ? activeRingClass : 'border-[#E5E7EB] dark:border-white/10 hover:border-brand-military/60 dark:hover:border-white/30'}`}
     >
       <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{title}</p>
       <p className={`font-mono text-[28px] font-bold num-tabular ${valueClass}`}>{previewValue}</p>
@@ -200,10 +196,7 @@ export default function FinancialStatementsPanel({
 
   return (
     <>
-      <section
-        className="overflow-hidden border border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]"
-        style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}
-      >
+      <section className="executive-panel overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-[#E5E7EB] bg-[#FCFDFC] px-5 py-4 dark:border-white/10 dark:bg-[#141414] lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military">
@@ -261,7 +254,7 @@ export default function FinancialStatementsPanel({
               </div>
             </div>
 
-            <div className="mt-4 inline-flex border border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#111111]">
+            <div className="executive-pill mt-4 inline-flex overflow-hidden bg-white/70 dark:bg-[#111111]">
               {[
                 { key: 'results', label: 'Resultados' },
                 { key: 'cashflow', label: 'Flujo' },

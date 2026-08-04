@@ -105,6 +105,39 @@ input[type=number] {
   box-shadow: var(--shadow-sm);
 }
 
+.executive-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.executive-metric {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.executive-pill {
+  border-radius: 9999px;
+  border: 1px solid rgba(58,77,57,0.16);
+  background: rgba(58,77,57,0.04);
+}
+
+.executive-shell {
+  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(247,245,240,0.94));
+  border: 1px solid rgba(58,77,57,0.10);
+  border-radius: 22px;
+  box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+}
+
+[data-theme="dark"] .executive-shell {
+  background: linear-gradient(135deg, rgba(17,19,21,0.96), rgba(14,15,17,0.96)) !important;
+  border-color: rgba(255,255,255,0.06) !important;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.28) !important;
+}
+
 /* Variante con acento lateral militar (análisis/gráficos) */
 .executive-card-accent {
   background: var(--card);
@@ -299,11 +332,19 @@ input[type=number] {
 
 /* ── Cards y superficies blancas ── */
 [data-theme="dark"] .bg-white,
-[data-theme="dark"] .executive-card {
+[data-theme="dark"] .executive-card,
+[data-theme="dark"] .executive-panel,
+[data-theme="dark"] .executive-metric {
   background-color: #111315 !important;
   outline: none !important;
   border: 1px solid rgba(255,255,255,0.05) !important;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26) !important;
+}
+
+[data-theme="dark"] .executive-pill {
+  background: rgba(90,138,85,0.12) !important;
+  border-color: rgba(90,138,85,0.24) !important;
+  color: #D7F3DF !important;
 }
 [data-theme="dark"] .bg-brand-slate,
 [data-theme="dark"] .bg-brand-bone {

@@ -46,9 +46,9 @@ function UserInfoCard({
       className="
         hidden sm:flex items-center gap-2.5 shrink-0
         rounded-2xl
-        border border-stone-200 dark:border-white/[0.06]
-        bg-white dark:bg-[#0d0e10]
-        shadow-[0_4px_18px_rgba(15,23,42,0.05)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]
+        border border-stone-200/80 dark:border-white/[0.06]
+        bg-white/90 dark:bg-[#0d0e10]/95
+        shadow-[0_6px_22px_rgba(15,23,42,0.06)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]
         px-2.5 py-1.5
       "
       title={`${displayName} · ${business.name} · ${ROLE_LABELS[business.role]}`}
@@ -81,23 +81,21 @@ export default function AppHeader({ title, icon, actions, sessionContext }: AppH
     <header
       aria-label={title}
       className="
+        executive-shell
         sticky top-0 z-30
         -mx-4 sm:-mx-6 lg:-mx-8
         -mt-4 sm:-mt-6 lg:-mt-8
         mb-5 md:mb-6
         rounded-t-none rounded-b-2xl
-        border-x border-b border-stone-200 dark:border-white/[0.06]
-        bg-white/90 dark:bg-[#11171d]/90
-        backdrop-blur-xl
-        shadow-[0_4px_18px_rgba(15,23,42,0.05)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]
         overflow-visible
+        backdrop-blur-xl
       "
     >
       <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4 lg:gap-4 lg:px-5 lg:py-3">
 
         {/* ── Ícono opcional (indicador visual de sección) ─── */}
         {icon && (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F1F5F2] text-[#1B4332] dark:bg-white/[0.06] dark:text-[#9AC7A8] [&>svg]:h-[18px] [&>svg]:w-[18px]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F1F5F2] text-[#1B4332] shadow-sm dark:bg-white/[0.06] dark:text-[#9AC7A8] [&>svg]:h-[18px] [&>svg]:w-[18px]">
             {icon}
           </span>
         )}

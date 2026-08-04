@@ -48,11 +48,13 @@ function fmtDate(d: Date | string) {
   return `${dd}/${mm}/${yyyy}`
 }
 
-const LABEL_CLS = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-[#4B5563] dark:text-[#9CA3AF]'
-const FIELD_CLS = 'h-9 rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8] dark:placeholder:text-[#6B7280]'
+const LABEL_CLS = 'text-[11px] font-semibold uppercase tracking-[0.2em] text-[#374151] dark:text-[#E7F0E5]'
+const FIELD_CLS = 'h-9 rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#1B1B1B] dark:text-[#F8FAFC] dark:placeholder:text-[#8B938B]'
 const SELECT_CLS = FIELD_CLS
-const TEXTAREA_CLS = 'rounded-md border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8] dark:placeholder:text-[#6B7280] resize-none'
-const SECTION_HEADING_CLS = 'mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#9CA3AF]'
+const TEXTAREA_CLS = 'rounded-md border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#1B1B1B] dark:text-[#F8FAFC] dark:placeholder:text-[#8B938B] resize-none'
+const SECTION_HEADING_CLS = 'mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#6B7280] dark:text-[#D9E7D7]'
+const META_LABEL_CLS = 'text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#C7D2C1]'
+const META_VALUE_CLS = 'text-[11px] text-[#6B7280] dark:text-[#C7D2C1]'
 
 const TIPO_COLORS = {
   ENTRADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900',
@@ -232,7 +234,6 @@ function ProductoFormBody({
 export default function StockClient({ initialProductos }: { initialProductos: Producto[] }) {
   const [productos, setProductos] = useState<Producto[]>(initialProductos)
   const [showForm, setShowForm] = useState(false)
-  const [showCategoriasModal, setShowCategoriasModal] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [selectedProductoId, setSelectedProductoId] = useState<string | null>(null)
@@ -325,36 +326,6 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
     gananciaPotencial: 0,
   })
 
-  const resumenCategoriasMap = productos.reduce((map, producto) => {
-    const categoria = producto.categoria?.trim() || 'Sin categoría'
-    const actual = map.get(categoria) || {
-      categoria,
-      productos: 0,
-      unidades: 0,
-      valorCosto: 0,
-      valorVenta: 0,
-      gananciaPotencial: 0,
-    }
-
-    actual.productos += 1
-    actual.unidades += producto.stockActual ?? 0
-    actual.valorCosto += (producto.stockActual ?? 0) * (producto.precioCosto ?? 0)
-    actual.valorVenta += (producto.stockActual ?? 0) * (producto.precioVenta ?? 0)
-    actual.gananciaPotencial += (producto.stockActual ?? 0) * ((producto.precioVenta ?? 0) - (producto.precioCosto ?? 0))
-
-    map.set(categoria, actual)
-    return map
-  }, new Map<string, {
-    categoria: string
-    productos: number
-    unidades: number
-    valorCosto: number
-    valorVenta: number
-    gananciaPotencial: number
-  }>())
-
-  const resumenCategorias = Array.from(resumenCategoriasMap.values()).sort((a, b) => b.valorCosto - a.valorCosto)
-
   const totalUnidades = resumenGeneral.unidades
   const totalStockValue = resumenGeneral.valorCosto
   const valorVentaTotal = resumenGeneral.valorVenta
@@ -443,15 +414,14 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   }
 
   function handleExportar() {
-    const esc = (v: unknown) => `"${String(v ?? '').replaceAll('"', '""')}"`
-    const money = (v: number) => v.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-    const pct = (v: number) => `${v.toFixed(1).replace('.', ',')}%`
+    const esc = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`
+    const money = (value: number) => value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const pct = (value: number) => `${value.toFixed(2).replace('.', ',')}%`
 
     const lines: string[] = []
     lines.push(['Producto', 'Categoría', 'Unidades', 'Valorizado', 'Ingresos', 'Ganancias', '% Margen'].map(esc).join(','))
 
     for (const g of gruposInventario) {
-      // Encabezado de grupo
       lines.push([g.categoria.toUpperCase(), '', `${g.productos.length} productos`, `${g.unidades} unidades`, '', '', ''].map(esc).join(','))
       for (const p of g.productos) {
         const gan = p.stockActual * (p.precioVenta - p.precioCosto)
@@ -466,9 +436,8 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
           pct(pctMargen(gan, ing)),
         ].map(esc).join(','))
       }
-      // Subtotal
       lines.push([
-        'Subtotal ' + g.categoria,
+        `Subtotal ${g.categoria}`,
         '',
         fmtUnits(g.unidades),
         money(g.valorizado),
@@ -478,7 +447,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
       ].map(esc).join(','))
       lines.push('')
     }
-    // Total general
+
     lines.push([
       'TOTAL GENERAL',
       '',
@@ -490,8 +459,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
     ].map(esc).join(','))
 
     const csv = lines.join('\n')
-
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -538,9 +506,9 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   }[diagnostico.tono]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-1">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-stretch">
-        <div className="inline-flex items-stretch border border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
+        <div className="executive-panel inline-flex items-stretch overflow-hidden">
           <button
             type="button"
             role="tab"
@@ -568,7 +536,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
           </button>
         </div>
 
-        <div className={`flex items-center gap-2.5 border px-3.5 py-1.5 ${diagnosticoStyles.border} ${diagnosticoStyles.bg}`} style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
+        <div className={`executive-panel flex items-center gap-2.5 px-3.5 py-1.5 ${diagnosticoStyles.border} ${diagnosticoStyles.bg}`}>
           <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${diagnosticoStyles.dot}`} aria-hidden />
           <div className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
             <p className={`text-[11px] font-semibold tracking-wide whitespace-nowrap ${diagnosticoStyles.accent}`}>{diagnostico.titulo}</p>
@@ -578,27 +546,27 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-        <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Inventario inicial</p>
-          <p className="text-[28px] font-mono font-bold text-black dark:text-white num-tabular">{formatCard(enUnidades ? inicialUnidades : inventarioInicial)}</p>
+        <div className="executive-metric px-5 py-4">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Inventario inicial</p>
+          <p className="text-[28px] font-mono font-bold text-[#111827] dark:text-white num-tabular">{formatCard(enUnidades ? inicialUnidades : inventarioInicial)}</p>
         </div>
-        <div className={`border px-5 py-4 ${sobreVendiendo ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]'}`} style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${sobreVendiendo ? 'text-emerald-700' : 'text-[#9CA3AF]'}`}>Inventario vendido</p>
+        <div className={`executive-metric px-5 py-4 ${sobreVendiendo ? 'border-l-4 border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/20' : ''}`}>
+          <p className={`mb-1 text-xs font-semibold uppercase tracking-wider ${sobreVendiendo ? 'text-emerald-700 dark:text-emerald-300' : 'text-[#9CA3AF]'}`}>Inventario vendido</p>
           {sobreVendiendo && <p className="mt-0.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">Estás sobrevendiendo — vendiste más de lo que compraste.</p>}
           <p className={`text-[28px] font-mono font-bold num-tabular ${sobreVendiendo ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-military-dark dark:text-[#6EBC8A]'}`}>{formatCard(enUnidades ? vendidoUnidades : inventarioVendido)}</p>
         </div>
-        <div className={`border px-5 py-4 ${sobreStockeando ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30' : 'border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414]'}`} style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className={`text-xs font-semibold uppercase tracking-wider mb-1 ${sobreStockeando ? 'text-emerald-700' : 'text-[#9CA3AF]'}`}>Inventario comprado</p>
+        <div className={`executive-metric px-5 py-4 ${sobreStockeando ? 'border-l-4 border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/20' : ''}`}>
+          <p className={`mb-1 text-xs font-semibold uppercase tracking-wider ${sobreStockeando ? 'text-emerald-700 dark:text-emerald-300' : 'text-[#9CA3AF]'}`}>Inventario comprado</p>
           {sobreStockeando && <p className="mt-0.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">Estás sobrestockeando — compraste más de lo que vendiste.</p>}
           <p className={`text-[28px] font-mono font-bold num-tabular ${sobreStockeando ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}`}>{formatCard(enUnidades ? compradoUnidades : inventarioComprado)}</p>
         </div>
-        <div className="border border-[#E5E7EB] bg-white px-5 py-4 dark:border-white/10 dark:bg-[#141414]" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1">Stock final</p>
-          <p className="text-[28px] font-mono font-bold text-black dark:text-white num-tabular">{formatCard(enUnidades ? stockFinalUnidades : stockFinalPeriodo)}</p>
+        <div className="executive-metric px-5 py-4">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Stock final</p>
+          <p className="text-[28px] font-mono font-bold text-[#111827] dark:text-white num-tabular">{formatCard(enUnidades ? stockFinalUnidades : stockFinalPeriodo)}</p>
         </div>
       </div>
 
-      <div className="border border-[#E5E7EB] bg-white dark:border-white/10 dark:bg-[#141414] overflow-hidden" style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}>
+      <div className="executive-panel overflow-hidden">
         <div className="border-b border-[#E5E7EB] bg-[#FCFDFC] px-5 py-4 dark:border-white/10 dark:bg-[#141414]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-2.5">
@@ -613,17 +581,8 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
 
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => setShowCategoriasModal(true)}
-                className="flex items-center gap-1.5 border border-[#D1D5DB] px-3 py-2 text-xs font-semibold text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB]"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h16" />
-                </svg>
-                Subtotales por categoría
-              </button>
-              <button
                 onClick={() => { setShowForm(true); setEditingId(null); setFormError('') }}
-                className="flex items-center gap-1.5 bg-brand-military px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-brand-military-dark"
+                className="flex items-center gap-1.5 rounded-xl bg-brand-military px-3.5 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-military-dark"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -633,7 +592,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               <div className="relative">
                 <button
                   onClick={() => setShowExportMenu(v => !v)}
-                  className="flex items-center gap-1.5 border border-[#D1D5DB] px-3 py-2 text-xs font-semibold text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB]"
+                  className="flex items-center gap-1.5 rounded-xl border border-[#D1D5DB] px-3 py-2.5 text-xs font-semibold text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB]"
                 >
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
@@ -654,7 +613,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-6 4h6M9 9h1M5 21h14a2 2 0 002-2V7l-5-5H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
-                        Descargar CSV
+                        Descargar Excel
                       </button>
                       <button
                         onClick={() => { setShowExportMenu(false); handleImprimir() }}
@@ -681,7 +640,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar producto, categoría o marca"
-                className="w-full border border-[#E5E7EB] bg-[#F9FAFB] py-2 pl-10 pr-3 text-sm text-[#374151] placeholder:text-[#9CA3AF] focus:border-brand-military focus:outline-none dark:border-white/10 dark:bg-[#1F1F1F] dark:text-[#D1D5DB]"
+                className="w-full rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] py-2.5 pl-10 pr-3 text-sm text-[#374151] placeholder:text-[#9CA3AF] focus:border-brand-military focus:outline-none dark:border-white/10 dark:bg-[#1F1F1F] dark:text-[#D1D5DB]"
               />
             </div>
 
@@ -706,7 +665,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
           <div id="inventario-tabla" className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-xs">
               <thead>
-                <tr className="border-b border-white/10 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#9CA3AF]">
+                <tr className="border-b border-white/10 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9CA3AF]">
                   <th className="px-5 py-3 text-left w-[38%]">Producto</th>
                   <th className="px-4 py-3 text-right">Unidades</th>
                   <th className="px-4 py-3 text-right">Valorizado</th>
@@ -721,11 +680,11 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                   return (
                     <React.Fragment key={grupo.categoria}>
                       {/* Header de grupo */}
-                      <tr className="bg-[#111111] group-header">
-                        <td className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#D1D5DB]">
+                      <tr className="bg-[#F4F2EB] group-header dark:bg-[#17191C]">
+                        <td className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#111827] dark:text-[#F8FAFC]">
                           {grupo.categoria}
                         </td>
-                        <td colSpan={5} className="px-4 py-2.5 text-right text-[11px] text-[#6B7280]">
+                        <td colSpan={5} className="px-4 py-2.5 text-right text-[11px] font-medium text-[#4B5563] dark:text-[#C7D2C1]">
                           {grupo.productos.length} producto{grupo.productos.length !== 1 ? 's' : ''} · {fmtUnits(grupo.unidades)} unidades
                         </td>
                       </tr>
@@ -743,15 +702,15 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                             className="border-b border-white/5 transition-colors hover:bg-white/[0.03] cursor-pointer"
                           >
                             <td className="px-5 py-3">
-                              <div className="font-semibold text-black text-[13px]">{prod.nombre}</div>
+                              <div className="text-sm font-semibold text-[#111827] dark:text-[#F8FAFC]">{prod.nombre}</div>
                               {prod.descripcion && (
-                                <div className="mt-0.5 text-[10px] text-[#6B7280] truncate max-w-[280px]">{prod.descripcion}</div>
+                                <div className="mt-0.5 max-w-[280px] truncate text-[11px] text-[#6B7280] dark:text-[#C7D2C1]">{prod.descripcion}</div>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-right font-mono font-bold text-white num-tabular">
+                            <td className="px-4 py-3 text-right font-mono font-bold text-[#111827] dark:text-[#F8FAFC] num-tabular">
                               {fmtUnits(prod.stockActual)}
                             </td>
-                            <td className="px-4 py-3 text-right font-mono text-[#D1D5DB] num-tabular">
+                            <td className="px-4 py-3 text-right font-mono text-[#374151] dark:text-[#E7F0E5] num-tabular">
                               ${fmt(valorizado)}
                             </td>
                             <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-400 num-tabular">
@@ -759,7 +718,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                             </td>
                             <td className="px-4 py-3 text-right font-mono num-tabular">
                               <span className="font-semibold text-sky-400">${fmt(ganancia)}</span>
-                              <span className="ml-1.5 text-[10px] font-medium text-[#6B7280]">{margen.toFixed(1).replace('.', ',')}%</span>
+                              <span className="ml-1.5 text-[11px] font-medium text-[#6B7280]">{margen.toFixed(1).replace('.', ',')}%</span>
                             </td>
                             <td className="px-4 py-3 text-right print-hide" onClick={e => e.stopPropagation()}>
                               <div className="flex justify-end gap-1.5">
@@ -791,13 +750,13 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
 
                       {/* Subtotal del grupo */}
                       <tr className="border-b border-white/10 subtotal-row">
-                        <td className="px-5 py-2.5 text-[11px] text-[#6B7280]">Subtotal</td>
+                        <td className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280]">Subtotal</td>
                         <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">{fmtUnits(grupo.unidades)}</td>
                         <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">${fmt(grupo.valorizado)}</td>
                         <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">${fmt(grupo.ingresos)}</td>
                         <td className="px-4 py-2.5 text-right font-mono num-tabular">
                           <span className="text-[#9CA3AF]">${fmt(grupo.ganancia)}</span>
-                          <span className="ml-1.5 text-[10px] text-[#6B7280]">{marginGrupo.toFixed(1).replace('.', ',')}%</span>
+                          <span className="ml-1.5 text-[11px] text-[#6B7280]">{marginGrupo.toFixed(1).replace('.', ',')}%</span>
                         </td>
                         <td className="px-4 py-2.5 print-hide"></td>
                       </tr>
@@ -810,24 +769,33 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                   )
                 })}
 
-                {/* Total general */}
-                <tr className="border-t-2 border-white/20 total-general-row">
-                  <td className="px-5 py-4 text-[13px] font-bold text-white">Total general</td>
-                  <td className="px-4 py-4 text-right font-mono font-bold text-white num-tabular">{fmtUnits(totalGeneral.unidades)}</td>
-                  <td className="px-4 py-4 text-right font-mono font-bold text-white num-tabular">${fmt(totalGeneral.valorizado)}</td>
-                  <td className="px-4 py-4 text-right font-mono font-bold text-emerald-400 num-tabular">${fmt(totalGeneral.ingresos)}</td>
-                  <td className="px-4 py-4 text-right font-mono num-tabular">
-                    <span className="font-bold text-sky-400">${fmt(totalGeneral.ganancia)}</span>
-                    <span className="ml-1.5 text-[10px] font-medium text-[#9CA3AF]">
-                      {pctMargen(totalGeneral.ganancia, totalGeneral.ingresos).toFixed(1).replace('.', ',')}%
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 print-hide"></td>
-                </tr>
               </tbody>
             </table>
           </div>
         )}
+
+        <div className="border-t border-[#E5E7EB] bg-[#FCFCFB] px-5 py-4 dark:border-white/10 dark:bg-[#101010]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className={` ${META_LABEL_CLS}`}>Total del inventario</p>
+              <p className="mt-1 text-sm text-[#4B5563] dark:text-[#D1D5DB]">Resumen consolidado del stock, valorización, ingresos y ganancias.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md border border-[#E5E7EB] bg-white px-3 py-3 dark:border-white/10 dark:bg-[#161616]">
+                <p className={` ${META_LABEL_CLS}`}>Unidades</p>
+                <p className="mt-1 font-mono text-base font-bold text-[#111827] dark:text-[#F8FAFC]">{fmtUnits(totalGeneral.unidades)}</p>
+              </div>
+              <div className="rounded-md border border-[#E5E7EB] bg-white px-3 py-3 dark:border-white/10 dark:bg-[#161616]">
+                <p className={` ${META_LABEL_CLS}`}>Valorizado</p>
+                <p className="mt-1 font-mono text-base font-bold text-[#111827] dark:text-[#F8FAFC]">${fmt(totalGeneral.valorizado)}</p>
+              </div>
+              <div className="rounded-md border border-[#E5E7EB] bg-white px-3 py-3 dark:border-white/10 dark:bg-[#161616]">
+                <p className={` ${META_LABEL_CLS}`}>Ganancia</p>
+                <p className="mt-1 font-mono text-base font-bold text-brand-military-dark dark:text-[#6EBC8A]">${fmt(totalGeneral.ganancia)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="flex items-center justify-between border-t border-[#E5E7EB] bg-[#FCFCFB] px-5 py-3 text-xs text-[#9CA3AF] dark:border-white/10 dark:bg-[#101010]">
           <span>Mostrando {filtrados.length} producto{filtrados.length !== 1 ? 's' : ''}</span>
@@ -838,17 +806,17 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
       {/* ── Modal crear/editar producto ── */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl overflow-hidden rounded-md border border-[#D1D5DB] bg-white shadow-2xl dark:border-white/10 dark:bg-[#0F0F0F]">
-            <div className="flex items-start justify-between border-b border-black/10 bg-[#1B2E25] px-5 py-3 dark:border-white/10">
+          <div className="executive-shell w-full max-w-3xl overflow-hidden rounded-[24px] border border-stone-200/70 shadow-[0_20px_60px_rgba(15,23,42,0.18)] dark:border-white/10">
+            <div className="flex items-start justify-between border-b border-black/10 bg-gradient-to-r from-[#1B2E25] via-[#243D2C] to-[#2B4D35] px-5 py-4 dark:border-white/10">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/55">Inventario · Productos</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/55">Inventario · Productos</p>
                 <h3 className="mt-1 text-base font-semibold text-white">
                   {editingId ? 'Editar producto' : 'Nuevo producto'}
                 </h3>
               </div>
               <button
                 onClick={() => { setShowForm(false); setEditingId(null); setFormError('') }}
-                className="text-xl leading-none text-white/60 transition hover:text-white"
+                className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-white/70 transition hover:bg-white/20 hover:text-white"
                 aria-label="Cerrar"
               >✕</button>
             </div>
@@ -866,67 +834,17 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
         </div>
       )}
 
-      {showCategoriasModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl dark:border-white/10 dark:bg-[#141414]">
-            <div className="flex items-center justify-between bg-gradient-to-b from-brand-military to-brand-military-dark px-5 py-4">
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Subtotales por categoría</h3>
-                <p className="mt-1 text-xs text-white/70">Cantidad, valorización y ganancia agrupadas por categoría.</p>
-              </div>
-              <button
-                onClick={() => setShowCategoriasModal(false)}
-                className="text-lg leading-none text-white/60 hover:text-white"
-              >✕</button>
-            </div>
-
-            <div className="max-h-[70vh] overflow-y-auto">
-              {resumenCategorias.length === 0 ? (
-                <div className="px-5 py-10 text-sm text-[#9CA3AF]">Todavía no hay productos cargados.</div>
-              ) : (
-                <div className="divide-y divide-[#E5E7EB] dark:divide-white/10">
-                  {resumenCategorias.map(categoria => (
-                    <div key={categoria.categoria} className="grid gap-3 px-5 py-4 md:grid-cols-[1.15fr_repeat(4,minmax(0,1fr))]">
-                      <div>
-                        <p className="text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{categoria.categoria}</p>
-                        <p className="mt-1 text-[11px] uppercase tracking-wide text-[#9CA3AF]">{categoria.productos} producto{categoria.productos !== 1 ? 's' : ''}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">Unidades</p>
-                        <p className="mt-1 font-mono text-sm font-bold text-[#1F2937] dark:text-[#E8E8E8]">{fmtUnits(categoria.unidades)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">Valor costo</p>
-                        <p className="mt-1 font-mono text-sm font-bold text-brand-military-dark dark:text-[#6EBC8A]">${fmt(categoria.valorCosto)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">Valor venta</p>
-                        <p className="mt-1 font-mono text-sm font-bold text-[#1F2937] dark:text-[#E8E8E8]">${fmt(categoria.valorVenta)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">Ganancia</p>
-                        <p className="mt-1 font-mono text-sm font-bold text-brand-gold-dark dark:text-[#E0B36A]">${fmt(categoria.gananciaPotencial)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {showMovimientosModal && selectedProducto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl dark:border-white/10 dark:bg-[#141414]">
-            <div className="flex items-center justify-between bg-gradient-to-b from-brand-military to-brand-military-dark px-5 py-4">
+          <div className="executive-shell w-full max-w-4xl overflow-hidden rounded-[24px] border border-stone-200/70 shadow-[0_24px_70px_rgba(15,23,42,0.20)] dark:border-white/10">
+            <div className="flex items-center justify-between bg-gradient-to-r from-brand-military via-[#2E5C3D] to-[#31553A] px-5 py-4">
               <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Movimientos de stock</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-white">Movimientos de stock</h3>
                 <p className="mt-1 text-xs text-white/70">{selectedProducto.nombre}</p>
               </div>
               <button
                 onClick={() => { setShowMovimientosModal(false); setShowMovForm(false); setMovError('') }}
-                className="text-lg leading-none text-white/60 hover:text-white"
+                className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-white/70 transition hover:bg-white/20 hover:text-white"
               >✕</button>
             </div>
 
@@ -934,7 +852,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               <div className="border-b border-[#E5E7EB] p-5 dark:border-white/10 lg:border-b-0 lg:border-r">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">Historial</p>
+                    <p className={` ${META_LABEL_CLS}`}>Historial</p>
                     <p className="mt-1 text-sm text-[#4B5563] dark:text-[#C9CDD3]">Entradas, salidas y ajustes registrados para este producto.</p>
                   </div>
                   <button
@@ -958,7 +876,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                         className="flex items-start justify-between gap-3 border border-[#E5E7EB] bg-[#FCFCFB] px-4 py-3 dark:border-white/10 dark:bg-[#101010]"
                       >
                         <div className="space-y-1">
-                          <div className={`inline-flex border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${TIPO_COLORS[mov.tipo]}`}>
+                          <div className={`inline-flex border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${TIPO_COLORS[mov.tipo]}`}>
                             {mov.tipo}
                           </div>
                           <p className="text-sm font-medium text-[#1F2937] dark:text-[#E8E8E8]">{mov.motivo || 'Sin detalle cargado'}</p>
@@ -976,7 +894,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
 
               <div className="p-5">
                 <div className="mb-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#9CA3AF]">Resumen del producto</p>
+                  <p className={` ${META_LABEL_CLS}`}>Resumen del producto</p>
                   <div className="mt-3 grid grid-cols-2 gap-3">
                     <div className="border border-[#E5E7EB] bg-[#FCFCFB] px-3 py-3 dark:border-white/10 dark:bg-[#101010]">
                       <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">Stock actual</p>
@@ -1007,7 +925,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                     <InputField label="Cantidad" name="cantidad" type="number" step="0.01" required defaultValue={1} />
                     <InputField label="Motivo" name="motivo" defaultValue="" />
                     {movError && (
-                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                         {movError}
                       </div>
                     )}
@@ -1015,14 +933,14 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                       <button
                         type="button"
                         onClick={() => { setShowMovForm(false); setMovError('') }}
-                        className="rounded-md border border-[#D1D5DB] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#4B5563] transition hover:border-gray-400 hover:text-[#1F2937] dark:border-white/10 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
+                        className="rounded-md border border-[#D1D5DB] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#4B5563] transition hover:border-gray-400 hover:text-[#1F2937] dark:border-white/10 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
                         disabled={isPending}
-                        className="rounded-md bg-brand-military px-5 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-brand-military-dark disabled:opacity-50"
+                        className="rounded-md bg-brand-military px-5 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition hover:bg-brand-military-dark disabled:opacity-50"
                       >
                         Guardar movimiento
                       </button>

@@ -101,8 +101,8 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
   return (
     <>
     <aside
-      className={`hidden md:flex md:flex-col h-screen sticky top-0 z-20 shrink-0 transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-60'}`}
-      style={{ background: '#1B4332', borderRight: '1px solid rgba(0,0,0,0.25)' }}
+      className={`hidden md:flex md:flex-col h-screen sticky top-0 z-20 shrink-0 overflow-hidden transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-60'}`}
+      style={{ background: 'linear-gradient(180deg, #1A3424 0%, #16281D 100%)', borderRight: '1px solid rgba(255,255,255,0.08)' }}
     >
       {/* LOGOTIPO */}
       <div className={`h-[88px] flex items-center overflow-hidden transition-all duration-300 ${collapsed ? 'px-3 justify-center' : 'px-5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
@@ -148,9 +148,9 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
-              className={`flex items-center gap-3 py-3 rounded-xl text-sm font-medium transition-all duration-150 ${collapsed ? 'justify-center px-2' : 'px-3'}`}
-              style={isActive ? { background: '#2D6A4F', color: '#F0FDF4' } : { color: 'rgba(255,255,255,0.60)' }}
-              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.11)' }}
+              className={`flex items-center gap-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-150 ${collapsed ? 'justify-center px-2' : 'px-3'}`}
+              style={isActive ? { background: 'rgba(109,164,122,0.22)', color: '#F0FDF4', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)' } : { color: 'rgba(255,255,255,0.64)' }}
+              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.12)' }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
             >
               <span className="shrink-0 scale-[1.08]" style={isActive ? { color: '#6EE7B7' } : { color: 'rgba(255,255,255,0.40)' }}>
@@ -176,10 +176,10 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
         <button
           onClick={toggleCollapse}
           title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-          className={`flex items-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all duration-150 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
-          style={{ color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.13)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)' }}
+          className={`flex items-center gap-2 rounded-2xl py-2 text-xs font-semibold transition-all duration-150 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
+          style={{ color: 'rgba(255,255,255,0.72)', background: 'rgba(255,255,255,0.08)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)' }}
         >
           <svg className={`shrink-0 w-4 h-4 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -192,10 +192,10 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
           onClick={handleSignOut}
           disabled={isSigningOut}
           title="Cerrar sesión"
-          className={`flex items-center gap-2 rounded-lg py-2 text-sm font-semibold transition-all duration-150 disabled:opacity-50 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
-          style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.10)' }}
+          className={`flex items-center gap-2 rounded-2xl py-2 text-sm font-semibold transition-all duration-150 disabled:opacity-50 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
+          style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.12)' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.22)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.10)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.12)' }}
         >
           <svg className="shrink-0 w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
