@@ -122,6 +122,23 @@ function ProductoFormBody({
 
   return (
     <form onSubmit={onSubmit} className="bg-white dark:bg-[#0F0F0F]">
+      {editingProd && (
+        <section className="border-b border-[#E5E7EB] bg-[#F8FAFC] px-5 py-4 dark:border-white/10 dark:bg-[#111827]">
+          <h4 className={SECTION_HEADING_CLS}>Información actual del producto</h4>
+          <div className="grid grid-cols-2 gap-2 text-[11px] text-[#374151] dark:text-[#D1D5DB] sm:grid-cols-3">
+            <p>Tipo: <span className="font-semibold">{tipoLabel(editingProd.tipo)}</span></p>
+            <p>Categoría: <span className="font-semibold">{editingProd.categoria?.trim() || 'Sin categoría'}</span></p>
+            <p>Marca: <span className="font-semibold">{editingProd.marca?.trim() || 'Sin marca'}</span></p>
+            <p>Unidad: <span className="font-semibold">{editingProd.unidad || 'unidad'}</span></p>
+            <p>Costeo: <span className="font-semibold">{metodoCosteoLabel(editingProd.metodoCosteo)}</span></p>
+            <p>Stock actual: <span className="font-mono font-semibold">{fmtUnits(editingProd.stockActual)}</span></p>
+            <p>En tránsito: <span className="font-mono font-semibold">{fmtUnits(editingProd.enTransito)}</span></p>
+            <p>Precio costo: <span className="font-mono font-semibold">${fmt(editingProd.precioCosto)}</span></p>
+            <p>Precio venta: <span className="font-mono font-semibold">${fmt(editingProd.precioVenta)}</span></p>
+          </div>
+        </section>
+      )}
+
       <section className="px-5 py-4">
         <h4 className={SECTION_HEADING_CLS}>Datos generales</h4>
         <div className="grid grid-cols-12 gap-3">
@@ -713,18 +730,6 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                           >
                             <td className="px-5 py-3">
                               <div className="text-sm font-semibold text-[#111827] dark:text-[#F8FAFC]">{prod.nombre}</div>
-                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-[#6B7280] dark:text-[#C7D2C1]">
-                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">{tipoLabel(prod.tipo)}</span>
-                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">{prod.categoria?.trim() || 'Sin categoría'}</span>
-                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">Marca: {prod.marca?.trim() || 'Sin marca'}</span>
-                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">Unidad: {prod.unidad || 'unidad'}</span>
-                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">Costeo: {metodoCosteoLabel(prod.metodoCosteo)}</span>
-                              </div>
-                              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-[#4B5563] dark:text-[#C7D2C1]">
-                                <span>Precio costo: <span className="font-mono">${fmt(prod.precioCosto)}</span></span>
-                                <span>Precio venta: <span className="font-mono">${fmt(prod.precioVenta)}</span></span>
-                                <span>En tránsito: <span className="font-mono">{fmtUnits(prod.enTransito)}</span></span>
-                              </div>
                               {prod.descripcion && (
                                 <div className="mt-0.5 max-w-[280px] truncate text-[11px] text-[#6B7280] dark:text-[#C7D2C1]">{prod.descripcion}</div>
                               )}
@@ -828,49 +833,51 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
       {/* ── Modal crear/editar producto ── */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="executive-shell w-full max-w-3xl overflow-hidden rounded-[24px] border border-stone-200/70 shadow-[0_20px_60px_rgba(15,23,42,0.18)] dark:border-white/10">
-            <div className="flex items-start justify-between border-b border-black/10 bg-gradient-to-r from-[#1B2E25] via-[#243D2C] to-[#2B4D35] px-5 py-4 dark:border-white/10">
+          <div className="w-full max-w-3xl max-h-[92vh] overflow-hidden border border-[#D1D5DB] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[#0B0F14]">
+            <div className="flex items-start justify-between border-b border-[#E5E7EB] bg-[#111827] px-5 py-4 dark:border-white/10 dark:bg-[#0B0F14]">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/55">Inventario · Productos</p>
-                <h3 className="mt-1 text-base font-semibold text-white">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Inventario · Productos</p>
+                <h3 className="mt-1 text-base font-semibold text-slate-100">
                   {editingId ? 'Editar producto' : 'Nuevo producto'}
                 </h3>
               </div>
               <button
                 onClick={() => { setShowForm(false); setEditingId(null); setFormError('') }}
-                className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-white/70 transition hover:bg-white/20 hover:text-white"
+                className="border border-white/20 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-slate-200 transition hover:bg-white/20 hover:text-white"
                 aria-label="Cerrar"
               >✕</button>
             </div>
-            <ProductoFormBody
-              key={editingId ?? 'new'}
-              editingProd={editingProd ?? null}
-              editingId={editingId}
-              categoriasExistentes={categoriasExistentes}
-              isPending={isPending}
-              formError={formError}
-              onSubmit={handleCreateOrUpdate}
-              onCancel={() => { setShowForm(false); setEditingId(null); setFormError('') }}
-            />
+            <div className="max-h-[calc(92vh-74px)] overflow-y-auto">
+              <ProductoFormBody
+                key={editingId ?? 'new'}
+                editingProd={editingProd ?? null}
+                editingId={editingId}
+                categoriasExistentes={categoriasExistentes}
+                isPending={isPending}
+                formError={formError}
+                onSubmit={handleCreateOrUpdate}
+                onCancel={() => { setShowForm(false); setEditingId(null); setFormError('') }}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {showMovimientosModal && selectedProducto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="executive-shell w-full max-w-4xl overflow-hidden rounded-[24px] border border-stone-200/70 shadow-[0_24px_70px_rgba(15,23,42,0.20)] dark:border-white/10">
-            <div className="flex items-center justify-between bg-gradient-to-r from-brand-military via-[#2E5C3D] to-[#31553A] px-5 py-4">
+          <div className="w-full max-w-4xl max-h-[92vh] overflow-hidden border border-[#D1D5DB] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[#0B0F14]">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] bg-[#111827] px-5 py-4 dark:border-white/10 dark:bg-[#0B0F14]">
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-white">Movimientos de stock</h3>
                 <p className="mt-1 text-xs text-white/70">{selectedProducto.nombre}</p>
               </div>
               <button
                 onClick={() => { setShowMovimientosModal(false); setShowMovForm(false); setMovError('') }}
-                className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-white/70 transition hover:bg-white/20 hover:text-white"
+                className="border border-white/20 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-slate-200 transition hover:bg-white/20 hover:text-white"
               >✕</button>
             </div>
 
-            <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="grid max-h-[calc(92vh-74px)] gap-0 overflow-y-auto lg:grid-cols-[1.15fr_0.85fr]">
               <div className="border-b border-[#E5E7EB] p-5 dark:border-white/10 lg:border-b-0 lg:border-r">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
@@ -926,15 +933,6 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                       <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">En tránsito</p>
                       <p className="mt-1 font-mono text-lg font-bold text-brand-military-dark dark:text-[#6EBC8A]">{fmtUnits(selectedProducto.enTransito)}</p>
                     </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[#4B5563] dark:text-[#C7D2C1]">
-                    <p>Tipo: <span className="font-semibold">{tipoLabel(selectedProducto.tipo)}</span></p>
-                    <p>Categoría: <span className="font-semibold">{selectedProducto.categoria?.trim() || 'Sin categoría'}</span></p>
-                    <p>Marca: <span className="font-semibold">{selectedProducto.marca?.trim() || 'Sin marca'}</span></p>
-                    <p>Unidad: <span className="font-semibold">{selectedProducto.unidad || 'unidad'}</span></p>
-                    <p>Costeo: <span className="font-semibold">{metodoCosteoLabel(selectedProducto.metodoCosteo)}</span></p>
-                    <p>Precio costo: <span className="font-mono font-semibold">${fmt(selectedProducto.precioCosto)}</span></p>
-                    <p>Precio venta: <span className="font-mono font-semibold">${fmt(selectedProducto.precioVenta)}</span></p>
                   </div>
                 </div>
 
