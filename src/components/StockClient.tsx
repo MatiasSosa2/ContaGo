@@ -48,6 +48,16 @@ function fmtDate(d: Date | string) {
   return `${dd}/${mm}/${yyyy}`
 }
 
+function tipoLabel(tipo?: 'MERCADERIA' | 'SERVICIO') {
+  return tipo === 'SERVICIO' ? 'Servicio' : 'Mercadería'
+}
+
+function metodoCosteoLabel(metodo: string | null | undefined) {
+  if (metodo === 'FIFO') return 'FIFO'
+  if (metodo === 'LIFO') return 'LIFO'
+  return 'Promedio'
+}
+
 const LABEL_CLS = 'text-[11px] font-semibold uppercase tracking-[0.2em] text-[#374151] dark:text-[#E7F0E5]'
 const FIELD_CLS = 'h-9 rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#1B1B1B] dark:text-[#F8FAFC] dark:placeholder:text-[#8B938B]'
 const SELECT_CLS = FIELD_CLS
@@ -703,6 +713,18 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                           >
                             <td className="px-5 py-3">
                               <div className="text-sm font-semibold text-[#111827] dark:text-[#F8FAFC]">{prod.nombre}</div>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-[#6B7280] dark:text-[#C7D2C1]">
+                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">{tipoLabel(prod.tipo)}</span>
+                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">{prod.categoria?.trim() || 'Sin categoría'}</span>
+                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">Marca: {prod.marca?.trim() || 'Sin marca'}</span>
+                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">Unidad: {prod.unidad || 'unidad'}</span>
+                                <span className="rounded border border-[#E5E7EB] bg-[#F9FAFB] px-1.5 py-0.5 dark:border-white/10 dark:bg-[#141414]">Costeo: {metodoCosteoLabel(prod.metodoCosteo)}</span>
+                              </div>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[11px] text-[#4B5563] dark:text-[#C7D2C1]">
+                                <span>Precio costo: <span className="font-mono">${fmt(prod.precioCosto)}</span></span>
+                                <span>Precio venta: <span className="font-mono">${fmt(prod.precioVenta)}</span></span>
+                                <span>En tránsito: <span className="font-mono">{fmtUnits(prod.enTransito)}</span></span>
+                              </div>
                               {prod.descripcion && (
                                 <div className="mt-0.5 max-w-[280px] truncate text-[11px] text-[#6B7280] dark:text-[#C7D2C1]">{prod.descripcion}</div>
                               )}
@@ -904,6 +926,15 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                       <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">En tránsito</p>
                       <p className="mt-1 font-mono text-lg font-bold text-brand-military-dark dark:text-[#6EBC8A]">{fmtUnits(selectedProducto.enTransito)}</p>
                     </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[#4B5563] dark:text-[#C7D2C1]">
+                    <p>Tipo: <span className="font-semibold">{tipoLabel(selectedProducto.tipo)}</span></p>
+                    <p>Categoría: <span className="font-semibold">{selectedProducto.categoria?.trim() || 'Sin categoría'}</span></p>
+                    <p>Marca: <span className="font-semibold">{selectedProducto.marca?.trim() || 'Sin marca'}</span></p>
+                    <p>Unidad: <span className="font-semibold">{selectedProducto.unidad || 'unidad'}</span></p>
+                    <p>Costeo: <span className="font-semibold">{metodoCosteoLabel(selectedProducto.metodoCosteo)}</span></p>
+                    <p>Precio costo: <span className="font-mono font-semibold">${fmt(selectedProducto.precioCosto)}</span></p>
+                    <p>Precio venta: <span className="font-mono font-semibold">${fmt(selectedProducto.precioVenta)}</span></p>
                   </div>
                 </div>
 
