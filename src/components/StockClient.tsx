@@ -4,6 +4,15 @@ import React, { useState, useTransition } from 'react'
 import {
   getProductos, createProducto, updateProducto, deleteProducto, addMovimientoStock, getMovimientosStock,
 } from '@/app/actions'
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts'
 
 type Producto = {
   id: string; nombre: string; descripcion: string | null; categoria: string | null
@@ -20,6 +29,7 @@ type Movimiento = {
   fecha: Date | string
   tipo: 'ENTRADA' | 'SALIDA' | 'AJUSTE'
   cantidad: number
+  precio: number
   motivo: string | null
 }
 
@@ -71,6 +81,32 @@ const TIPO_COLORS = {
   SALIDA: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900',
   AJUSTE: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900',
 } as const
+
+const STOCK_CHART_COLORS = {
+  stock: '#1F6FEB',
+  stockDot: '#4EA1FF',
+  delta: '#7C8BA1',
+  precio: '#C67D18',
+  grid: '#E5E7EB',
+  axis: '#9CA3AF',
+} as const
+
+type MovimientoChartPoint = {
+  id: string
+  label: string
+  idx: number
+  tipo: Movimiento['tipo']
+  stock: number
+  delta: number
+  precio: number | null
+}
+
+function deltaFromMovimiento(mov: Movimiento): number {
+  const qty = Math.abs(mov.cantidad || 0)
+  if (mov.tipo === 'ENTRADA') return qty
+  if (mov.tipo === 'SALIDA') return -qty
+  return 0
+}
 
 function InputField({ label, name, type = 'text', step, defaultValue, required }: {
   label: string; name: string; type?: string; step?: string; defaultValue?: string | number; required?: boolean
@@ -388,6 +424,108 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual < 5).length
   const editingProd = editingId ? productos.find(p => p.id === editingId) : null
   const selectedProducto = selectedProductoId ? productos.find(p => p.id === selectedProductoId) : null
+  const stockInsights = (() => {
+    if (!selectedProducto) {
+      return {
+        points: [] as MovimientoChartPoint[],
+        entradasCount: 0,
+        salidasCount: 0,
+        ajustesCount: 0,
+        primerPrecio: 0,
+        ultimoPrecio: 0,
+        precioPromedioEntradas: 0,
+        precioMin: 0,
+        precioMax: 0,
+        precioConDatoCount: 0,
+        variacionPrecioAbs: 0,
+        variacionPrecioPct: 0,
+      }
+    }
+
+    const orderedDesc = [...movimientos].sort((a, b) => {
+      const da = new Date(a.fecha).getTime()
+      const db = new Date(b.fecha).getTime()
+      return db - da
+    })
+
+    let stockAfter = selectedProducto.stockActual ?? 0
+    const reversePoints: MovimientoChartPoint[] = []
+    let totalEntradas = 0
+    let totalSalidas = 0
+    let entradasCount = 0
+    let salidasCount = 0
+    let ajustesCount = 0
+    let precioConDatoCount = 0
+    let precioMin = Number.POSITIVE_INFINITY
+    let precioMax = Number.NEGATIVE_INFINITY
+    let precioWeightedSum = 0
+    let precioWeightedQty = 0
+
+    for (const mov of orderedDesc) {
+      const qty = Math.abs(mov.cantidad || 0)
+      const precio = Number.isFinite(mov.precio) ? mov.precio : 0
+      const delta = deltaFromMovimiento(mov)
+      const fechaLabel = fmtDate(mov.fecha)
+
+      reversePoints.push({
+        id: mov.id,
+        label: fechaLabel,
+        idx: 0,
+        tipo: mov.tipo,
+        stock: stockAfter,
+        delta,
+        precio: precio > 0 ? precio : null,
+      })
+
+      if (mov.tipo === 'ENTRADA') {
+        totalEntradas += qty
+        entradasCount += 1
+        if (precio > 0) {
+          precioWeightedSum += precio * qty
+          precioWeightedQty += qty
+        }
+      } else if (mov.tipo === 'SALIDA') {
+        totalSalidas += qty
+        salidasCount += 1
+      } else {
+        ajustesCount += 1
+      }
+
+      if (precio > 0) {
+        precioConDatoCount += 1
+        if (precio < precioMin) precioMin = precio
+        if (precio > precioMax) precioMax = precio
+      }
+
+      // Reconstruye el stock hacia atrás a partir del stock actual.
+      if (mov.tipo === 'ENTRADA') stockAfter -= qty
+      else if (mov.tipo === 'SALIDA') stockAfter += qty
+      else stockAfter = mov.cantidad
+    }
+
+    const points = reversePoints.reverse().map((point, i) => ({ ...point, idx: i + 1 }))
+    const precioPromedioEntradas = precioWeightedQty > 0 ? (precioWeightedSum / precioWeightedQty) : 0
+    const puntosConPrecio = points.filter(point => point.precio !== null)
+    const primerPrecio = puntosConPrecio.length > 0 ? (puntosConPrecio[0].precio ?? 0) : 0
+    const ultimoPrecio = puntosConPrecio.length > 0 ? (puntosConPrecio[puntosConPrecio.length - 1].precio ?? 0) : 0
+    const variacionPrecioAbs = ultimoPrecio - primerPrecio
+    const variacionPrecioPct = primerPrecio > 0 ? (variacionPrecioAbs / primerPrecio) * 100 : 0
+
+    return {
+      points,
+      entradasCount,
+      salidasCount,
+      ajustesCount,
+      primerPrecio,
+      ultimoPrecio,
+      precioPromedioEntradas,
+      precioMin: Number.isFinite(precioMin) ? precioMin : 0,
+      precioMax: Number.isFinite(precioMax) ? precioMax : 0,
+      precioConDatoCount,
+      variacionPrecioAbs,
+      variacionPrecioPct,
+    }
+  })()
   const categoriasExistentes = Array.from(
     new Set(
       productos
@@ -877,8 +1015,113 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               >✕</button>
             </div>
 
-            <div className="grid max-h-[calc(92vh-74px)] gap-0 overflow-y-auto lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="grid max-h-[calc(92vh-74px)] gap-0 overflow-y-auto lg:grid-cols-[1fr_1fr]">
               <div className="border-b border-[#E5E7EB] p-5 dark:border-white/10 lg:border-b-0 lg:border-r">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#C7D2C1]">Variación de precio (tiempo/valor)</p>
+                  <p className="text-[11px] text-[#9CA3AF]">Últimos {movimientos.length} registros</p>
+                </div>
+
+                <div className="border border-[#E5E7EB] bg-[#FCFCFB] p-4 dark:border-white/10 dark:bg-[#101010]">
+                  {stockInsights.points.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-[#D1D5DB] px-4 py-12 text-center text-xs text-[#9CA3AF] dark:border-white/10">
+                      Cargá movimientos para visualizar la serie precio-tiempo.
+                    </div>
+                  ) : (
+                    <div className="h-[420px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={stockInsights.points} margin={{ top: 8, right: 10, left: -8, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={STOCK_CHART_COLORS.grid} opacity={0.55} />
+                          <XAxis
+                            dataKey="label"
+                            stroke={STOCK_CHART_COLORS.axis}
+                            tick={{ fontSize: 10 }}
+                          />
+                          <YAxis
+                            yAxisId="precio"
+                            stroke={STOCK_CHART_COLORS.axis}
+                            tick={{ fontSize: 10 }}
+                            tickFormatter={(value) => `$${fmt(Number(value))}`}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              border: '1px solid #D1D5DB',
+                              borderRadius: 8,
+                              background: '#0B0F14',
+                              color: '#E5E7EB',
+                            }}
+                            labelFormatter={(value) => {
+                              const point = stockInsights.points.find(p => p.label === String(value))
+                              return point ? `${point.label} · ${point.tipo}` : String(value)
+                            }}
+                            formatter={(value, name) => {
+                              if (name === 'Precio') return [value ? `$${fmt(Number(value))}` : 'Sin precio', 'Precio']
+                              return [String(value), String(name)]
+                            }}
+                          />
+                          <Line
+                            yAxisId="precio"
+                            type="monotone"
+                            dataKey="precio"
+                            name="Precio"
+                            stroke={STOCK_CHART_COLORS.precio}
+                            strokeWidth={2.4}
+                            dot={{ r: 2.8 }}
+                            activeDot={{ r: 4 }}
+                            connectNulls
+                          />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-5">
+                <div className="mb-4 border border-[#E5E7EB] bg-[#FCFCFB] p-4 dark:border-white/10 dark:bg-[#101010]">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <p className={` ${META_LABEL_CLS}`}>Resumen de precio</p>
+                    <span className={`rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${stockInsights.variacionPrecioAbs >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
+                      {stockInsights.variacionPrecioAbs >= 0 ? 'Tendencia alcista' : 'Tendencia bajista'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
+                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                      <p className="uppercase tracking-wide text-[#9CA3AF]">Primer precio</p>
+                      <p className="mt-1 font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8]">${fmt(stockInsights.primerPrecio)}</p>
+                    </div>
+                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                      <p className="uppercase tracking-wide text-[#9CA3AF]">Último precio</p>
+                      <p className="mt-1 font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8]">${fmt(stockInsights.ultimoPrecio)}</p>
+                    </div>
+                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                      <p className="uppercase tracking-wide text-[#9CA3AF]">Promedio entradas</p>
+                      <p className="mt-1 font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8]">${fmt(stockInsights.precioPromedioEntradas)}</p>
+                    </div>
+                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                      <p className="uppercase tracking-wide text-[#9CA3AF]">Rango de precio</p>
+                      <p className="mt-1 font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8]">
+                        {stockInsights.precioConDatoCount > 0 ? `$${fmt(stockInsights.precioMin)} - $${fmt(stockInsights.precioMax)}` : 'Sin datos'}
+                      </p>
+                    </div>
+                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                      <p className="uppercase tracking-wide text-[#9CA3AF]">Variación</p>
+                      <p className={`mt-1 font-mono font-semibold ${stockInsights.variacionPrecioAbs >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
+                        {stockInsights.variacionPrecioAbs >= 0 ? '+' : ''}${fmt(stockInsights.variacionPrecioAbs)}
+                      </p>
+                    </div>
+                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                      <p className="uppercase tracking-wide text-[#9CA3AF]">Variación %</p>
+                      <p className={`mt-1 font-mono font-semibold ${stockInsights.variacionPrecioAbs >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
+                        {stockInsights.primerPrecio > 0 ? `${stockInsights.variacionPrecioPct >= 0 ? '+' : ''}${stockInsights.variacionPrecioPct.toFixed(2).replace('.', ',')}%` : 'Sin base'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-[#9CA3AF]">
+                    Registros: {stockInsights.entradasCount} entradas, {stockInsights.salidasCount} salidas, {stockInsights.ajustesCount} ajustes · con precio: {stockInsights.precioConDatoCount}.
+                  </p>
+                </div>
+
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <p className={` ${META_LABEL_CLS}`}>Historial</p>
@@ -893,7 +1136,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                   </button>
                 </div>
 
-                <div className="space-y-2">
+                <div className="mb-4 space-y-2">
                   {movimientos.length === 0 ? (
                     <div className="border border-dashed border-[#D1D5DB] px-4 py-8 text-center text-sm text-[#9CA3AF] dark:border-white/10">
                       Sin movimientos registrados para este producto.
@@ -913,27 +1156,12 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                         </div>
                         <div className="text-right">
                           <p className="font-mono text-sm font-bold text-[#1F2937] dark:text-[#E8E8E8] num-tabular">{fmtUnits(mov.cantidad)}</p>
+                          <p className="text-[11px] font-mono text-[#6B7280] dark:text-[#9CA3AF]">${fmt(mov.precio || 0)}</p>
                           <p className="text-[11px] text-[#9CA3AF]">unidades</p>
                         </div>
                       </div>
                     ))
                   )}
-                </div>
-              </div>
-
-              <div className="p-5">
-                <div className="mb-4">
-                  <p className={` ${META_LABEL_CLS}`}>Resumen del producto</p>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    <div className="border border-[#E5E7EB] bg-[#FCFCFB] px-3 py-3 dark:border-white/10 dark:bg-[#101010]">
-                      <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">Stock actual</p>
-                      <p className="mt-1 font-mono text-lg font-bold text-[#1F2937] dark:text-[#E8E8E8]">{fmtUnits(selectedProducto.stockActual)}</p>
-                    </div>
-                    <div className="border border-[#E5E7EB] bg-[#FCFCFB] px-3 py-3 dark:border-white/10 dark:bg-[#101010]">
-                      <p className="text-[11px] uppercase tracking-wide text-[#9CA3AF]">En tránsito</p>
-                      <p className="mt-1 font-mono text-lg font-bold text-brand-military-dark dark:text-[#6EBC8A]">{fmtUnits(selectedProducto.enTransito)}</p>
-                    </div>
-                  </div>
                 </div>
 
                 {showMovForm ? (
@@ -952,6 +1180,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                       </select>
                     </div>
                     <InputField label="Cantidad" name="cantidad" type="number" step="0.01" required defaultValue={1} />
+                    <InputField label="Precio unitario" name="precio" type="number" step="0.01" defaultValue={selectedProducto?.precioCosto ?? 0} />
                     <InputField label="Motivo" name="motivo" defaultValue="" />
                     {movError && (
                       <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
