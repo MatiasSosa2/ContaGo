@@ -861,34 +861,29 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
           </div>
         )}
 
-        <div className="border-t border-[#E5E7EB] bg-[#FCFCFB] px-5 py-4 dark:border-white/10 dark:bg-[#101010]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className={` ${META_LABEL_CLS}`}>Total del inventario</p>
-              <p className="mt-1 text-sm text-[#4B5563] dark:text-[#D1D5DB]">Resumen consolidado del stock, valorización, ingresos y ganancias.</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-md border border-[#E5E7EB] bg-white px-3 py-3 dark:border-white/10 dark:bg-[#161616]">
-                <p className={` ${META_LABEL_CLS}`}>Unidades</p>
-                <p className="mt-1 font-mono text-base font-bold text-[#111827] dark:text-[#F8FAFC]">{fmtUnits(totalGeneral.unidades)}</p>
-              </div>
-              <div className="rounded-md border border-[#E5E7EB] bg-white px-3 py-3 dark:border-white/10 dark:bg-[#161616]">
-                <p className={` ${META_LABEL_CLS}`}>Valorizado</p>
-                <p className="mt-1 font-mono text-base font-bold text-[#111827] dark:text-[#F8FAFC]">${fmt(totalGeneral.valorizado)}</p>
-              </div>
-              <div className="rounded-md border border-[#E5E7EB] bg-white px-3 py-3 dark:border-white/10 dark:bg-[#161616]">
-                <p className={` ${META_LABEL_CLS}`}>Ganancia</p>
-                <p className="mt-1 font-mono text-base font-bold text-brand-military-dark dark:text-[#6EBC8A]">${fmt(totalGeneral.ganancia)}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="flex items-center justify-between border-t border-[#E5E7EB] bg-[#FCFCFB] px-5 py-3 text-xs text-[#9CA3AF] dark:border-white/10 dark:bg-[#101010]">
           <span>Mostrando {filtrados.length} producto{filtrados.length !== 1 ? 's' : ''}</span>
           <span>{sinStock} sin stock · {bajoStock} con stock bajo</span>
         </div>
       </div>
+
+      <section className="executive-panel overflow-hidden" aria-label="Totales de inventario">
+        <div className="overflow-x-auto">
+          <div className="min-w-[820px] border-t border-[#D1D5DB] bg-gradient-to-r from-[#F8F7F2] via-[#FCFCFA] to-[#F8F7F2] dark:border-white/10 dark:from-[#121212] dark:via-[#151515] dark:to-[#121212]">
+            <div className="grid grid-cols-[38%_repeat(4,minmax(0,1fr))_80px] items-center">
+              <p className="px-5 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-[#111827] dark:text-[#F8FAFC]">Total general</p>
+              <p className="px-4 py-3 text-right font-mono text-sm font-bold text-[#111827] dark:text-[#F8FAFC] num-tabular">{fmtUnits(totalGeneral.unidades)}</p>
+              <p className="px-4 py-3 text-right font-mono text-sm font-bold text-[#111827] dark:text-[#F8FAFC] num-tabular">${fmt(totalGeneral.valorizado)}</p>
+              <p className="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-700 dark:text-emerald-300 num-tabular">${fmt(totalGeneral.ingresos)}</p>
+              <p className="px-4 py-3 text-right font-mono text-sm font-bold num-tabular">
+                <span className="text-sky-700 dark:text-sky-300">${fmt(totalGeneral.ganancia)}</span>
+                <span className="ml-1.5 text-[11px] font-semibold text-[#6B7280] dark:text-[#B8C3B1]">{pctMargen(totalGeneral.ganancia, totalGeneral.ingresos).toFixed(1).replace('.', ',')}%</span>
+              </p>
+              <span className="px-4 py-3 print-hide" aria-hidden></span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ── Modal crear/editar producto ── */}
       {showForm && (
@@ -938,13 +933,13 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
             </div>
 
             <div className="grid max-h-[calc(92vh-74px)] gap-0 overflow-y-auto lg:grid-cols-[1fr_1fr]">
-              <div className="border-b border-[#E5E7EB] p-5 dark:border-white/10 lg:border-b-0 lg:border-r">
+              <div className="border-b border-[#E5E7EB] p-5 dark:border-white/10 lg:border-b-0 lg:border-r lg:p-6">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#C7D2C1]">Variación de precio (tiempo/valor)</p>
                   <p className="text-[11px] text-[#9CA3AF]">Últimos {movimientos.length} registros</p>
                 </div>
 
-                <div className="border border-[#E5E7EB] bg-[#FCFCFB] p-4 dark:border-white/10 dark:bg-[#101010]">
+                <div className="rounded-xl border border-[#E5E7EB] bg-gradient-to-b from-[#FFFFFF] to-[#FAFAF8] p-4 shadow-sm dark:border-white/10 dark:from-[#141414] dark:to-[#101010]">
                   {stockInsights.points.length === 0 ? (
                     <div className="rounded-md border border-dashed border-[#D1D5DB] px-4 py-12 text-center text-xs text-[#9CA3AF] dark:border-white/10">
                       Cargá movimientos para visualizar la serie precio-tiempo.
@@ -999,37 +994,37 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                 </div>
               </div>
 
-              <div className="p-5">
-                <div className="mb-4 border border-[#E5E7EB] bg-[#FCFCFB] p-4 dark:border-white/10 dark:bg-[#101010]">
+              <div className="p-5 lg:p-6">
+                <div className="mb-5 rounded-xl border border-[#E5E7EB] bg-gradient-to-b from-[#FFFFFF] to-[#FAFAF8] p-4 shadow-sm dark:border-white/10 dark:from-[#141414] dark:to-[#101010]">
                   <p className={META_LABEL_CLS}>Producto</p>
-                  <h4 className="mt-1 text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{selectedProducto.nombre}</h4>
-                  <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-3">
-                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                  <h4 className="mt-1 text-base font-semibold leading-tight text-[#111827] dark:text-[#F3F4F6]">{selectedProducto.nombre}</h4>
+                  <div className="mt-3 grid grid-cols-1 gap-2.5 text-[11px] sm:grid-cols-3">
+                    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/10 dark:bg-[#151515]">
                       <p className="uppercase tracking-wide text-[#9CA3AF]">Precio unitario</p>
-                      <p className="mt-1 font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8]">${fmt(selectedProducto.precioVenta)}</p>
+                      <p className="mt-1 font-mono text-base font-semibold text-[#111827] dark:text-[#F3F4F6]">${fmt(selectedProducto.precioVenta)}</p>
                     </div>
-                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/10 dark:bg-[#151515]">
                       <p className="uppercase tracking-wide text-[#9CA3AF]">Costo unitario</p>
-                      <p className="mt-1 font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8]">${fmt(selectedProducto.precioCosto)}</p>
+                      <p className="mt-1 font-mono text-base font-semibold text-[#111827] dark:text-[#F3F4F6]">${fmt(selectedProducto.precioCosto)}</p>
                     </div>
-                    <div className="rounded border border-[#E5E7EB] bg-white px-2.5 py-2 dark:border-white/10 dark:bg-[#151515]">
+                    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/10 dark:bg-[#151515]">
                       <p className="uppercase tracking-wide text-[#9CA3AF]">Ganancia unitaria</p>
-                      <p className={`mt-1 font-mono font-semibold ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
+                      <p className={`mt-1 font-mono text-base font-semibold ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
                         ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? '+' : ''}{fmt(selectedProducto.precioVenta - selectedProducto.precioCosto)}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
                     <p className={` ${META_LABEL_CLS}`}>Historial</p>
-                    <p className="mt-1 text-sm text-[#4B5563] dark:text-[#C9CDD3]">Entradas, salidas y ajustes registrados para este producto.</p>
+                    <p className="mt-1 text-sm text-[#6B7280] dark:text-[#B9C0C9]">Entradas, salidas y ajustes registrados para este producto.</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => { setShowMovForm(value => !value); setMovError('') }}
-                    className="border border-[#D1D5DB] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#57534E] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB]"
+                    className="rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#57534E] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:bg-[#151515] dark:text-[#D1D5DB]"
                   >
                     {showMovForm ? 'Ocultar formulario' : 'Registrar movimiento'}
                   </button>
@@ -1037,14 +1032,14 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
 
                 <div className="mb-4 space-y-2">
                   {movimientos.length === 0 ? (
-                    <div className="border border-dashed border-[#D1D5DB] px-4 py-8 text-center text-sm text-[#9CA3AF] dark:border-white/10">
+                    <div className="rounded-lg border border-dashed border-[#D1D5DB] bg-[#FCFCFB] px-4 py-8 text-center text-sm text-[#9CA3AF] dark:border-white/10 dark:bg-[#101010]">
                       Sin movimientos registrados para este producto.
                     </div>
                   ) : (
                     movimientos.map(mov => (
                       <div
                         key={mov.id}
-                        className="flex items-start justify-between gap-3 border border-[#E5E7EB] bg-[#FCFCFB] px-4 py-3 dark:border-white/10 dark:bg-[#101010]"
+                        className="flex items-start justify-between gap-3 rounded-lg border border-[#E5E7EB] bg-[#FCFCFB] px-4 py-3 transition-colors hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-[#101010] dark:hover:bg-[#141414]"
                       >
                         <div className="space-y-1">
                           <div className={`inline-flex border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${TIPO_COLORS[mov.tipo]}`}>
@@ -1064,7 +1059,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                 </div>
 
                 {showMovForm ? (
-                  <form onSubmit={handleAgregarMov} className="space-y-4 rounded-md border border-[#D1D5DB] bg-[#FAFAF9] p-4 dark:border-white/10 dark:bg-[#0F0F0F]">
+                  <form onSubmit={handleAgregarMov} className="space-y-4 rounded-xl border border-[#D1D5DB] bg-[#FAFAF9] p-4 shadow-sm dark:border-white/10 dark:bg-[#0F0F0F]">
                     <h4 className={SECTION_HEADING_CLS}>Registrar movimiento</h4>
                     <div className="flex flex-col gap-1.5">
                       <label className={LABEL_CLS}>Tipo</label>
@@ -1104,7 +1099,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                     </div>
                   </form>
                 ) : (
-                  <div className="rounded-md border border-dashed border-[#D1D5DB] px-4 py-10 text-center text-sm text-[#9CA3AF] dark:border-white/10">
+                  <div className="rounded-xl border border-dashed border-[#D1D5DB] bg-[#FCFCFB] px-4 py-10 text-center text-sm text-[#9CA3AF] dark:border-white/10 dark:bg-[#101010]">
                     Usá Registrar movimiento para cargar una entrada, salida o ajuste.
                   </div>
                 )}
