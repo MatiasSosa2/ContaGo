@@ -156,7 +156,6 @@ function ProductoFormBody({
             <p>Unidad: <span className="font-semibold">{editingProd.unidad || 'unidad'}</span></p>
             <p>Costeo: <span className="font-semibold">{metodoCosteoLabel(editingProd.metodoCosteo)}</span></p>
             <p>Stock actual: <span className="font-mono font-semibold">{fmtUnits(editingProd.stockActual)}</span></p>
-            <p>En tránsito: <span className="font-mono font-semibold">{fmtUnits(editingProd.enTransito)}</span></p>
             <p>Precio costo: <span className="font-mono font-semibold">${fmt(editingProd.precioCosto)}</span></p>
             <p>Precio venta: <span className="font-mono font-semibold">${fmt(editingProd.precioVenta)}</span></p>
           </div>
@@ -230,9 +229,6 @@ function ProductoFormBody({
           </div>
           <div className="col-span-2">
             <InputField label="Stock inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
-          </div>
-          <div className="col-span-2">
-            <InputField label="En tránsito" name="enTransito" type="number" step="0.01" defaultValue={editingProd?.enTransito ?? 0} />
           </div>
           <div className="col-span-2">
             <InputField label="Precio costo" name="precioCosto" type="number" step="0.01" defaultValue={editingProd?.precioCosto ?? 0} />
@@ -890,12 +886,9 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-3xl max-h-[92vh] overflow-hidden border border-[#D1D5DB] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[#0B0F14]">
             <div className="flex items-start justify-between border-b border-[#E5E7EB] bg-[#111827] px-5 py-4 dark:border-white/10 dark:bg-[#0B0F14]">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Inventario · Productos</p>
-                <h3 className="mt-1 text-base font-semibold text-slate-100">
-                  {editingId ? 'Editar producto' : 'Nuevo producto'}
-                </h3>
-              </div>
+              <h3 className="text-base font-semibold text-slate-100">
+                {editingId ? 'Editar producto' : 'Nuevo producto'}
+              </h3>
               <button
                 onClick={() => { setShowForm(false); setEditingId(null); setFormError('') }}
                 className="border border-white/20 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-slate-200 transition hover:bg-white/20 hover:text-white"
