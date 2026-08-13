@@ -13,6 +13,12 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts'
+import {
+  FiPackage,
+  FiDollarSign,
+  FiTag,
+  FiTrendingUp,
+} from 'react-icons/fi'
 
 type Producto = {
   id: string; nombre: string; descripcion: string | null; categoria: string | null
@@ -83,7 +89,7 @@ const TIPO_COLORS = {
 } as const
 
 const STOCK_CHART_COLORS = {
-  precio: '#C67D18',
+  precio: '#475569',
   grid: '#E5E7EB',
   axis: '#9CA3AF',
 } as const
@@ -96,7 +102,19 @@ type MovimientoChartPoint = {
   precio: number
 }
 
-function InputField({ label, name, type = 'text', step, defaultValue, required, helperText, helperPosition = 'above', singleLineLabel = false }: {
+function InputField({
+  label,
+  name,
+  type = 'text',
+  step,
+  defaultValue,
+  required,
+  helperText,
+  helperPosition = 'above',
+  singleLineLabel = false,
+  containerClassName = '',
+  inputClassName = '',
+}: {
   label: string
   name: string
   type?: string
@@ -106,22 +124,28 @@ function InputField({ label, name, type = 'text', step, defaultValue, required, 
   helperText?: string
   helperPosition?: 'above' | 'below'
   singleLineLabel?: boolean
+  containerClassName?: string
+  inputClassName?: string
 }) {
   const isNumeric = type === 'number'
   const labelClass = `${LABEL_CLS} ${singleLineLabel ? 'whitespace-nowrap' : ''}`
 
   return (
-    <div className="flex flex-col gap-1">
-      {helperPosition === 'above' && helperText && (
-        <div className="flex items-center justify-between gap-2">
+    <div className={`flex flex-col gap-1 ${containerClassName}`}>
+      {helperPosition === 'above' && (
+        helperText ? (
+          <div className="flex items-center justify-between gap-2">
+            <label className={labelClass}>{label}</label>
+            <span className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#6B7280] dark:text-[#B7C3B0]">
+              {helperText}
+            </span>
+          </div>
+        ) : (
           <label className={labelClass}>{label}</label>
-          <span className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#6B7280] dark:text-[#B7C3B0]">
-            {helperText}
-          </span>
-        </div>
+        )
       )}
 
-      {helperPosition !== 'above' && <label className={labelClass}>{label}</label>}
+      {helperPosition === 'below' && <label className={labelClass}>{label}</label>}
 
       <input
         name={name}
@@ -129,7 +153,7 @@ function InputField({ label, name, type = 'text', step, defaultValue, required, 
         step={step}
         defaultValue={defaultValue}
         required={required}
-        className={`${FIELD_CLS} ${isNumeric ? 'font-mono tabular-nums' : ''}`}
+        className={`${FIELD_CLS} ${isNumeric ? 'font-sans tabular-nums' : ''} ${inputClassName}`}
       />
 
       {helperPosition === 'below' && helperText && (
@@ -137,8 +161,6 @@ function InputField({ label, name, type = 'text', step, defaultValue, required, 
           {helperText}
         </span>
       )}
-
-      {helperPosition === 'above' && !helperText && <label className={labelClass}>{label}</label>}
     </div>
   )
 }
@@ -294,32 +316,46 @@ function ProductoFormBody({
 
       <section className="border-t border-[#E5E7EB] px-5 py-4 dark:border-white/10">
         <h4 className={SECTION_HEADING_CLS}>Inventario y precios</h4>
-        <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-4 flex flex-col gap-1">
-            <label className={LABEL_CLS}>Método de costeo</label>
-            <div className="flex h-9 items-center rounded-md border border-[#D1D5DB] bg-[#F3F4F6] px-3 text-sm text-[#111827] dark:border-white/10 dark:bg-[#161616] dark:text-[#F3F4F6]">
-              Promedio ponderado
-            </div>
-            <input type="hidden" name="metodoCosteo" value="PROMEDIO" />
+
+        <div className="mb-4 flex flex-col gap-1">
+          <label className={LABEL_CLS}>Método de costeo</label>
+          <div className="flex h-12 items-center rounded-md border border-[#D1D5DB] bg-[#F3F4F6] px-3 text-sm text-[#111827] dark:border-white/10 dark:bg-[#161616] dark:text-[#F3F4F6]">
+            Promedio ponderado
           </div>
-          <div className="col-span-2">
-            <InputField label="Stock inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
-          </div>
-          <div className="col-span-2">
-            <InputField
-              label="Costo unitario"
-              name="precioCosto"
-              type="number"
-              step="0.01"
-              defaultValue={editingProd?.precioCosto ?? 0}
-              helperText={costoUnitarioHelper}
-              helperPosition="below"
-              singleLineLabel
-            />
-          </div>
-          <div className="col-span-2">
-            <InputField label="Precio venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
-          </div>
+          <input type="hidden" name="metodoCosteo" value="PROMEDIO" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <InputField
+            label="Stock inicial"
+            name="stockActual"
+            type="number"
+            step="0.01"
+            defaultValue={editingProd?.stockActual ?? 0}
+            containerClassName="min-w-0"
+            inputClassName="h-12 text-base px-4"
+          />
+          <InputField
+            label="Costo unitario"
+            name="precioCosto"
+            type="number"
+            step="0.01"
+            defaultValue={editingProd?.precioCosto ?? 0}
+            helperText={costoUnitarioHelper}
+            helperPosition="below"
+            singleLineLabel
+            containerClassName="min-w-0"
+            inputClassName="h-12 text-base px-4"
+          />
+          <InputField
+            label="Precio venta"
+            name="precioVenta"
+            type="number"
+            step="0.01"
+            defaultValue={editingProd?.precioVenta ?? 0}
+            containerClassName="min-w-0"
+            inputClassName="h-12 text-base px-4"
+          />
         </div>
       </section>
 
@@ -670,7 +706,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const diagnosticoStyles = {
     ok:       { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#16A34A] dark:text-[#6EE7B7]', dot: 'bg-[#22C55E]' },
     neutral:  { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#6B7280] dark:text-[#9CA3AF]', dot: 'bg-[#9CA3AF]' },
-    alerta:   { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#B45309] dark:text-[#F59E0B]', dot: 'bg-[#F59E0B]' },
+    alerta:   { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#4B5563] dark:text-[#E5E7EB]', dot: 'bg-[#6B7280]' },
     critico:  { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#B91C1C] dark:text-[#FCA5A5]', dot: 'bg-[#EF4444]' },
   }[diagnostico.tono]
 
@@ -1026,25 +1062,31 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                   ) : (
                     <div className="h-[420px] w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={stockInsights.points} margin={{ top: 8, right: 10, left: -8, bottom: 8 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={STOCK_CHART_COLORS.grid} opacity={0.55} />
+                        <ComposedChart data={stockInsights.points} margin={{ top: 8, right: 12, left: -8, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.7} vertical={false} />
                           <XAxis
                             dataKey="label"
-                            stroke={STOCK_CHART_COLORS.axis}
-                            tick={{ fontSize: 10 }}
+                            stroke="#94A3B8"
+                            tick={{ fontSize: 10, fill: '#64748B' }}
+                            tickLine={false}
+                            axisLine={false}
                           />
                           <YAxis
                             yAxisId="precio"
-                            stroke={STOCK_CHART_COLORS.axis}
-                            tick={{ fontSize: 10 }}
+                            stroke="#94A3B8"
+                            tick={{ fontSize: 10, fill: '#64748B' }}
+                            tickLine={false}
+                            axisLine={false}
                             tickFormatter={(value) => `$${fmt(Number(value))}`}
                           />
                           <Tooltip
+                            cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
                             contentStyle={{
-                              border: '1px solid #D1D5DB',
-                              borderRadius: 8,
-                              background: '#0B0F14',
-                              color: '#E5E7EB',
+                              border: '1px solid #E2E8F0',
+                              borderRadius: 10,
+                              background: '#0F172A',
+                              color: '#E2E8F0',
+                              boxShadow: '0 8px 18px rgba(15, 23, 42, 0.12)',
                             }}
                             labelFormatter={(value) => {
                               const point = stockInsights.points.find(p => p.label === String(value))
@@ -1061,9 +1103,25 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                             dataKey="precio"
                             name="Precio"
                             stroke={STOCK_CHART_COLORS.precio}
-                            strokeWidth={2.4}
-                            dot={{ r: 2.8 }}
-                            activeDot={{ r: 4 }}
+                            strokeWidth={3}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            dot={(props: any) => {
+                              const { cx, cy, payload } = props
+                              if (typeof cx !== 'number' || typeof cy !== 'number') return null
+                              return (
+                                <circle
+                                  key={payload?.id ?? `${cx}-${cy}`}
+                                  cx={cx}
+                                  cy={cy}
+                                  r={4.5}
+                                  fill="#F8FAFC"
+                                  stroke={STOCK_CHART_COLORS.precio}
+                                  strokeWidth={2.5}
+                                />
+                              )
+                            }}
+                            activeDot={{ r: 6, fill: '#475569', stroke: '#FFF', strokeWidth: 2 }}
                             connectNulls
                           />
                         </ComposedChart>
@@ -1074,72 +1132,90 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               </div>
 
               <div className="p-5 lg:p-6">
-                <div className="mb-5 rounded-xl border border-[#E5E7EB] bg-gradient-to-b from-[#FFFFFF] to-[#FAFAF8] p-4 shadow-sm dark:border-white/10 dark:from-[#141414] dark:to-[#101010]">
-                  <p className={META_LABEL_CLS}>Producto</p>
-                  <h4 className="mt-1 text-base font-semibold leading-tight text-[#111827] dark:text-[#F3F4F6]">{selectedProducto.nombre}</h4>
-                  <div className="mt-3 grid grid-cols-1 gap-2.5 text-[11px] sm:grid-cols-3">
-                    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/10 dark:bg-[#151515]">
-                      <p className="uppercase tracking-wide text-[#9CA3AF]">Precio unitario</p>
-                      <p className="mt-1 font-mono text-base font-semibold text-[#111827] dark:text-[#F3F4F6]">${fmt(selectedProducto.precioVenta)}</p>
-                    </div>
-                    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/10 dark:bg-[#151515]">
-                      <p className="uppercase tracking-wide text-[#9CA3AF]">Costo unitario</p>
-                      <p className="mt-1 font-mono text-base font-semibold text-[#111827] dark:text-[#F3F4F6]">${fmt(selectedProducto.precioCosto)}</p>
-                    </div>
-                    <div className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] dark:border-white/10 dark:bg-[#151515]">
-                      <p className="uppercase tracking-wide text-[#9CA3AF]">Ganancia unitaria</p>
-                      <p className={`mt-1 font-mono text-base font-semibold ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
-                        ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? '+' : ''}{fmt(selectedProducto.precioVenta - selectedProducto.precioCosto)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <p className={` ${META_LABEL_CLS}`}>Historial</p>
-                    <p className="mt-1 text-sm text-[#6B7280] dark:text-[#B9C0C9]">Entradas, salidas y ajustes registrados para este producto.</p>
-                  </div>
+                <div className="mb-4 flex items-center justify-end">
                   <button
                     type="button"
                     onClick={() => { setShowMovForm(value => !value); setMovError('') }}
-                    className="rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#57534E] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:bg-[#151515] dark:text-[#D1D5DB]"
+                    className="rounded-none border border-[#D1D5DB] bg-[#F3F4F6] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#374151] shadow-sm transition hover:border-[#9CA3AF] hover:text-[#111827] dark:border-white/10 dark:bg-[#1F2937] dark:text-[#E5E7EB] dark:hover:border-white/20 dark:hover:text-white"
                   >
                     {showMovForm ? 'Ocultar formulario' : 'Registrar movimiento'}
                   </button>
                 </div>
 
-                <div className="mb-4 space-y-2">
-                  {movimientos.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-[#D1D5DB] bg-[#FCFCFB] px-4 py-8 text-center text-sm text-[#9CA3AF] dark:border-white/10 dark:bg-[#101010]">
-                      Sin movimientos registrados para este producto.
-                    </div>
-                  ) : (
-                    movimientos.map(mov => (
-                      <div
-                        key={mov.id}
-                        className="flex items-start justify-between gap-3 rounded-lg border border-[#E5E7EB] bg-[#FCFCFB] px-4 py-3 transition-colors hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-[#101010] dark:hover:bg-[#141414]"
-                      >
-                        <div className="space-y-1">
-                          <div className={`inline-flex border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${TIPO_COLORS[mov.tipo]}`}>
-                            {mov.tipo}
-                          </div>
-                          <p className="text-sm font-medium text-[#1F2937] dark:text-[#E8E8E8]">{mov.motivo || 'Sin detalle cargado'}</p>
-                          <p className="text-[11px] text-[#9CA3AF]">{fmtDate(mov.fecha)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-mono text-sm font-bold text-[#1F2937] dark:text-[#E8E8E8] num-tabular">{fmtUnits(mov.cantidad)}</p>
-                          <p className="text-[11px] font-mono text-[#6B7280] dark:text-[#9CA3AF]">${fmt(mov.precio || 0)}</p>
-                          <p className="text-[11px] text-[#9CA3AF]">unidades</p>
+                <div className="mb-5 border border-[#E5E7EB] bg-[#F9FAFB] p-3 dark:border-white/10 dark:bg-[#111111]">
+                  <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#E5E7EB] pb-2 dark:border-white/10">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#CBD5E1]">Resumen de Producto</p>
+                    <span className="text-[10px] text-[#9CA3AF] dark:text-[#94A3B8]">{selectedProducto.unidad}</span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <div className="flex items-start gap-3 border border-[#E5E7EB] bg-white p-3 dark:border-[#1E293B] dark:bg-[#111827]">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#F3F4F6] text-[#374151] dark:bg-[#1E293B] dark:text-[#E2E8F0]">
+                        <FiPackage className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280] dark:text-[#CBD5E1]">Nombre</p>
+                        <h4 className="mt-1 text-base font-semibold leading-tight text-[#111827] dark:text-[#F8FAFC]">{selectedProducto.nombre}</h4>
+                        <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-[#6B7280] dark:text-[#C7D2C1]">
+                          {selectedProducto.categoria && (
+                            <span className="border border-[#E5E7EB] bg-[#F9FAFB] px-2 py-0.5 dark:border-[#334155] dark:bg-[#0B1220]">{selectedProducto.categoria}</span>
+                          )}
+                          {selectedProducto.marca && (
+                            <span className="border border-[#E5E7EB] bg-[#F9FAFB] px-2 py-0.5 dark:border-[#334155] dark:bg-[#0B1220]">{selectedProducto.marca}</span>
+                          )}
                         </div>
                       </div>
-                    ))
-                  )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 border border-[#E5E7EB] bg-white p-3 dark:border-[#1E293B] dark:bg-[#111827]">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#F3F4F6] text-[#374151] dark:bg-[#1E293B] dark:text-[#E2E8F0]">
+                          <FiDollarSign className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280] dark:text-[#CBD5E1]">Precio unitario</p>
+                          <p className="mt-1 font-sans text-base font-semibold text-[#111827] dark:text-[#F8FAFC]">${fmt(selectedProducto.precioVenta)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 border border-[#E5E7EB] bg-white p-3 dark:border-[#1E293B] dark:bg-[#111827]">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#F3F4F6] text-[#374151] dark:bg-[#1E293B] dark:text-[#E2E8F0]">
+                          <FiTag className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280] dark:text-[#CBD5E1]">Costo unitario</p>
+                          <p className="mt-1 font-sans text-base font-semibold text-[#111827] dark:text-[#F8FAFC]">${fmt(selectedProducto.precioCosto)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 border border-[#E5E7EB] bg-white p-3 dark:border-[#1E293B] dark:bg-[#111827]">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#F3F4F6] text-[#374151] dark:bg-[#1E293B] dark:text-[#E2E8F0]">
+                          <FiTrendingUp className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280] dark:text-[#CBD5E1]">Ganancia unitaria</p>
+                          <p className={`mt-1 font-sans text-base font-semibold ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
+                            ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? '+' : ''}{fmt(selectedProducto.precioVenta - selectedProducto.precioCosto)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={`flex h-8 min-w-[64px] items-center justify-center border px-2 text-[10px] font-bold uppercase tracking-[0.18em] ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200' : 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200'}`}>
+                        {selectedProducto.precioCosto > 0
+                          ? `${(((selectedProducto.precioVenta - selectedProducto.precioCosto) / selectedProducto.precioCosto) * 100) >= 0 ? '+' : ''}${fmt(((((selectedProducto.precioVenta - selectedProducto.precioCosto) / selectedProducto.precioCosto) * 100)))}%`
+                          : '0%'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {showMovForm ? (
                   <form onSubmit={handleAgregarMov} className="space-y-4 rounded-xl border border-[#D1D5DB] bg-[#FAFAF9] p-4 shadow-sm dark:border-white/10 dark:bg-[#0F0F0F]">
-                    <h4 className={SECTION_HEADING_CLS}>Registrar movimiento</h4>
+                    <h4 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#D9E7D7]">Registrar movimiento</h4>
                     <div className="flex flex-col gap-1.5">
                       <label className={LABEL_CLS}>Tipo</label>
                       <select
@@ -1171,17 +1247,13 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                       <button
                         type="submit"
                         disabled={isPending}
-                        className="rounded-md bg-brand-military px-5 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition hover:bg-brand-military-dark disabled:opacity-50"
+                        className="rounded-md bg-[#374151] px-5 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition hover:bg-[#111827] disabled:opacity-50"
                       >
                         Guardar movimiento
                       </button>
                     </div>
                   </form>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-[#D1D5DB] bg-[#FCFCFB] px-4 py-10 text-center text-sm text-[#9CA3AF] dark:border-white/10 dark:bg-[#101010]">
-                    Usá Registrar movimiento para cargar una entrada, salida o ajuste.
-                  </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
