@@ -59,7 +59,7 @@ function fmtDate(d: Date | string) {
 }
 
 function tipoLabel(tipo?: 'MERCADERIA' | 'SERVICIO') {
-  return tipo === 'SERVICIO' ? 'Servicio' : 'Mercadería'
+  return tipo === 'SERVICIO' ? 'Servicio' : 'Producto'
 }
 
 function metodoCosteoLabel(metodo: string | null | undefined) {
@@ -96,17 +96,49 @@ type MovimientoChartPoint = {
   precio: number
 }
 
-function InputField({ label, name, type = 'text', step, defaultValue, required }: {
-  label: string; name: string; type?: string; step?: string; defaultValue?: string | number; required?: boolean
+function InputField({ label, name, type = 'text', step, defaultValue, required, helperText, helperPosition = 'above', singleLineLabel = false }: {
+  label: string
+  name: string
+  type?: string
+  step?: string
+  defaultValue?: string | number
+  required?: boolean
+  helperText?: string
+  helperPosition?: 'above' | 'below'
+  singleLineLabel?: boolean
 }) {
   const isNumeric = type === 'number'
+  const labelClass = `${LABEL_CLS} ${singleLineLabel ? 'whitespace-nowrap' : ''}`
+
   return (
     <div className="flex flex-col gap-1">
-      <label className={LABEL_CLS}>{label}</label>
+      {helperPosition === 'above' && helperText && (
+        <div className="flex items-center justify-between gap-2">
+          <label className={labelClass}>{label}</label>
+          <span className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#6B7280] dark:text-[#B7C3B0]">
+            {helperText}
+          </span>
+        </div>
+      )}
+
+      {helperPosition !== 'above' && <label className={labelClass}>{label}</label>}
+
       <input
-        name={name} type={type} step={step} defaultValue={defaultValue} required={required}
+        name={name}
+        type={type}
+        step={step}
+        defaultValue={defaultValue}
+        required={required}
         className={`${FIELD_CLS} ${isNumeric ? 'font-mono tabular-nums' : ''}`}
       />
+
+      {helperPosition === 'below' && helperText && (
+        <span className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#6B7280] dark:text-[#B7C3B0] leading-none">
+          {helperText}
+        </span>
+      )}
+
+      {helperPosition === 'above' && !helperText && <label className={labelClass}>{label}</label>}
     </div>
   )
 }
@@ -144,6 +176,23 @@ function ProductoFormBody({
   const [catNew, setCatNew] = useState(initialCatExists ? '' : initialCat)
   const categoriaValue = (catMode === 'pick' ? catPick : catNew).trim()
 
+  const unidadOptions = ['unidad', 'kg', 'gr', 'lt', 'ml', 'm', 'cm', 'caja', 'pack', 'bulto', 'rollo', 'docena']
+  const unidadInicial = (editingProd?.unidad || 'unidad').trim()
+  const unidadInicialEsLista = unidadOptions.includes(unidadInicial.toLowerCase())
+  const [unidadMode, setUnidadMode] = useState<'pick' | 'custom'>(unidadInicialEsLista ? 'pick' : 'custom')
+  const [unidadPick, setUnidadPick] = useState(unidadInicialEsLista ? unidadInicial.toLowerCase() : 'unidad')
+  const [unidadCustom, setUnidadCustom] = useState(unidadInicialEsLista ? '' : unidadInicial)
+  const unidadValue = (unidadMode === 'pick' ? unidadPick : unidadCustom).trim() || 'unidad'
+
+  const costoUnitarioHelper = (() => {
+    const base = unidadValue.toLowerCase()
+    if (base === 'kg' || base === 'gr') return 'por kg'
+    if (base === 'lt' || base === 'ml' || base === 'l') return 'por litro'
+    if (base === 'm' || base === 'cm') return 'por metro'
+    if (base === 'unidad' || base === 'u') return 'por unidad'
+    return `por ${base || 'unidad'}`
+  })()
+
   return (
     <form onSubmit={onSubmit} className="bg-white dark:bg-[#0F0F0F]">
       {editingProd && (
@@ -171,7 +220,7 @@ function ProductoFormBody({
           <div className="col-span-4 flex flex-col gap-1">
             <label className={LABEL_CLS}>Tipo</label>
             <select name="tipo" defaultValue={editingProd?.tipo || 'MERCADERIA'} className={SELECT_CLS}>
-              <option value="MERCADERIA">Mercadería</option>
+              <option value="MERCADERIA">Producto</option>
               <option value="SERVICIO">Servicio</option>
             </select>
           </div>
@@ -210,8 +259,35 @@ function ProductoFormBody({
           <div className="col-span-4">
             <InputField label="Marca" name="marca" defaultValue={editingProd?.marca || ''} />
           </div>
-          <div className="col-span-4">
-            <InputField label="Unidad" name="unidad" defaultValue={editingProd?.unidad || 'unidad'} />
+          <div className="col-span-4 flex flex-col gap-1">
+            <label className={LABEL_CLS}>Unidad</label>
+            <select
+              value={unidadMode === 'pick' ? unidadPick : '__custom__'}
+              onChange={(e) => {
+                if (e.target.value === '__custom__') {
+                  setUnidadMode('custom')
+                } else {
+                  setUnidadMode('pick')
+                  setUnidadPick(e.target.value)
+                }
+              }}
+              className={SELECT_CLS}
+            >
+              {unidadOptions.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+              <option value="__custom__">Otro +</option>
+            </select>
+            {unidadMode === 'custom' && (
+              <input
+                type="text"
+                value={unidadCustom}
+                onChange={(e) => setUnidadCustom(e.target.value)}
+                placeholder="Ingresá la unidad"
+                className={FIELD_CLS}
+              />
+            )}
+            <input type="hidden" name="unidad" value={unidadValue} />
           </div>
         </div>
       </section>
@@ -221,17 +297,25 @@ function ProductoFormBody({
         <div className="grid grid-cols-12 gap-3">
           <div className="col-span-4 flex flex-col gap-1">
             <label className={LABEL_CLS}>Método de costeo</label>
-            <select name="metodoCosteo" defaultValue={editingProd?.metodoCosteo || 'PROMEDIO'} className={SELECT_CLS}>
-              <option value="PROMEDIO">Promedio Ponderado</option>
-              <option value="FIFO">FIFO</option>
-              <option value="LIFO">LIFO</option>
-            </select>
+            <div className="flex h-9 items-center rounded-md border border-[#D1D5DB] bg-[#F3F4F6] px-3 text-sm text-[#111827] dark:border-white/10 dark:bg-[#161616] dark:text-[#F3F4F6]">
+              Promedio ponderado
+            </div>
+            <input type="hidden" name="metodoCosteo" value="PROMEDIO" />
           </div>
           <div className="col-span-2">
             <InputField label="Stock inicial" name="stockActual" type="number" step="0.01" defaultValue={editingProd?.stockActual ?? 0} />
           </div>
           <div className="col-span-2">
-            <InputField label="Precio costo" name="precioCosto" type="number" step="0.01" defaultValue={editingProd?.precioCosto ?? 0} />
+            <InputField
+              label="Costo unitario"
+              name="precioCosto"
+              type="number"
+              step="0.01"
+              defaultValue={editingProd?.precioCosto ?? 0}
+              helperText={costoUnitarioHelper}
+              helperPosition="below"
+              singleLineLabel
+            />
           </div>
           <div className="col-span-2">
             <InputField label="Precio venta" name="precioVenta" type="number" step="0.01" defaultValue={editingProd?.precioVenta ?? 0} />
@@ -301,6 +385,8 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   function handleCreateOrUpdate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
+    fd.set('metodoCosteo', 'PROMEDIO')
+    fd.set('unidad', (fd.get('unidad') as string | null)?.trim() || 'unidad')
     startTransition(async () => {
       const res = editingId ? await updateProducto(editingId, fd) : await createProducto(fd)
       if (!res.success) { setFormError(res.error); return }
