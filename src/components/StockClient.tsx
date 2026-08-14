@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from 'react'
 import {
-  getProductos, createProducto, updateProducto, deleteProducto, addMovimientoStock, getMovimientosStock,
+  getProductos, createProducto, updateProducto, deleteProducto, getMovimientosStock,
 } from '@/app/actions'
 import {
   ResponsiveContainer,
@@ -405,13 +405,11 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const [editingId, setEditingId] = useState<string | null>(null)
   const [selectedProductoId, setSelectedProductoId] = useState<string | null>(null)
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
-  const [showMovForm, setShowMovForm] = useState(false)
   const [showMovimientosModal, setShowMovimientosModal] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [vistaInventario, setVistaInventario] = useState<'UNIDADES' | 'PESOS'>('PESOS')
   const [isPending, startTransition] = useTransition()
   const [formError, setFormError] = useState('')
-  const [movError, setMovError] = useState('')
 
   async function reload() {
     const data = await getProductos()
@@ -443,34 +441,16 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   function handleSelectProducto(id: string) {
     if (selectedProductoId === id) {
       setSelectedProductoId(null)
-      setShowMovForm(false)
       return
     }
     setSelectedProductoId(id)
-    setShowMovForm(false)
     void loadMovimientos(id)
   }
 
   function handleOpenMovimientos(id: string) {
     setSelectedProductoId(id)
     setShowMovimientosModal(true)
-    setShowMovForm(false)
     void loadMovimientos(id)
-  }
-
-  function handleAgregarMov(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!selectedProductoId) return
-    const fd = new FormData(e.currentTarget)
-    fd.set('productoId', selectedProductoId)
-    startTransition(async () => {
-      const res = await addMovimientoStock(fd)
-      if (!res.success) { setMovError(res.error); return }
-      setMovError('')
-      setShowMovForm(false)
-      await reload()
-      await loadMovimientos(selectedProductoId)
-    })
   }
 
   const filtrados = productos.filter(prod =>
@@ -1008,7 +988,8 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-3xl max-h-[92vh] overflow-hidden border border-[#D1D5DB] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[#0B0F14]">
             <div className="flex items-start justify-between border-b border-[#E5E7EB] bg-[#111827] px-5 py-4 dark:border-white/10 dark:bg-[#0B0F14]">
-              <h3 className="text-base font-semibold text-slate-100">
+              <h3 className="flex items-center gap-2.5 text-base font-semibold text-slate-100">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-white/20 bg-white/10 text-sm leading-none" aria-hidden>📦</span>
                 {editingId ? 'Editar producto' : 'Nuevo producto'}
               </h3>
               <button
@@ -1037,12 +1018,15 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-4xl max-h-[92vh] overflow-hidden border border-[#D1D5DB] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[#0B0F14]">
             <div className="flex items-center justify-between border-b border-[#E5E7EB] bg-[#111827] px-5 py-4 dark:border-white/10 dark:bg-[#0B0F14]">
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-white">Movimientos de stock</h3>
-                <p className="mt-1 text-xs text-white/70">{selectedProducto.nombre}</p>
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-white/20 bg-white/10 text-sm leading-none" aria-hidden>📦</span>
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-white">Movimientos de stock</h3>
+                  <p className="mt-1 text-xs text-white/70">{selectedProducto.nombre}</p>
+                </div>
               </div>
               <button
-                onClick={() => { setShowMovimientosModal(false); setShowMovForm(false); setMovError('') }}
+                onClick={() => { setShowMovimientosModal(false) }}
                 className="border border-white/20 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-slate-200 transition hover:bg-white/20 hover:text-white"
               >✕</button>
             </div>
@@ -1132,16 +1116,6 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
               </div>
 
               <div className="p-5 lg:p-6">
-                <div className="mb-4 flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={() => { setShowMovForm(value => !value); setMovError('') }}
-                    className="rounded-none border border-[#D1D5DB] bg-[#F3F4F6] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#374151] shadow-sm transition hover:border-[#9CA3AF] hover:text-[#111827] dark:border-white/10 dark:bg-[#1F2937] dark:text-[#E5E7EB] dark:hover:border-white/20 dark:hover:text-white"
-                  >
-                    {showMovForm ? 'Ocultar formulario' : 'Registrar movimiento'}
-                  </button>
-                </div>
-
                 <div className="mb-5 border border-[#E5E7EB] bg-[#F9FAFB] p-3 dark:border-white/10 dark:bg-[#111111]">
                   <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#E5E7EB] pb-2 dark:border-white/10">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#CBD5E1]">Resumen de Producto</p>
@@ -1212,48 +1186,6 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                     </div>
                   </div>
                 </div>
-
-                {showMovForm ? (
-                  <form onSubmit={handleAgregarMov} className="space-y-4 rounded-xl border border-[#D1D5DB] bg-[#FAFAF9] p-4 shadow-sm dark:border-white/10 dark:bg-[#0F0F0F]">
-                    <h4 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#D9E7D7]">Registrar movimiento</h4>
-                    <div className="flex flex-col gap-1.5">
-                      <label className={LABEL_CLS}>Tipo</label>
-                      <select
-                        name="tipo"
-                        defaultValue="ENTRADA"
-                        className={SELECT_CLS}
-                      >
-                        <option value="ENTRADA">Entrada</option>
-                        <option value="SALIDA">Salida</option>
-                        <option value="AJUSTE">Ajuste</option>
-                      </select>
-                    </div>
-                    <InputField label="Cantidad" name="cantidad" type="number" step="0.01" required defaultValue={1} />
-                    <InputField label="Precio unitario" name="precio" type="number" step="0.01" defaultValue={selectedProducto?.precioCosto ?? 0} />
-                    <InputField label="Motivo" name="motivo" defaultValue="" />
-                    {movError && (
-                      <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-                        {movError}
-                      </div>
-                    )}
-                    <div className="flex justify-end gap-2 border-t border-[#E5E7EB] pt-3 dark:border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => { setShowMovForm(false); setMovError('') }}
-                        className="rounded-md border border-[#D1D5DB] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#4B5563] transition hover:border-gray-400 hover:text-[#1F2937] dark:border-white/10 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isPending}
-                        className="rounded-md bg-[#374151] px-5 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition hover:bg-[#111827] disabled:opacity-50"
-                      >
-                        Guardar movimiento
-                      </button>
-                    </div>
-                  </form>
-                ) : null}
               </div>
             </div>
           </div>
