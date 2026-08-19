@@ -89,7 +89,7 @@ const TIPO_COLORS = {
 } as const
 
 const STOCK_CHART_COLORS = {
-  precio: '#475569',
+  unidades: '#0F766E',
   grid: '#E5E7EB',
   axis: '#9CA3AF',
 } as const
@@ -99,7 +99,7 @@ type MovimientoChartPoint = {
   label: string
   idx: number
   tipo: Movimiento['tipo']
-  precio: number
+  unidades: number
 }
 
 function InputField({
@@ -517,30 +517,44 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
       }
     }
 
-    const precioActual = selectedProducto.precioVenta ?? 0
     const orderedAsc = [...movimientos].sort((a, b) => {
       const da = new Date(a.fecha).getTime()
       const db = new Date(b.fecha).getTime()
       return da - db
     })
 
-    let points: MovimientoChartPoint[] = orderedAsc.map((mov, i) => ({
-      id: mov.id,
-      label: fmtDate(mov.fecha),
+    let stockAfter = selectedProducto.stockActual
+    const pointsReverse: MovimientoChartPoint[] = []
+    for (let i = orderedAsc.length - 1; i >= 0; i -= 1) {
+      const mov = orderedAsc[i]
+      const unidades = mov.tipo === 'AJUSTE' ? mov.cantidad : stockAfter
+      pointsReverse.push({
+        id: mov.id,
+        label: fmtDate(mov.fecha),
+        idx: i + 1,
+        tipo: mov.tipo,
+        unidades,
+      })
+      stockAfter = mov.tipo === 'ENTRADA'
+        ? unidades - mov.cantidad
+        : mov.tipo === 'SALIDA'
+          ? unidades + mov.cantidad
+          : mov.cantidad
+    }
+    let points: MovimientoChartPoint[] = pointsReverse.reverse().map((point, i) => ({
+      ...point,
       idx: i + 1,
-      tipo: mov.tipo,
-      precio: Number.isFinite(mov.precio) && mov.precio > 0 ? mov.precio : precioActual,
     }))
 
     if (points.length === 0) {
       points = [
-        { id: 'precio-base-1', label: 'Inicio', idx: 1, tipo: 'AJUSTE', precio: precioActual },
-        { id: 'precio-base-2', label: 'Actual', idx: 2, tipo: 'AJUSTE', precio: precioActual },
+        { id: 'unidades-base-1', label: 'Inicio', idx: 1, tipo: 'AJUSTE', unidades: selectedProducto.stockActual },
+        { id: 'unidades-base-2', label: 'Actual', idx: 2, tipo: 'AJUSTE', unidades: selectedProducto.stockActual },
       ]
     } else if (points.length === 1) {
       points = [
         points[0],
-        { ...points[0], id: `${points[0].id}-actual`, label: 'Actual', idx: 2 },
+        { ...points[0], id: `${points[0].id}-actual`, label: 'Actual', idx: 2, unidades: selectedProducto.stockActual },
       ]
     }
 
@@ -1034,14 +1048,14 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
             <div className="grid max-h-[calc(92vh-74px)] gap-0 overflow-y-auto lg:grid-cols-[1fr_1fr]">
               <div className="border-b border-[#E5E7EB] p-5 dark:border-white/10 lg:border-b-0 lg:border-r lg:p-6">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#C7D2C1]">Variación de precio (tiempo/valor)</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#C7D2C1]">Historial de unidades (tiempo/stock)</p>
                   <p className="text-[11px] text-[#9CA3AF]">Últimos {movimientos.length} registros</p>
                 </div>
 
                 <div className="rounded-xl border border-[#E5E7EB] bg-gradient-to-b from-[#FFFFFF] to-[#FAFAF8] p-4 shadow-sm dark:border-white/10 dark:from-[#141414] dark:to-[#101010]">
                   {stockInsights.points.length === 0 ? (
                     <div className="rounded-md border border-dashed border-[#D1D5DB] px-4 py-12 text-center text-xs text-[#9CA3AF] dark:border-white/10">
-                      Cargá movimientos para visualizar la serie precio-tiempo.
+                      Cargá movimientos para visualizar la serie de unidades.
                     </div>
                   ) : (
                     <div className="h-[420px] w-full">
@@ -1056,12 +1070,12 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                             axisLine={false}
                           />
                           <YAxis
-                            yAxisId="precio"
+                            yAxisId="unidades"
                             stroke="#94A3B8"
                             tick={{ fontSize: 10, fill: '#64748B' }}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => `$${fmt(Number(value))}`}
+                            tickFormatter={(value) => fmtUnits(Number(value))}
                           />
                           <Tooltip
                             cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -1077,16 +1091,16 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                               return point ? `${point.label} · ${point.tipo}` : String(value)
                             }}
                             formatter={(value, name) => {
-                              if (name === 'Precio') return [value ? `$${fmt(Number(value))}` : 'Sin precio', 'Precio']
+                              if (name === 'Unidades') return [`${fmtUnits(Number(value))} ${selectedProducto.unidad}`, 'Unidades']
                               return [String(value), String(name)]
                             }}
                           />
                           <Line
-                            yAxisId="precio"
+                            yAxisId="unidades"
                             type="monotone"
-                            dataKey="precio"
-                            name="Precio"
-                            stroke={STOCK_CHART_COLORS.precio}
+                            dataKey="unidades"
+                            name="Unidades"
+                            stroke={STOCK_CHART_COLORS.unidades}
                             strokeWidth={3}
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -1100,12 +1114,12 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                                   cy={cy}
                                   r={4.5}
                                   fill="#F8FAFC"
-                                  stroke={STOCK_CHART_COLORS.precio}
+                                  stroke={STOCK_CHART_COLORS.unidades}
                                   strokeWidth={2.5}
                                 />
                               )
                             }}
-                            activeDot={{ r: 6, fill: '#475569', stroke: '#FFF', strokeWidth: 2 }}
+                            activeDot={{ r: 6, fill: STOCK_CHART_COLORS.unidades, stroke: '#FFF', strokeWidth: 2 }}
                             connectNulls
                           />
                         </ComposedChart>
