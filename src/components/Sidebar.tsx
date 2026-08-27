@@ -148,7 +148,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
-              className={`flex items-center gap-3 py-2.5 rounded-2xl text-sm font-medium transition-all duration-150 ${collapsed ? 'justify-center px-2' : 'px-3'}`}
+              className={`flex items-center gap-3 py-2.5 text-sm font-medium transition-all duration-150 ${collapsed ? 'justify-center px-2' : 'px-3'}`}
               style={isActive ? { background: 'rgba(109,164,122,0.22)', color: '#F0FDF4', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)' } : { color: 'rgba(255,255,255,0.64)' }}
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.12)' }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
@@ -166,7 +166,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
                   )}
                 </div>
               )}
-              {!collapsed && isActive && <div className="ml-auto shrink-0 w-1.5 h-1.5 rounded-full" style={{ background: '#6EE7B7' }} />}
+              {!collapsed && isActive && <div className="ml-auto shrink-0 w-1.5 h-1.5" style={{ background: '#6EE7B7' }} />}
             </Link>
           )
         })}
@@ -176,7 +176,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
         <button
           onClick={toggleCollapse}
           title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-          className={`flex items-center gap-2 rounded-2xl py-2 text-xs font-semibold transition-all duration-150 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
+          className={`flex items-center gap-2 py-2 text-xs font-semibold transition-all duration-150 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
           style={{ color: 'rgba(255,255,255,0.72)', background: 'rgba(255,255,255,0.08)' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)' }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)' }}
@@ -192,7 +192,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
           onClick={handleSignOut}
           disabled={isSigningOut}
           title="Cerrar sesión"
-          className={`flex items-center gap-2 rounded-2xl py-2 text-sm font-semibold transition-all duration-150 disabled:opacity-50 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
+          className={`flex items-center gap-2 py-2 text-sm font-semibold transition-all duration-150 disabled:opacity-50 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
           style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.12)' }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.22)' }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.12)' }}
@@ -221,7 +221,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
           >
             {isActive && (
               <span
-                className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5"
                 style={{ background: '#C5A065' }}
               />
             )}
