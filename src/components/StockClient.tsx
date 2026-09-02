@@ -705,7 +705,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   }[diagnostico.tono]
 
   return (
-    <div className="space-y-6 p-1">
+    <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-stretch">
         <div className="executive-panel inline-flex items-stretch overflow-hidden">
           <button
@@ -1104,7 +1104,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
                             strokeWidth={3}
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            dot={(props: any) => {
+                            dot={(props: { cx?: number; cy?: number; payload?: { id?: string } }) => {
                               const { cx, cy, payload } = props
                               if (typeof cx !== 'number' || typeof cy !== 'number') return null
                               return (

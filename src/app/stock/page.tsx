@@ -8,14 +8,17 @@ import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
 
+type StockSearchParams = { periodo?: string; from?: string; to?: string; year?: string; month?: string; day?: string; weekStart?: string }
+type StockClientProductos = Parameters<typeof StockClient>[0]['initialProductos']
+
 export default async function StockPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ periodo?: string; from?: string; to?: string; year?: string; month?: string; day?: string; weekStart?: string }>
+  searchParams?: Promise<StockSearchParams>
 }) {
   const [sessionContext, sp] = await Promise.all([
     requireBusinessContext(),
-    searchParams ?? Promise.resolve({} as any),
+    searchParams ?? Promise.resolve({} satisfies StockSearchParams),
   ])
 
   const periodo = (sp?.periodo ?? 'mensual') as PeriodKey
@@ -32,7 +35,7 @@ export default async function StockPage({
   const productos = await getProductos(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
+    <div className="min-h-screen bg-[#F7F9FB] font-sans text-[#1F2937] dark:bg-black dark:text-gray-100">
 
       <AppHeader
         title="Inventario"
@@ -57,7 +60,7 @@ export default async function StockPage({
         }
       />
 
-      <StockClient initialProductos={productos as any} />
+      <StockClient initialProductos={productos as StockClientProductos} />
     </div>
   )
 }

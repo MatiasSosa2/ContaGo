@@ -2,17 +2,18 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { FiArrowDown, FiArrowUp, FiBarChart2, FiChevronRight, FiDollarSign, FiHome, FiMinus, FiTrendingUp } from 'react-icons/fi'
 import { ResponsiveContainer, AreaChart, Area, Tooltip } from 'recharts'
 import { fmtAmount, fmtPct, type ResultsData, type CashFlowData, type BalanceSheetData } from './financial-statements/shared'
 
 type TrendPoint = { label: string; value: number }
 type MonthlyPoint = { label: string; net: number }
+type PreviewLine = { label: string; value: string; spacing?: 'normal' | 'loose' }
 
-const TONE_HEX: Record<'green' | 'sand' | 'ink' | 'neutral', string> = {
-  green: '#2D5A41',
-  sand: '#8A6118',
-  ink: '#1B4332',
-  neutral: '#3F5F76',
+const TONE_HEX: Record<'green' | 'yellow' | 'blue', string> = {
+  green: '#4F7D64',
+  yellow: '#9A7A3A',
+  blue: '#526F91',
 }
 
 type FinancialStatementsPanelProps = {
@@ -25,48 +26,36 @@ type FinancialStatementsPanelProps = {
   exportSlot?: ReactNode
 }
 
-function toneClasses(tone: 'green' | 'sand' | 'ink') {
+function toneClasses(tone: 'green' | 'yellow' | 'blue') {
   const value =
     tone === 'green'
-      ? 'text-[#2D5A41] dark:text-[#9AC7A8]'
-      : tone === 'sand'
-      ? 'text-[#8A6118] dark:text-[#D7B36B]'
-      : 'text-black dark:text-white'
+      ? 'text-[#4F7D64] dark:text-[#A7C8B4]'
+      : tone === 'yellow'
+      ? 'text-[#9A7A3A] dark:text-[#D1B56F]'
+      : 'text-[#526F91] dark:text-[#A9BED7]'
 
   const badge =
     tone === 'green'
-      ? 'bg-[#EAF5EE] text-[#2D5A41] dark:bg-[#162019] dark:text-[#9AC7A8]'
-      : tone === 'sand'
-      ? 'bg-[#FDF3DF] text-[#8A6118] dark:bg-[#21180F] dark:text-[#D7B36B]'
-      : 'bg-brand-military-light text-brand-military dark:bg-white/10 dark:text-white'
+      ? 'bg-[#EEF5F0] text-[#4F7D64] dark:bg-[#18241D] dark:text-[#A7C8B4]'
+      : tone === 'yellow'
+      ? 'bg-[#F6F0E3] text-[#8A6E36] dark:bg-[#292315] dark:text-[#D1B56F]'
+      : 'bg-[#EEF3F8] text-[#526F91] dark:bg-[#172230] dark:text-[#A9BED7]'
 
   const pctChip =
     tone === 'green'
-      ? 'border-[#D5E3D8] bg-[#F5FAF7] text-[#2D5A41] dark:border-[#294235] dark:bg-[#162019] dark:text-[#9AC7A8]'
-      : tone === 'sand'
-      ? 'border-[#E6D6B8] bg-[#FFF8EC] text-[#8A6118] dark:border-[#5B4A2F] dark:bg-[#21180F] dark:text-[#D7B36B]'
-      : 'border-[#D1D5DB] bg-[#F3F4F6] text-[#374151] dark:border-white/10 dark:bg-white/5 dark:text-[#D1D5DB]'
+      ? 'border-[#D7E4DC] bg-[#F6FAF7] text-[#4F7D64] dark:border-[#2A4233] dark:bg-[#18241D] dark:text-[#A7C8B4]'
+      : tone === 'yellow'
+      ? 'border-[#E4D8BE] bg-[#FBF7EF] text-[#8A6E36] dark:border-[#514323] dark:bg-[#292315] dark:text-[#D1B56F]'
+      : 'border-[#D5DFEA] bg-[#F6F9FC] text-[#526F91] dark:border-[#2A3C52] dark:bg-[#172230] dark:text-[#A9BED7]'
 
   return { value, badge, pctChip }
 }
 
 function TrendArrow({ pct }: { pct: number }) {
   if (Math.abs(pct) < 0.05) {
-    return (
-      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-      </svg>
-    )
+    return <FiMinus className="h-3 w-3" />
   }
-  return pct > 0 ? (
-    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-6 6m6-6l6 6" />
-    </svg>
-  ) : (
-    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m0 0l-6-6m6 6l6-6" />
-    </svg>
-  )
+  return pct > 0 ? <FiArrowUp className="h-3 w-3" /> : <FiArrowDown className="h-3 w-3" />
 }
 
 function ValueCard({
@@ -88,167 +77,124 @@ function ValueCard({
   trendPoints: TrendPoint[]
   currency: string
   icon: ReactNode
-  tone: 'green' | 'sand' | 'ink'
+  tone: 'green' | 'yellow' | 'blue'
 }) {
   const hex = TONE_HEX[tone]
   const gradientId = `preview-gradient-${tone}`
-  const { value, badge, pctChip } = toneClasses(tone)
+  const { value, badge } = toneClasses(tone)
 
   return (
-    <div className="relative flex flex-col gap-3 overflow-hidden border border-[#E5E7EB] bg-white p-5 pt-6 shadow-sm transition group-hover:border-brand-military/60 group-hover:shadow-md dark:border-white/10 dark:bg-[#141414] dark:group-hover:border-white/30">
-      <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: hex }} aria-hidden />
-
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className={`flex h-8 w-8 shrink-0 items-center justify-center ${badge}`}>{icon}</span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">{title}</p>
-            <p className="text-[11px] text-[#B0B7C0] dark:text-[#6B7280]">{periodLabel}</p>
+    <div className="flex min-h-[136px] flex-col gap-3 overflow-hidden rounded-xl border border-[#E6EAEE] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.045)] transition group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#141414]">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${badge}`}>{icon}</span>
+          <div className="min-w-0">
+            <p className="truncate text-[12px] font-bold text-[#172033] dark:text-[#F4F7FB]">{title}</p>
+            <p className="mt-0.5 text-[11px] text-[#7A8594] dark:text-[#9CA3AF]">{periodLabel}</p>
           </div>
         </div>
-        <span className={`flex shrink-0 items-center gap-1 border px-2 py-1 text-[10px] font-semibold ${pctChip}`}>
-          <TrendArrow pct={pctValue} />
-          {fmtPct(pctValue)}
-        </span>
       </div>
 
-      <div>
-        <p className={`font-mono text-[28px] font-bold num-tabular ${value}`}>{previewValue}</p>
-        <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{subtitle}</p>
-      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(92px,34%)] items-end gap-3 sm:grid-cols-[minmax(0,1fr)_112px] md:grid-cols-[minmax(0,1fr)_96px] xl:grid-cols-[minmax(0,1fr)_118px]">
+        <div className="min-w-0">
+          <p className={`truncate font-mono text-[22px] font-bold leading-none num-tabular xl:text-[24px] ${value}`}>{previewValue}</p>
+          <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[10px] font-semibold" style={{ color: hex }}>
+            <TrendArrow pct={pctValue} />
+            <span className="shrink-0">{fmtPct(pctValue)}</span>
+            <span className="truncate font-normal text-[#9AA3AF] dark:text-[#7A8594]">{subtitle}</span>
+          </p>
+        </div>
 
-      <div className="h-16 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={trendPoints} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={hex} stopOpacity={0.4} />
-                <stop offset="100%" stopColor={hex} stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
-            <Tooltip
-              cursor={{ stroke: hex, strokeWidth: 1, strokeDasharray: '3 3' }}
-              contentStyle={{ border: '1px solid #E5E7EB', background: '#111827', color: '#F9FAFB', fontSize: 11, padding: '6px 10px' }}
-              formatter={(val) => [fmtAmount(Number(val), currency, true), '']}
-              labelFormatter={(label) => String(label)}
-            />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke={hex}
-              strokeWidth={2}
-              fill={`url(#${gradientId})`}
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <div className="h-[58px] w-full min-w-0 xl:h-[64px]">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <AreaChart data={trendPoints} margin={{ top: 6, right: 6, left: 6, bottom: 2 }}>
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={hex} stopOpacity={0.24} />
+                  <stop offset="100%" stopColor={hex} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <Tooltip
+                cursor={{ stroke: hex, strokeWidth: 1, strokeDasharray: '3 3' }}
+                contentStyle={{ border: '1px solid #E5E7EB', background: '#111827', color: '#F9FAFB', fontSize: 11, padding: '6px 10px', borderRadius: 10 }}
+                formatter={(val) => [fmtAmount(Number(val), currency, true), '']}
+                labelFormatter={(label) => String(label)}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={hex}
+                strokeWidth={2}
+                fill={`url(#${gradientId})`}
+                dot={{ r: 2, strokeWidth: 1.5, fill: '#FFFFFF' }}
+                activeDot={{ r: 3 }}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   )
 }
 
 function DetailPreviewCard({
+  statementTitle,
+  title,
+  icon,
   lines,
+  result,
   ctaLabel,
   tone,
 }: {
-  lines: { label: string; value: string }[]
+  statementTitle: string
+  title: string
+  icon: ReactNode
+  lines: PreviewLine[]
+  result: { label: string; value: string }
   ctaLabel: string
-  tone: 'green' | 'sand' | 'ink'
+  tone: 'green' | 'yellow' | 'blue'
 }) {
   const hex = TONE_HEX[tone]
   const ctaClass =
     tone === 'green'
-      ? 'text-[#2D5A41] dark:text-[#9AC7A8]'
-      : tone === 'sand'
-      ? 'text-[#8A6118] dark:text-[#D7B36B]'
-      : 'text-brand-military dark:text-white'
+      ? 'text-[#16A34A] dark:text-[#86EFAC]'
+      : tone === 'yellow'
+      ? 'text-[#B45309] dark:text-[#FACC15]'
+      : 'text-[#2563EB] dark:text-[#93C5FD]'
 
   return (
-    <div className="flex h-full flex-col gap-2.5 border border-[#E5E7EB] bg-[#FCFDFC] p-5 shadow-sm transition group-hover:border-brand-military/60 group-hover:shadow-md dark:border-white/10 dark:bg-[#101010] dark:group-hover:border-white/30">
+    <div className="flex min-h-[245px] w-full flex-col rounded-xl border border-[#E6EAEE] bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.045)] transition group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#101010]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: `${hex}14`, color: hex }}>{icon}</span>
+          <p className="text-[12px] font-bold text-[#172033] dark:text-[#F4F7FB]">{statementTitle}</p>
+        </div>
+      </div>
+
+      <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#172033] dark:text-[#E5E7EB]">{title}</p>
+
       {lines.map((line) => (
-        <div key={line.label} className="flex items-center justify-between gap-3 border-b border-[#E5E7EB] pb-2 text-xs last:border-b-0 last:pb-0 dark:border-white/10">
-          <span className="flex min-w-0 items-center gap-2 text-[#6B7280] dark:text-[#A3A3A3]">
-            <span className="h-1.5 w-1.5 shrink-0" style={{ background: hex }} aria-hidden />
-            <span className="truncate">{line.label}</span>
+        <div key={line.label} className={`flex items-center justify-between gap-4 text-[11px] ${line.spacing === 'loose' ? 'mt-4' : 'mt-2.5'}`}>
+          <span className="min-w-0 truncate text-[#4B5563] dark:text-[#A3A3A3]">
+            {line.label}
           </span>
-          <span className="shrink-0 font-mono font-medium text-[#374151] num-tabular dark:text-[#D1D5DB]">{line.value}</span>
+          <span className="shrink-0 font-mono font-semibold text-[#172033] num-tabular dark:text-[#D1D5DB]">{line.value}</span>
         </div>
       ))}
 
-      <span className={`mt-1 inline-flex w-fit items-center gap-1.5 text-xs font-semibold ${ctaClass}`}>
-        {ctaLabel}
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-      </span>
-    </div>
-  )
-}
-
-function MonthlyEvolutionCard({ points }: { points: MonthlyPoint[] }) {
-  const hex = TONE_HEX.neutral
-  const hasData = points.some((p) => p.net !== 0)
-  const last = points[points.length - 1]
-  const prev = points[points.length - 2]
-  const deltaPct = last && prev && prev.net !== 0 ? ((last.net - prev.net) / Math.abs(prev.net)) * 100 : 0
-
-  return (
-    <div className="relative flex h-full flex-col gap-3 overflow-hidden border border-[#E5E7EB] bg-white p-5 pt-6 shadow-sm dark:border-white/10 dark:bg-[#141414]">
-      <span className="absolute inset-x-0 top-0 h-[3px]" style={{ background: hex }} aria-hidden />
-
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#EAF0F5] text-[#3F5F76] dark:bg-white/10 dark:text-[#9BC1DA]">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l6-6 4 4 8-8M21 7v6h-6" />
-            </svg>
-          </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Evolución mensual</p>
-            <p className="text-[11px] text-[#B0B7C0] dark:text-[#6B7280]">Últimos 6 meses</p>
-          </div>
-        </div>
-        {last && (
-          <span className="flex shrink-0 items-center gap-1 border border-[#D1D5DB] bg-[#F3F4F6] px-2 py-1 text-[10px] font-semibold text-[#374151] dark:border-white/10 dark:bg-white/5 dark:text-[#D1D5DB]">
-            <TrendArrow pct={deltaPct} />
-            {fmtPct(deltaPct)}
-          </span>
-        )}
+      <div className="mt-auto flex items-center justify-between gap-4 border-t border-[#E7EBEF] pt-4 dark:border-white/10">
+        <p className="text-[11px] font-bold text-[#172033] dark:text-[#F4F7FB]">{result.label}</p>
+        <p className={`font-mono text-[13px] font-bold num-tabular ${ctaClass}`}>{result.value}</p>
       </div>
 
-      {hasData ? (
-        <div className="h-[132px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={points} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-              <defs>
-                <linearGradient id="preview-gradient-neutral" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={hex} stopOpacity={0.4} />
-                  <stop offset="100%" stopColor={hex} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <Tooltip
-                cursor={{ stroke: hex, strokeWidth: 1, strokeDasharray: '3 3' }}
-                contentStyle={{ border: '1px solid #E5E7EB', background: '#111827', color: '#F9FAFB', fontSize: 11, padding: '6px 10px' }}
-                formatter={(val) => [fmtAmount(Number(val), 'ARS', true), 'Neto']}
-                labelFormatter={(label) => String(label)}
-              />
-              <Area
-                type="monotone"
-                dataKey="net"
-                stroke={hex}
-                strokeWidth={2}
-                fill="url(#preview-gradient-neutral)"
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      ) : (
-        <div className="flex h-[132px] items-center justify-center border border-dashed border-[#E5E7EB] text-center text-xs text-[#9CA3AF] dark:border-white/10">
-          Sin movimientos suficientes para graficar la evolución.
-        </div>
-      )}
+      <span className="mt-4 flex h-9 items-center justify-between rounded-lg border border-[#E6EAEE] px-3 text-[11px] font-semibold text-[#697386] dark:border-white/10 dark:text-[#D1D5DB]">
+        <span className="flex items-center gap-2">
+          <FiBarChart2 className="h-3.5 w-3.5" />
+        {ctaLabel}
+        </span>
+        <FiChevronRight className="h-3.5 w-3.5" />
+      </span>
     </div>
   )
 }
@@ -259,7 +205,6 @@ export default function FinancialStatementsPanel({
   results,
   cashFlow,
   balanceSheet,
-  monthlyEvolution,
   exportSlot,
 }: FinancialStatementsPanelProps) {
   const qs = queryString ? `?${queryString}` : ''
@@ -270,133 +215,145 @@ export default function FinancialStatementsPanel({
   const equityRatioPct = balanceSheet.totalAssets !== 0
     ? (balanceSheet.equity / balanceSheet.totalAssets) * 100
     : 0
+  const selectedPeriodTitle = `Periodo seleccionado: ${periodLabel}`
 
   return (
-    <section className="executive-panel overflow-hidden">
-      <div className="flex flex-col gap-3 border-b border-[#E5E7EB] bg-[#FCFDFC] px-5 py-4 dark:border-white/10 dark:bg-[#141414] lg:flex-row lg:items-center lg:justify-between">
+    <section className="space-y-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 15l4-4 4 4 5-6" />
-            </svg>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-military-light text-brand-military">
+            <FiBarChart2 className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Estados financieros</h2>
-            <p className="text-xs text-[#9CA3AF]">Tocá un estado para ver el detalle completo</p>
+            <h2 className="text-lg font-bold text-[#172033] dark:text-[#E8E8E8]">Reportes</h2>
+            <p className="text-xs text-[#7A8594]">Resumen integral de la salud financiera de tu negocio.</p>
           </div>
         </div>
 
         {exportSlot ? <div className="shrink-0">{exportSlot}</div> : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 p-5 pb-0 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
         <Link href={`/reports/resultados${qs}`} className="group">
           <ValueCard
-            title="Estado de Resultados"
-            subtitle="Ingresos menos costos y gastos del período"
+            title="Estado de Resultado"
+            subtitle="Ganancia Neta."
             periodLabel={periodLabel}
             previewValue={fmtAmount(results.netProfit, results.currency, true)}
             pctValue={results.netMargin}
             trendPoints={[
               { label: 'Ingresos', value: results.income },
+              { label: 'CMV', value: -results.cogs },
               { label: 'Gcia. bruta', value: results.grossProfit },
+              { label: 'Gastos', value: results.grossProfit - results.operatingExpensesTotal },
               { label: 'Gcia. neta', value: results.netProfit },
             ]}
             currency={results.currency}
-            icon={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 15l4-4 4 4 5-6" />
-              </svg>
-            }
+            icon={<FiTrendingUp className="h-4 w-4" />}
             tone="green"
           />
         </Link>
 
         <Link href={`/reports/flujo-caja${qs}`} className="group">
           <ValueCard
-            title="Estado de Flujo de Caja"
-            subtitle="Efectivo disponible al cierre del período"
+            title="Flujo de Efectivo"
+            subtitle="Saldo acumulado."
             periodLabel={periodLabel}
             previewValue={fmtAmount(cashFlow.closingBalance, cashFlow.currency)}
             pctValue={cashFlowPct}
             trendPoints={[
               { label: 'Saldo inicial', value: cashFlow.openingBalance },
               { label: 'Cobrado', value: cashFlow.collectedIncome },
+              { label: 'Pagado', value: -cashFlow.totalExpenses },
+              { label: 'Variación', value: cashFlow.netVariation },
               { label: 'Saldo final', value: cashFlow.closingBalance },
             ]}
             currency={cashFlow.currency}
-            icon={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a4 4 0 00-8 0v2M5 9h14l-1 11H6L5 9z" />
-              </svg>
-            }
-            tone="sand"
+            icon={<FiDollarSign className="h-4 w-4" />}
+            tone="yellow"
           />
         </Link>
 
         <Link href={`/reports/patrimonio${qs}`} className="group">
           <ValueCard
-            title="Estado Patrimonial"
-            subtitle="Lo que la empresa tiene menos lo que debe"
+            title="Situación Patrimonial"
+            subtitle="Patromonio Neto."
             periodLabel={periodLabel}
             previewValue={fmtAmount(balanceSheet.equity, balanceSheet.currency, true)}
             pctValue={equityRatioPct}
             trendPoints={[
               { label: 'Activos', value: balanceSheet.totalAssets },
+              { label: 'Activos netos', value: balanceSheet.totalAssets - balanceSheet.totalLiabilities / 2 },
               { label: 'Pasivos', value: balanceSheet.totalLiabilities },
+              { label: 'Base patrimonial', value: balanceSheet.equity + balanceSheet.totalLiabilities / 2 },
               { label: 'Patrimonio', value: balanceSheet.equity },
             ]}
             currency={balanceSheet.currency}
-            icon={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21V12h6v9" />
-              </svg>
-            }
-            tone="ink"
+            icon={<FiHome className="h-4 w-4" />}
+            tone="blue"
           />
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <div className="relative">
+          <div className="mb-3">
+            <p className="text-sm font-bold text-[#172033] dark:text-[#F8FAFC]">Resumen ejecutivo</p>
+            <p className="text-[11px] text-[#7A8594]">{selectedPeriodTitle}</p>
+          </div>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
         <Link href={`/reports/resultados${qs}`} className="group flex">
           <DetailPreviewCard
             tone="green"
-            ctaLabel="Ver Estado de Resultados"
+            statementTitle="Estado de Resultado"
+            title="Principales Cifras"
+            icon={<FiTrendingUp className="h-4 w-4" />}
+            ctaLabel="Ver detalle del estado de resultado"
             lines={[
               { label: 'Ingresos', value: fmtAmount(results.income, results.currency) },
               { label: 'Costo de mercadería vendida', value: fmtAmount(results.cogs, results.currency) },
-              { label: 'Gastos operativos', value: fmtAmount(results.operatingExpensesTotal, results.currency) },
+              { label: 'Ganancia Bruta', value: fmtAmount(results.grossProfit, results.currency) },
+              { label: 'Otros ingresos', value: fmtAmount(0, results.currency), spacing: 'loose' },
+              { label: 'Otros Egresos', value: fmtAmount(results.operatingExpensesTotal, results.currency) },
             ]}
+            result={{ label: 'Resultado Neto', value: fmtAmount(results.netProfit, results.currency, true) }}
           />
         </Link>
 
         <Link href={`/reports/flujo-caja${qs}`} className="group flex">
           <DetailPreviewCard
-            tone="sand"
-            ctaLabel="Ver Flujo de Caja"
+            tone="yellow"
+            statementTitle="Flujo de Efectivo"
+            title="Resumen del Periodo"
+            icon={<FiDollarSign className="h-4 w-4" />}
+            ctaLabel="Ver detalle del flujo de efectivo"
             lines={[
-              { label: 'Ingresos cobrados', value: fmtAmount(cashFlow.collectedIncome, cashFlow.currency) },
-              { label: 'Egresos totales', value: fmtAmount(cashFlow.totalExpenses, cashFlow.currency) },
-              { label: 'Saldo inicial', value: fmtAmount(cashFlow.openingBalance, cashFlow.currency) },
+              { label: 'Efectivo Inicial', value: fmtAmount(cashFlow.openingBalance, cashFlow.currency) },
+              { label: 'Ingresos', value: fmtAmount(cashFlow.collectedIncome, cashFlow.currency) },
+              { label: 'Egresos', value: fmtAmount(cashFlow.totalExpenses, cashFlow.currency) },
             ]}
+            result={{ label: 'Efectivo Final', value: fmtAmount(cashFlow.closingBalance, cashFlow.currency) }}
           />
         </Link>
 
         <Link href={`/reports/patrimonio${qs}`} className="group flex">
           <DetailPreviewCard
-            tone="ink"
-            ctaLabel="Ver Estado Patrimonial"
+            tone="blue"
+            statementTitle="Situación Patrimonial"
+            title="Resumen Patrimonial"
+            icon={<FiHome className="h-4 w-4" />}
+            ctaLabel="Ver detalle de situación patrimonial"
             lines={[
-              { label: 'Activos totales', value: fmtAmount(balanceSheet.totalAssets, balanceSheet.currency) },
-              { label: 'Pasivos totales', value: fmtAmount(balanceSheet.totalLiabilities, balanceSheet.currency) },
-              { label: 'Patrimonio neto', value: fmtAmount(balanceSheet.equity, balanceSheet.currency, true) },
+              { label: 'Activos', value: fmtAmount(balanceSheet.totalAssets, balanceSheet.currency) },
+              { label: 'Pasivos', value: fmtAmount(balanceSheet.totalLiabilities, balanceSheet.currency) },
             ]}
+            result={{ label: 'Patrimonio Neto', value: fmtAmount(balanceSheet.equity, balanceSheet.currency, true) }}
           />
         </Link>
 
-        <Link href={`/reports/evolucion${qs}`} className="group flex">
-          <MonthlyEvolutionCard points={monthlyEvolution} />
-        </Link>
+      </div>
+        </div>
       </div>
     </section>
   )
