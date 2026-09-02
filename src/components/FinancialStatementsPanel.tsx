@@ -90,7 +90,7 @@ function ValueCard({
           <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${badge}`}>{icon}</span>
           <div className="min-w-0">
             <p className="truncate text-[12px] font-bold text-[#172033] dark:text-[#F4F7FB]">{title}</p>
-            <p className="mt-0.5 text-[11px] text-[#7A8594] dark:text-[#9CA3AF]">{periodLabel}</p>
+            <p className="mt-0.5 truncate text-[11px] text-[#7A8594] dark:text-[#9CA3AF]">{subtitle}</p>
           </div>
         </div>
       </div>
@@ -101,7 +101,7 @@ function ValueCard({
           <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[10px] font-semibold" style={{ color: hex }}>
             <TrendArrow pct={pctValue} />
             <span className="shrink-0">{fmtPct(pctValue)}</span>
-            <span className="truncate font-normal text-[#9AA3AF] dark:text-[#7A8594]">{subtitle}</span>
+            <span className="truncate font-normal text-[#9AA3AF] dark:text-[#7A8594]">{periodLabel}</span>
           </p>
         </div>
 
