@@ -18,7 +18,7 @@ export default async function StockPage({
 }) {
   const [sessionContext, sp] = await Promise.all([
     requireBusinessContext(),
-    searchParams ?? Promise.resolve({} satisfies StockSearchParams),
+    searchParams ?? Promise.resolve<StockSearchParams>({}),
   ])
 
   const periodo = (sp?.periodo ?? 'mensual') as PeriodKey
