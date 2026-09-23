@@ -13,7 +13,9 @@ function buildPrisma() {
     const adapter = new PrismaLibSql({ url, authToken })
     return new PrismaClient({ adapter } as any)
   }
-  return new PrismaClient()
+  // SQLite local: Prisma 7 también requiere adapter
+  const adapter = new PrismaLibSql({ url: url || 'file:./prisma/dev.db' })
+  return new PrismaClient({ adapter } as any)
 }
 
 const prisma = buildPrisma()
