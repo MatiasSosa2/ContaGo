@@ -1,4 +1,4 @@
-﻿import { getDashboardStats, getAssetSnapshotAsOf } from '@/app/actions'
+﻿import { getDashboardStats, getAssetSnapshotAsOf, getCashFlowKpis } from '@/app/actions'
 import { FinancialOverviewChart, EvolutionTabs } from '@/components/DashboardCharts'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
@@ -111,12 +111,20 @@ async function DashboardContent({
   selectedDay?: string
   selectedWeekStart?: string
 }) {
-  const [stats, snapshot] = await Promise.all([
+  const [stats, snapshot, cashFlow] = await Promise.all([
     getDashboardStats(periodo, customFrom, customTo, businessId, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getAssetSnapshotAsOf(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    getCashFlowKpis(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])
 
-  const { kpis, prevKpis, chartData, categoryBreakdown, incomeCategoryBreakdown, periodLabel } = stats
+  const { chartData, categoryBreakdown, incomeCategoryBreakdown, periodLabel } = stats
+  // Ingresos y egresos = totales del Estado de flujo de efectivo (pesos); resultado = la diferencia
+  const toKpis = (f: { ingresos: number; egresos: number }) => {
+    const gain = f.ingresos - f.egresos
+    return { income: f.ingresos, expense: f.egresos, gain, marginPct: f.ingresos > 0 ? (gain / f.ingresos) * 100 : 0 }
+  }
+  const kpis = toKpis(cashFlow.current)
+  const prevKpis = toKpis(cashFlow.prev)
 
   const incomeGrowth = prevKpis.income > 0 ? ((kpis.income - prevKpis.income) / prevKpis.income) * 100 : null
   const expenseGrowth = prevKpis.expense > 0 ? ((kpis.expense - prevKpis.expense) / prevKpis.expense) * 100 : null
@@ -130,7 +138,10 @@ async function DashboardContent({
   const expenseV = variationState(expenseGrowth, 'inverse')
   const gainV = variationState(gainGrowth)
 
-  const { cajaTotal, totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod, prev } = snapshot
+  const { totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod, prev } = snapshot
+  // Caja = saldo real de las cajas en pesos al cierre del período (igual que la pestaña Cajas)
+  const cajaTotal = cashFlow.current.saldoFinal
+  const cajaUsd = cashFlow.usdSaldoFinal
 
   // Total de activos al cierre del período (para ROA)
   const activosTotal = cajaTotal + totalACobrar + stockTotal + bienesTotal
@@ -138,7 +149,7 @@ async function DashboardContent({
   const rotacionInventario = stockTotal > 0 ? cmvPeriod / stockTotal : 0
 
   // Variaciones vs período anterior
-  const prevActivosTotal = prev.cajaTotal + prev.totalACobrar + prev.stockTotal + prev.bienesTotal
+  const prevActivosTotal = cashFlow.prev.saldoFinal + prev.totalACobrar + prev.stockTotal + prev.bienesTotal
   const prevRoaPct = prevActivosTotal > 0 ? (prevKpis.gain / prevActivosTotal) * 100 : 0
   const prevRotacion = prev.stockTotal > 0 ? prev.cmvPeriod / prev.stockTotal : 0
 
@@ -193,13 +204,13 @@ async function DashboardContent({
           </div>
         </div>
 
-        {/* KPI Ganancia Neta — celeste */}
+        {/* KPI Resultado de caja (ingresos − egresos) — celeste */}
         <div className={`flex flex-col justify-between rounded-2xl border p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${
           gainIsPositive ? 'border-[#BAE6FD] bg-white dark:border-[#0C3450] dark:bg-[#141414]' : 'border-[#F3D6D6] bg-white dark:border-[#2E1919] dark:bg-[#141414]'
         }`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${gainIsPositive ? 'text-[#0369A1] dark:text-[#38BDF8]' : 'text-[#B91C1C] dark:text-[#F87171]'}`}>
-              Ganancia Neta
+              Resultado de caja
             </span>
             <span className={`text-[11px] font-semibold ${variationClass(gainV)}`}>{gainV.label}</span>
           </div>
@@ -244,7 +255,7 @@ async function DashboardContent({
         {/* Caja */}
         <Link
           href="/cajas"
-          className="group flex flex-col rounded-2xl border-2 border-[#2D5A41]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_20px_rgba(15,23,42,0.08)] dark:border-[#9AC7A8]/40 dark:bg-[#141414] dark:shadow-none"
+          className="group flex flex-col rounded-2xl border-2 border-[#2D5A41]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#2D5A41]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#9AC7A8]/40 dark:hover:border-[#9AC7A8]/80 dark:bg-[#141414] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F0F5F2] text-[#4F7A63] dark:bg-[#1F3428] dark:text-[#9AC7A8]">
@@ -252,14 +263,18 @@ async function DashboardContent({
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Caja</span>
           </div>
-          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{fmt(cajaTotal)}</p>
-          <span className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-lg bg-[#F0F5F2] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#4F7A63] shadow-sm transition group-hover:bg-[#E2ECE6] dark:bg-[#1F3428] dark:text-[#9AC7A8] dark:group-hover:bg-[#27412F]">Ver cajas <span aria-hidden>→</span></span>
+          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{cajaTotal < 0 ? '−' : ''}{fmt(cajaTotal)}</p>
+          {cajaUsd !== 0 && (
+            <p className="mt-1 font-mono text-sm font-semibold num-tabular text-stone-500 dark:text-stone-400">
+              {cajaUsd < 0 ? '− ' : '+ '}US${Math.abs(cajaUsd).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+            </p>
+          )}
         </Link>
 
         {/* Créditos / Deudas */}
         <Link
           href="/creditos"
-          className="group flex flex-col rounded-2xl border-2 border-[#C2410C]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_20px_rgba(15,23,42,0.08)] dark:border-[#F97316]/40 dark:bg-[#141414] dark:shadow-none"
+          className="group flex flex-col rounded-2xl border-2 border-[#C2410C]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#C2410C]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#F97316]/40 dark:hover:border-[#F97316]/80 dark:bg-[#141414] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FFF7EF] text-[#D97757] dark:bg-[#2A1810] dark:text-[#F97316]">
@@ -277,13 +292,12 @@ async function DashboardContent({
               <p className="font-mono text-[1.15rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8] whitespace-nowrap">{fmt(totalAPagar)}</p>
             </div>
           </div>
-          <span className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-lg bg-[#FFF7EF] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#D97757] shadow-sm transition group-hover:bg-[#FCEADD] dark:bg-[#2A1810] dark:text-[#F97316] dark:group-hover:bg-[#3A2014]">Ver créditos <span aria-hidden>→</span></span>
         </Link>
 
         {/* Stock */}
         <Link
           href="/stock"
-          className="group flex flex-col rounded-2xl border-2 border-[#7C3AED]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_20px_rgba(15,23,42,0.08)] dark:border-[#A78BFA]/40 dark:bg-[#141414] dark:shadow-none"
+          className="group flex flex-col rounded-2xl border-2 border-[#7C3AED]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#7C3AED]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#A78BFA]/40 dark:hover:border-[#A78BFA]/80 dark:bg-[#141414] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F7F4FE] text-[#9B7BD8] dark:bg-[#1E1830] dark:text-[#A78BFA]">
@@ -292,8 +306,6 @@ async function DashboardContent({
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Stock</span>
           </div>
           <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{fmt(stockTotal)}</p>
-          <p className="text-[11px] text-stone-400 dark:text-stone-500">Valor de inventario</p>
-          <span className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-lg bg-[#F5F1FC] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9B7BD8] shadow-sm transition group-hover:bg-[#EBE3F8] dark:bg-[#1E1830] dark:text-[#A78BFA] dark:group-hover:bg-[#28203F]">Ver stock <span aria-hidden>→</span></span>
         </Link>
 
         {/* Bienes de Uso */}

@@ -46,9 +46,11 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
     <button
       onClick={toggle}
       suppressHydrationWarning
+      role="switch"
+      aria-checked={dark}
       title={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       className="print:hidden w-full flex items-center gap-3 px-4 py-2.5 rounded-sm text-xs font-medium uppercase tracking-wider transition-all
-        text-gray-400 hover:text-gray-700 hover:bg-gray-50 border border-transparent hover:border-black/[0.07]"
+        text-gray-400 hover:text-gray-200 hover:bg-[#fff]/[0.06] border border-transparent"
     >
       {/* Ícono Sol / Luna */}
       <span className="w-5 h-5 text-brand-gold flex items-center justify-center shrink-0">
@@ -67,18 +69,17 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
 
       <span>{dark ? 'Modo Claro' : 'Modo Oscuro'}</span>
 
-      {/* Indicador visual de estado */}
-      <span className="ml-auto">
+      {/* Interruptor estilo iPhone. Colores fijos (bg-[#fff], no bg-white): el
+          estilo oscuro global pinta .bg-white de negro */}
+      <span className="ml-auto" aria-hidden>
         <span
-          className={`inline-block w-7 h-3.5 rounded-full border transition-colors relative ${
-            dark
-              ? 'bg-brand-military border-brand-military'
-              : 'bg-gray-200 border-gray-300'
+          className={`relative block h-[18px] w-[32px] rounded-full transition-colors duration-200 ${
+            dark ? 'bg-[#34C759]' : 'bg-[#fff]/20'
           }`}
         >
           <span
-            className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-transform ${
-              dark ? 'translate-x-3.5' : 'translate-x-0.5'
+            className={`absolute left-[2px] top-[2px] h-[14px] w-[14px] rounded-full bg-[#fff] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-transform duration-200 ${
+              dark ? 'translate-x-[14px]' : 'translate-x-0'
             }`}
           />
         </span>

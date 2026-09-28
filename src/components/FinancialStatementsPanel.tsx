@@ -242,10 +242,10 @@ export default function FinancialStatementsPanel({
             previewValue={fmtAmount(results.netProfit, results.currency, true)}
             pctValue={results.netMargin}
             trendPoints={[
-              { label: 'Ingresos', value: results.income },
+              { label: 'Ventas', value: results.sales },
               { label: 'CMV', value: -results.cogs },
               { label: 'Gcia. bruta', value: results.grossProfit },
-              { label: 'Gastos', value: results.grossProfit - results.operatingExpensesTotal },
+              { label: 'Gastos', value: results.grossProfit + results.otherIncomeTotal - results.operatingExpensesTotal },
               { label: 'Gcia. neta', value: results.netProfit },
             ]}
             currency={results.currency}
@@ -311,10 +311,10 @@ export default function FinancialStatementsPanel({
             icon={<FiTrendingUp className="h-4 w-4" />}
             ctaLabel="Ver detalle del estado de resultado"
             lines={[
-              { label: 'Ingresos', value: fmtAmount(results.income, results.currency) },
+              { label: 'Ventas', value: fmtAmount(results.sales, results.currency) },
               { label: 'Costo de mercadería vendida', value: fmtAmount(results.cogs, results.currency) },
               { label: 'Ganancia Bruta', value: fmtAmount(results.grossProfit, results.currency) },
-              { label: 'Otros ingresos', value: fmtAmount(0, results.currency), spacing: 'loose' },
+              { label: 'Otros ingresos', value: fmtAmount(results.otherIncomeTotal, results.currency), spacing: 'loose' },
               { label: 'Otros Egresos', value: fmtAmount(results.operatingExpensesTotal, results.currency) },
             ]}
             result={{ label: 'Resultado Neto', value: fmtAmount(results.netProfit, results.currency, true) }}

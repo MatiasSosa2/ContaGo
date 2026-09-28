@@ -81,7 +81,7 @@ export default function BienesDeUsoModal({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group flex flex-col rounded-2xl border-2 border-[#92400E]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition hover:shadow-[0_6px_20px_rgba(15,23,42,0.08)] dark:border-[#D97706]/40 dark:bg-[#141414] dark:shadow-none w-full text-left"
+        className="group flex flex-col rounded-2xl border-2 border-[#92400E]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#92400E]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#D97706]/40 dark:hover:border-[#D97706]/80 dark:bg-[#141414] dark:shadow-none w-full text-left"
       >
         <div className="mb-3 flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FBF6EB] text-[#B07355] dark:bg-[#2A1810] dark:text-[#D97706]">
@@ -94,10 +94,6 @@ export default function BienesDeUsoModal({
         <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">
           {fmt(bienesTotal)}
         </p>
-        <p className="text-[11px] text-stone-400 dark:text-stone-500">Activos fijos</p>
-        <span className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-lg bg-[#FBF6EB] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#B07355] shadow-sm transition group-hover:bg-[#F2E9D7] dark:bg-[#2A1810] dark:text-[#D97706] dark:group-hover:bg-[#3A2014]">
-          Ver detalle <span aria-hidden>→</span>
-        </span>
       </button>
 
       {/* Modal */}

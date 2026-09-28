@@ -1,4 +1,9 @@
-import { MetricChip, StatementRow, fmtAmount, type CashFlowData } from './shared'
+import { MetricChip, StatementRow, StatementLineRow, fmtAmount, type CashFlowData, type StatementLine } from './shared'
+
+// Los egresos son salidas: se muestran con "−"
+function asOutflow(line: StatementLine): StatementLine {
+  return { ...line, amount: -Math.abs(line.amount), children: line.children?.map(asOutflow) }
+}
 
 export default function FlujoDetail({ data }: { data: CashFlowData }) {
   return (
@@ -14,24 +19,31 @@ export default function FlujoDetail({ data }: { data: CashFlowData }) {
         style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}
       >
         <StatementRow label="Saldo inicial" amount={data.openingBalance} pct={0} currency={data.currency} />
-        <StatementRow label="Ingresos cobrados" amount={data.collectedIncome} pct={data.openingBalance !== 0 ? (data.collectedIncome / Math.max(Math.abs(data.openingBalance), 1)) * 100 : 100} currency={data.currency} variant="positive" />
+        <StatementRow label="Ingresos" amount={data.collectedIncome} pct={data.openingBalance !== 0 ? (data.collectedIncome / Math.max(Math.abs(data.openingBalance), 1)) * 100 : 100} currency={data.currency} variant="positive" />
 
         <div className="pt-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">Egresos clasificados</p>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF]">Egresos</p>
+            <p className="font-mono text-xs font-light text-[#8A6118] num-tabular dark:text-[#D7B36B]">{fmtAmount(-data.totalExpenses, data.currency, data.totalExpenses !== 0)}</p>
+          </div>
           <div className="mt-2">
             {data.expenseLines.length === 0 ? (
               <div className="border border-dashed border-[#E5E7EB] px-4 py-5 text-sm text-[#9CA3AF] dark:border-white/10 dark:text-[#737373]">
-                No se registran egresos cobrados o pagados en el período.
+                No se registran egresos en el período.
               </div>
             ) : (
               data.expenseLines.map((line) => (
-                <StatementRow key={line.label} label={line.label} amount={line.amount} pct={line.pct} currency={data.currency} variant="negative" />
+                <StatementLineRow key={line.label} line={asOutflow(line)} currency={data.currency} variant="negative" />
               ))
             )}
           </div>
         </div>
 
-        <StatementRow label="Variación neta del mes" amount={data.netVariation} pct={data.openingBalance !== 0 ? (data.netVariation / Math.max(Math.abs(data.openingBalance), 1)) * 100 : 100} currency={data.currency} variant="highlight" />
+        {data.currencyExchange !== 0 && (
+          <StatementRow label="Cambio de moneda" amount={data.currencyExchange} pct={0} currency={data.currency} />
+        )}
+
+        <StatementRow label="Variación neta del período" amount={data.netVariation} pct={data.openingBalance !== 0 ? (data.netVariation / Math.max(Math.abs(data.openingBalance), 1)) * 100 : 100} currency={data.currency} variant="highlight" />
 
         <div className="mt-4 border border-[#D5E3D8] bg-[#F5FAF7] px-4 py-4 dark:border-[#294235] dark:bg-[#162019]">
           <div className="flex items-center justify-between gap-4">

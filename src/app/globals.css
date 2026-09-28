@@ -495,9 +495,10 @@ input[type=number] {
 }
 
 /* ── Inputs, selects, textareas ── */
-[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]),
-[data-theme="dark"] textarea,
-[data-theme="dark"] select {
+/* .ios-bare: campos sin caja de la pestaña de registración (van dentro de filas) */
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not(.ios-bare),
+[data-theme="dark"] textarea:not(.ios-bare),
+[data-theme="dark"] select:not(.ios-bare) {
   background-color: #2A2A2A !important;
   color: #E8E8E8 !important;
   border-color: rgba(255,255,255,0.10) !important;

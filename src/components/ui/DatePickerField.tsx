@@ -11,6 +11,8 @@ type Props = {
   disabled?: boolean
   className?: string
   placeholder?: string
+  /** 'icon': solo ícono de calendario + fecha corta, para encabezados */
+  variant?: 'field' | 'icon'
 }
 
 function toIso(d: Date): string {
@@ -32,7 +34,15 @@ function formatLabel(d: Date | undefined): string {
   return d.toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export default function DatePickerField({ value, onChange, disabled, className, placeholder }: Props) {
+function formatShortLabel(d: Date | undefined): string {
+  if (!d) return ''
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return d
+    .toLocaleDateString('es-AR', sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' })
+    .replace('.', '')
+}
+
+export default function DatePickerField({ value, onChange, disabled, className, placeholder, variant = 'field' }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const selected = fromIso(value)
@@ -53,6 +63,20 @@ export default function DatePickerField({ value, onChange, disabled, className, 
 
   return (
     <div ref={ref} className={`relative ${className ?? ''}`}>
+      {variant === 'icon' ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+          aria-label="Cambiar fecha"
+          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-gray-500 dark:hover:text-gray-300"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+          </svg>
+          {selected && <span className="tabular-nums">{formatShortLabel(selected)}</span>}
+        </button>
+      ) : (
       <button
         type="button"
         disabled={disabled}
@@ -66,8 +90,9 @@ export default function DatePickerField({ value, onChange, disabled, className, 
           <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
         </svg>
       </button>
+      )}
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1.5 rounded-2xl border border-black/[0.08] bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-zinc-900">
+        <div className={`absolute top-full z-50 mt-1.5 rounded-2xl border border-black/[0.08] bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-zinc-900 ${variant === 'icon' ? 'right-0' : 'left-0'}`}>
           <DayPicker
             mode="single"
             locale={es}

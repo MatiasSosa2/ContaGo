@@ -28,6 +28,12 @@ type Producto = {
   stockInicialPeriodo?: number
   entradasPeriodo?: number
   salidasPeriodo?: number
+  /** Costo de lo vendido en el período: cada salida a su CPP del momento */
+  cmvPeriodo?: number
+  /** Valor al costo al inicio del período, de lo comprado en el período y al cierre */
+  valorInicialPeriodo?: number
+  valorCompradoPeriodo?: number
+  valorFinalPeriodo?: number
 }
 
 type Movimiento = {
@@ -480,15 +486,16 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const valorVentaTotal = resumenGeneral.valorVenta
   const gananciaPotencial = resumenGeneral.gananciaPotencial
 
-  // Flujo de inventario del período (valorizado al costo)
+  // Flujo de inventario del período, valorizado a lo que costó cada unidad
+  // (el servidor reproduce los movimientos: Inicial + Comprado − Vendido = Final)
   const flujoPeriodo = productos.reduce((acc, p) => {
-    const costo = p.precioCosto ?? 0
     const inicial = p.stockInicialPeriodo ?? 0
     const entradas = p.entradasPeriodo ?? 0
     const salidas = p.salidasPeriodo ?? 0
-    acc.inventarioInicial += inicial * costo
-    acc.inventarioComprado += entradas * costo
-    acc.inventarioVendido += salidas * costo
+    acc.inventarioInicial += p.valorInicialPeriodo ?? 0
+    acc.inventarioComprado += p.valorCompradoPeriodo ?? 0
+    // Mismo CMV que el Estado de resultados
+    acc.inventarioVendido += p.cmvPeriodo ?? 0
     acc.inicialUnidades += inicial
     acc.compradoUnidades += entradas
     acc.vendidoUnidades += salidas
@@ -504,8 +511,6 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const stockFinalUnidades = inicialUnidades - vendidoUnidades + compradoUnidades
   const enUnidades = vistaInventario === 'UNIDADES'
   const formatCard = (valor: number) => enUnidades ? `${fmtUnits(valor)} u` : `$${fmt(valor)}`
-  const sobreVendiendo = inventarioVendido > inventarioComprado
-  const sobreStockeando = inventarioComprado > inventarioVendido
   const sinStock = productos.filter(p => p.stockActual <= 0).length
   const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual < 5).length
   const editingProd = editingId ? productos.find(p => p.id === editingId) : null
@@ -735,13 +740,16 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
           </button>
         </div>
 
-        <div className={`executive-panel flex items-center gap-2.5 px-3.5 py-1.5 ${diagnosticoStyles.border} ${diagnosticoStyles.bg}`}>
-          <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${diagnosticoStyles.dot}`} aria-hidden />
-          <div className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
-            <p className={`text-[11px] font-semibold tracking-wide whitespace-nowrap ${diagnosticoStyles.accent}`}>{diagnostico.titulo}</p>
-            <p className={`truncate text-xs ${diagnosticoStyles.text}`}>{diagnostico.mensaje}</p>
+        {/* Sin stock al inicio del período no hay contra qué comparar: sin diagnóstico */}
+        {inicialUnidades > 0 && (
+          <div className={`executive-panel flex items-center gap-2.5 px-3.5 py-1.5 ${diagnosticoStyles.border} ${diagnosticoStyles.bg}`}>
+            <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${diagnosticoStyles.dot}`} aria-hidden />
+            <div className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
+              <p className={`text-[11px] font-semibold tracking-wide whitespace-nowrap ${diagnosticoStyles.accent}`}>{diagnostico.titulo}</p>
+              <p className={`truncate text-xs ${diagnosticoStyles.text}`}>{diagnostico.mensaje}</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
@@ -749,15 +757,13 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
           <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Inventario inicial</p>
           <p className="text-[28px] font-mono font-bold text-[#111827] dark:text-white num-tabular">{formatCard(enUnidades ? inicialUnidades : inventarioInicial)}</p>
         </div>
-        <div className={`executive-metric px-5 py-4 ${sobreVendiendo ? 'border-l-4 border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/20' : ''}`}>
-          <p className={`mb-1 text-xs font-semibold uppercase tracking-wider ${sobreVendiendo ? 'text-emerald-700 dark:text-emerald-300' : 'text-[#9CA3AF]'}`}>Inventario vendido</p>
-          {sobreVendiendo && <p className="mt-0.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">Estás sobrevendiendo — vendiste más de lo que compraste.</p>}
-          <p className={`text-[28px] font-mono font-bold num-tabular ${sobreVendiendo ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-military-dark dark:text-[#6EBC8A]'}`}>{formatCard(enUnidades ? vendidoUnidades : inventarioVendido)}</p>
+        <div className="executive-metric px-5 py-4">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Inventario vendido</p>
+          <p className="text-[28px] font-mono font-bold num-tabular text-brand-military-dark dark:text-[#6EBC8A]">{formatCard(enUnidades ? vendidoUnidades : inventarioVendido)}</p>
         </div>
-        <div className={`executive-metric px-5 py-4 ${sobreStockeando ? 'border-l-4 border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/20' : ''}`}>
-          <p className={`mb-1 text-xs font-semibold uppercase tracking-wider ${sobreStockeando ? 'text-emerald-700 dark:text-emerald-300' : 'text-[#9CA3AF]'}`}>Inventario comprado</p>
-          {sobreStockeando && <p className="mt-0.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">Estás sobrestockeando — compraste más de lo que vendiste.</p>}
-          <p className={`text-[28px] font-mono font-bold num-tabular ${sobreStockeando ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}`}>{formatCard(enUnidades ? compradoUnidades : inventarioComprado)}</p>
+        <div className="executive-metric px-5 py-4">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Inventario comprado</p>
+          <p className="text-[28px] font-mono font-bold num-tabular text-red-600 dark:text-red-400">{formatCard(enUnidades ? compradoUnidades : inventarioComprado)}</p>
         </div>
         <div className="executive-metric px-5 py-4">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Stock final</p>

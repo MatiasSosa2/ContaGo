@@ -12,6 +12,7 @@ type Transaction = {
   type: string
   account: { name: string }
   category: { name: string } | null
+  subcategory?: { name: string } | null
   contact: { name: string } | null
   areaNegocio: { nombre: string } | null
 }
@@ -56,6 +57,7 @@ export default function TransactionList({ transactions, onDelete }: { transactio
         t.description.toLowerCase().includes(q) ||
         t.account.name.toLowerCase().includes(q) ||
         t.category?.name.toLowerCase().includes(q) ||
+        t.subcategory?.name.toLowerCase().includes(q) ||
         t.contact?.name.toLowerCase().includes(q) ||
         t.areaNegocio?.nombre.toLowerCase().includes(q)
       )
@@ -171,7 +173,7 @@ export default function TransactionList({ transactions, onDelete }: { transactio
                   <div className="flex flex-wrap gap-1">
                      {tx.category && (
                      <span className="text-[11px] px-2 py-0.5 bg-[#F0F4EF] text-[#3A4D39] rounded-sm font-medium">
-                       {tx.category.name}
+                       {tx.category.name}{tx.subcategory ? ` › ${tx.subcategory.name}` : ''}
                      </span>
                      )}
                      {tx.contact && (

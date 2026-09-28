@@ -1,4 +1,4 @@
-import { getAllTransactions, getCajasData, getLatestTransactionDate } from '@/app/actions'
+import { getAllCashTransfers, getAllTransactions, getCajasData, getCashFlowByCurrency, getLatestTransactionDate } from '@/app/actions'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
@@ -33,11 +33,26 @@ export default async function CajasPage({
   const selectedDay = sp?.day
   const selectedWeekStart = sp?.weekStart
 
-  const [data, movements, allMovements] = await Promise.all([
-    getCajasData(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
-    getAllTransactions(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
-    getAllTransactions(), // todos los movimientos históricos para el gráfico
+  const periodArgs = [periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart] as const
+  const [data, transactions, transfers, cashFlow] = await Promise.all([
+    getCajasData(...periodArgs),
+    // La lista de movimientos muestra todo, desde el primero; el gráfico recorta el período solo
+    getAllTransactions(),
+    getAllCashTransfers(),
+    getCashFlowByCurrency(...periodArgs),
   ])
+
+  // Cada cambio de caja aparece como dos movimientos: sale de una caja y entra en la otra
+  const transferLegs = transfers.flatMap((t) => {
+    const label = `${t.fromAccount.name} → ${t.toAccount.name}`
+    const base = { description: t.description ?? label, date: t.date, esCredito: false, category: null, isTransfer: true, transferLabel: label }
+    return [
+      { ...base, id: `${t.id}-out`, type: 'EXPENSE', amount: t.amountFrom, currency: t.fromAccount.currency, account: { name: t.fromAccount.name, type: t.fromAccount.type } },
+      { ...base, id: `${t.id}-in`, type: 'INCOME', amount: t.amountTo, currency: t.toAccount.currency, account: { name: t.toAccount.name, type: t.toAccount.type } },
+    ]
+  })
+  const movements = [...transactions, ...transferLegs]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
@@ -65,7 +80,7 @@ export default async function CajasPage({
       <CajasClient
         data={data}
         movements={movements}
-        allMovements={allMovements}
+        cashFlow={cashFlow}
         period={periodo}
         customFrom={customFrom}
         customTo={customTo}

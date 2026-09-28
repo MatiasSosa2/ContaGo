@@ -14,6 +14,7 @@ export interface CreditoTx {
   estado: string
   contact: { id: string; name: string; type: string } | null
   category: { name: string } | null
+  subcategory?: { name: string } | null
 }
 
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
@@ -236,7 +237,7 @@ function CreditoListRow({
           {tx.contact?.name && tx.description && tx.description !== tx.contact.name && (
             <span className="truncate">{tx.description}</span>
           )}
-          {tx.category && <span className="truncate">{tx.category.name}</span>}
+          {tx.category && <span className="truncate">{tx.category.name}{tx.subcategory ? ` › ${tx.subcategory.name}` : ''}</span>}
         </div>
       </div>
 

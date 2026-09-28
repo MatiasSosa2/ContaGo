@@ -11,6 +11,7 @@ const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env
 const emptyCatalogs = () => ({
   accounts: [],
   categories: [],
+  subcategories: [] as { id: string; name: string; categoryId: string }[],
   contacts: [],
   areas: [],
   productos: [],
@@ -47,6 +48,7 @@ export async function getModalCatalogs() {
     return {
       accounts: MOCK.MOCK_ACCOUNTS,
       categories: MOCK.MOCK_CATEGORIES,
+      subcategories: [] as { id: string; name: string; categoryId: string }[],
       contacts: [],
       areas: [],
       productos: MOCK.MOCK_PRODUCTOS,
@@ -293,6 +295,18 @@ export async function deleteCategory(id: string) {
   return databaseActions.deleteCategory(id);
 }
 
+export async function createSubcategory(formData: FormData): Promise<ActionResult<{ id: string; name: string; categoryId: string }>> {
+  if (USE_MOCK) return { success: true, data: { id: 'mock', name: 'mock', categoryId: 'mock' } };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createSubcategory(formData);
+}
+
+export async function deleteSubcategory(id: string) {
+  if (USE_MOCK) { revalidatePath('/'); return; }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.deleteSubcategory(id);
+}
+
 export async function getCreditosDeudas(
   period?: string,
   customFrom?: string,
@@ -333,8 +347,8 @@ export async function getEmpleados(preBusinessId?: string) {
   return databaseActions.getEmpleados(preBusinessId);
 }
 
-export async function createProducto(formData: FormData): Promise<ActionResult> {
-  if (USE_MOCK) return { success: true };
+export async function createProducto(formData: FormData): Promise<ActionResult<{ id: string }>> {
+  if (USE_MOCK) return { success: true, data: { id: 'mock' } };
   const databaseActions = await getDatabaseActions();
   return databaseActions.createProducto(formData);
 }
@@ -468,4 +482,95 @@ export async function getCajasData(
   }
   const databaseActions = await getDatabaseActions();
   return databaseActions.getCajasData(period as any, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
+}
+
+// ---- Cambio de caja / Diferencia de caja ----
+
+export async function createCashTransfer(formData: FormData): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createCashTransfer(formData);
+}
+
+export async function createCashAdjustment(formData: FormData): Promise<ActionResult<{ difference: number }>> {
+  if (USE_MOCK) return { success: true, data: { difference: 0 } };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createCashAdjustment(formData);
+}
+
+export async function getCashAccountBalance(accountId: string, dateStr?: string): Promise<ActionResult<{ balance: number }>> {
+  if (USE_MOCK) return { success: true, data: { balance: 0 } };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCashAccountBalance(accountId, dateStr);
+}
+
+type CashPeriodKey = Parameters<typeof import("./actions.database").getCashFlowByCurrency>[0]
+
+type CashPeriodArgs = [
+  period: string,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+]
+
+export async function getCashFlowByCurrency(...args: CashPeriodArgs) {
+  if (USE_MOCK) {
+    const empty = (currency: string) => ({ currency, saldoInicial: 0, ingresos: 0, egresos: 0, cambioMoneda: 0, saldoFinal: 0 });
+    return { from: new Date(), to: new Date(), ARS: empty('ARS'), USD: empty('USD') };
+  }
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCashFlowByCurrency(period as CashPeriodKey, ...rest);
+}
+
+export async function getYearlySeries(year: number, cashCurrency = 'ARS') {
+  if (USE_MOCK) return { year, resultados: Array(12).fill(null), flujo: Array(12).fill(null), patrimonio: Array(12).fill(null) };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getYearlySeries(year, cashCurrency);
+}
+
+/** Todos los cambios de caja, desde el primero */
+export async function getAllCashTransfers() {
+  if (USE_MOCK) return [];
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCashTransfers();
+}
+
+export async function getCashTransfers(...args: CashPeriodArgs) {
+  if (USE_MOCK) return [];
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCashTransfers(period as CashPeriodKey, ...rest);
+}
+
+export async function getCashFlowKpis(...args: CashPeriodArgs) {
+  if (USE_MOCK) {
+    const empty = { currency: 'ARS', saldoInicial: 0, ingresos: 0, egresos: 0, cambioMoneda: 0, saldoFinal: 0 };
+    return { current: empty, prev: empty, usdSaldoFinal: 0 };
+  }
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCashFlowKpis(period as CashPeriodKey, ...rest);
+}
+
+export async function getIncomeStatement(...args: [...CashPeriodArgs, currency?: string]) {
+  if (USE_MOCK) return { ventas: 0, cmv: 0, otherIncomeItems: [], expenseItems: [] };
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getIncomeStatement(period as CashPeriodKey, ...rest);
+}
+
+export async function createProductOperation(formData: FormData): Promise<ActionResult<{ operacionId: string }>> {
+  if (USE_MOCK) return { success: true, data: { operacionId: 'mock' } };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createProductOperation(formData);
+}
+
+export async function createConceptOperation(formData: FormData): Promise<ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string }>> {
+  if (USE_MOCK) return { success: true, data: {} };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createConceptOperation(formData);
 }

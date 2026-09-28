@@ -217,6 +217,17 @@ export default function PeriodSelector({
     })
   }
 
+  // Pantalla angosta: las flechas pasan directo al período anterior / siguiente
+  function stepSelected(direction: -1 | 1) {
+    if (active === 'diario') selectDay(addDays(selectedDayDate, direction))
+    else if (active === 'semanal') selectWeek(addDays(selectedWeekMonday, 7 * direction))
+    else if (active === 'anual') selectYear(effectiveYear + direction)
+    else if (active === 'mensual') {
+      const m = addMonths(effectiveYear, effectiveMonth, direction)
+      selectMonth(m.year, m.month)
+    }
+  }
+
   function goToday() {
     setDayOffset(0); setWeekOffset(0); setMonthOffset(0); setYearOffset(0)
     if (active === 'diario') selectDay(now)
@@ -350,6 +361,9 @@ export default function PeriodSelector({
   })()
 
   const tabBaseClass = 'rounded-lg px-2.5 py-1 text-[11px] font-semibold leading-none transition-colors'
+  // Flechas de la franja (sin display: cada una decide si se ve en angosta o ancha)
+  const arrowBtnClass = 'h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.05] dark:hover:text-emerald-300'
+
   const navBtnClass = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-[#1B4332]/40 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-stone-300 dark:hover:text-emerald-300'
 
   // Evita mismatch de hidratación por dependencia de `new Date()`.
@@ -381,14 +395,15 @@ export default function PeriodSelector({
             })}
           </div>
 
-          <div className="flex min-w-0 flex-1 items-center gap-1 rounded-xl border border-stone-200 bg-white px-1 py-1 dark:border-white/[0.05] dark:bg-[#0d0e10]">
-            <button
-              type="button"
-              onClick={() => shiftWindow(-1)}
-              disabled={pending}
-              aria-label="Anterior"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.05] dark:hover:text-emerald-300"
-            >
+          {/* @container: si la franja queda angosta, se ve solo el período elegido y las flechas lo cambian */}
+          <div className="@container flex min-w-0 flex-1 items-center gap-1 rounded-xl border border-stone-200 bg-white px-1 py-1 dark:border-white/[0.05] dark:bg-[#0d0e10]">
+            {/* Angosta: cambia el período elegido. Ancha: corre la franja */}
+            <button type="button" onClick={() => stepSelected(-1)} disabled={pending} aria-label="Período anterior" className={`flex @[30rem]:hidden ${arrowBtnClass}`}>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button type="button" onClick={() => shiftWindow(-1)} disabled={pending} aria-label="Anterior" className={`hidden @[30rem]:flex ${arrowBtnClass}`}>
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
@@ -404,7 +419,7 @@ export default function PeriodSelector({
                   className={
                     item.isActive
                       ? 'relative flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg bg-[#FCE7C8] px-1.5 py-1 text-stone-900 ring-1 ring-[#E0B97D]/70 transition dark:bg-[#FCE7C8]/95'
-                      : 'relative flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg px-1.5 py-1 text-stone-600 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/[0.05]'
+                      : 'relative hidden @[30rem]:flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg px-1.5 py-1 text-stone-600 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/[0.05]'
                   }
                 >
                   <span className={`truncate text-[11px] font-semibold capitalize leading-tight ${item.isToday && !item.isActive ? 'text-[#1B4332] dark:text-emerald-300' : ''}`}>
@@ -417,13 +432,12 @@ export default function PeriodSelector({
               ))}
             </div>
 
-            <button
-              type="button"
-              onClick={() => shiftWindow(1)}
-              disabled={pending}
-              aria-label="Siguiente"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.05] dark:hover:text-emerald-300"
-            >
+            <button type="button" onClick={() => stepSelected(1)} disabled={pending} aria-label="Período siguiente" className={`flex @[30rem]:hidden ${arrowBtnClass}`}>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <button type="button" onClick={() => shiftWindow(1)} disabled={pending} aria-label="Siguiente" className={`hidden @[30rem]:flex ${arrowBtnClass}`}>
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>

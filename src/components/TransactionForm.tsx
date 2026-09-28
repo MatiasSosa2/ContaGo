@@ -7,9 +7,13 @@ import ProductoServicioCombobox from './ui/ProductoServicioCombobox'
 import BienDeUsoCombobox from './ui/BienDeUsoCombobox'
 import CobroCreditoPanel from './CobroCreditoPanel'
 import PagoDeudaPanel from './PagoDeudaPanel'
+import ProductOperationForm from './ProductOperationForm'
+import ConceptOperationForm, { type ConceptKind } from './ConceptOperationForm'
+import { Caption, IOS_FONT } from './ui/ios'
 
 export type Account = { id: string; name: string; currency: string; type: string }
 export type Category = { id: string; name: string; type: string }
+export type Subcategory = { id: string; name: string; categoryId: string }
 export type Contact = { id: string; name: string; type: string }
 export type AreaNegocio = { id: string; nombre: string }
 export type Producto = {
@@ -44,12 +48,12 @@ type SubmitResult = { success: boolean; error?: string; data?: { clienteSaldado?
 type Props = {
   accounts: Account[]
   categories: Category[]
+  subcategories?: Subcategory[]
   contacts: Contact[]
   areas: AreaNegocio[]
   productos?: Producto[]
   empleados?: Empleado[]
   bienesDeUso?: BienDeUso[]
-  operatingModel?: 'PRODUCTS' | 'SERVICES' | 'BOTH'
   onSubmit?: (formData: FormData) => Promise<SubmitResult>
   onClienteSaldado?: (nombre: string) => void
   onProveedorSaldado?: (nombre: string) => void
@@ -57,7 +61,31 @@ type Props = {
   initialSubType?: SubType
   initialCreditoPreset?: { linkedCreditoId: string; contactId: string; saldoMax: number } | null
   onTypeChange?: (type: 'INCOME' | 'EXPENSE') => void
+  /** Fecha controlada desde afuera (el modal la muestra en el encabezado). */
+  date?: string
+  onDateChange?: (iso: string) => void
+  /** Alta/baja de categorías propias. onAddCategory devuelve error o null. */
+  onAddCategory?: (name: string, type: 'INCOME' | 'EXPENSE') => Promise<string | null>
+  onDeleteCategory?: (id: string) => void
+  /** Alta/baja de subcategorías. onAddSubcategory devuelve el id creado o un error. */
+  onAddSubcategory?: (categoryId: string, name: string) => Promise<{ id: string } | { error: string }>
+  onDeleteSubcategory?: (id: string) => void
+  /** Si está, venta/compra de productos usan el formulario de varios ítems y avisa al terminar */
+  onSaleDone?: () => void
+  /** Lugar al costado de la pestaña para el carrito de la venta */
+  cartSlot?: HTMLElement | null
+  /** Lugar debajo de la pestaña para la tarjeta del botón "Registrar…" */
+  footerSlot?: HTMLElement | null
 }
+
+// Categorías que el sistema crea solo para cada tipo de operación: no se listan como propias.
+const SYSTEM_CATEGORY_NAMES = new Set([
+  'Ventas de mercadería', 'Ventas de servicios', 'Resultado por venta de bienes de uso',
+  'Cobros de crédito', 'Compras', 'Otros ingresos', 'Otros egresos', 'Diferencias de caja',
+])
+
+// Categorías de egreso que vienen por defecto, en el orden en que se muestran
+const DEFAULT_ORDER = ['Sueldos', 'Alquiler', 'Publicidad', 'Impuestos']
 
 const SELECT_CLS =
   'h-9 w-full appearance-none rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] outline-none transition focus:border-brand-military focus:ring-2 focus:ring-brand-military/25 dark:border-white/15 dark:bg-[#161616] dark:text-[#E8E8E8]'
@@ -88,13 +116,13 @@ function SelectWrapper({ children }: { children: React.ReactNode }) {
 
 export default function TransactionForm({
   accounts,
-  categories: _categories,
+  categories,
+  subcategories = [],
   contacts,
   areas: _areas,
   productos = [],
   empleados = [],
   bienesDeUso = [],
-  operatingModel = 'BOTH',
   onSubmit,
   onClienteSaldado,
   onProveedorSaldado,
@@ -102,22 +130,26 @@ export default function TransactionForm({
   initialSubType,
   initialCreditoPreset = null,
   onTypeChange,
+  date: dateProp,
+  onDateChange,
+  onAddCategory,
+  onDeleteCategory,
+  onAddSubcategory,
+  onDeleteSubcategory,
+  onSaleDone,
+  cartSlot,
+  footerSlot,
 }: Props) {
-  void _categories
   void _areas
   const [type, setType] = useState<'INCOME' | 'EXPENSE'>(initialType)
 
-  const defaultSubType = (t: 'INCOME' | 'EXPENSE'): SubType => {
-    if (t === 'EXPENSE') {
-      if (operatingModel === 'SERVICES') return 'PURCHASE_SERVICE'
-      return 'PURCHASE_PRODUCT'
-    }
-    if (operatingModel === 'SERVICES') return 'SALE_SERVICE'
-    return 'SALE_PRODUCT'
-  }
+  const defaultSubType = (t: 'INCOME' | 'EXPENSE'): SubType =>
+    t === 'EXPENSE' ? 'PURCHASE_PRODUCT' : 'SALE_PRODUCT'
 
   const [subType, setSubType] = useState<SubType>(initialSubType ?? defaultSubType(initialType))
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [dateLocal, setDateLocal] = useState(new Date().toISOString().split('T')[0])
+  const date = dateProp ?? dateLocal
+  const setDate = onDateChange ?? setDateLocal
   const [productoId, setProductoId] = useState('')
   const [bienDeUsoId, setBienDeUsoId] = useState('')
   const [linkedCreditoId, setLinkedCreditoId] = useState(initialCreditoPreset?.linkedCreditoId ?? '')
@@ -127,7 +159,10 @@ export default function TransactionForm({
   const [precioUnitario, setPrecioUnitario] = useState('')
   const [contactId, setContactId] = useState('')
   const [empleadoId, setEmpleadoId] = useState('')
-  const [categoryId] = useState('')
+  // Categoría propia elegida (subType pasa a OTHER_INCOME / PAGO)
+  const [categoryId, setCategoryId] = useState('')
+  const [subcategoryId, setSubcategoryId] = useState('')
+  const [masDatosOpen, setMasDatosOpen] = useState(false)
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('EFECTIVO')
   const [accountId, setAccountId] = useState(accounts[0]?.id || '')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
@@ -143,7 +178,8 @@ export default function TransactionForm({
   useEffect(() => {
     setType(initialType)
     setSubType(initialSubType ?? defaultSubType(initialType))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setCategoryId('')
+    setSubcategoryId('')
   }, [initialType, initialSubType])
 
   useEffect(() => {
@@ -159,6 +195,8 @@ export default function TransactionForm({
   const handleTypeChange = (newType: 'INCOME' | 'EXPENSE') => {
     setType(newType)
     setSubType(defaultSubType(newType))
+    setCategoryId('')
+    setSubcategoryId('')
     setError(null)
     if (onTypeChange) onTypeChange(newType)
   }
@@ -179,30 +217,85 @@ export default function TransactionForm({
     setError(null)
   }
 
-  const handleSubTypeChange = (st: string) => {
-    setSubType(st as SubType)
+  const isIngreso = type === 'INCOME'
+
+  const customCategories = useMemo(
+    () => categories
+      .filter((c) => c.type === type && !SYSTEM_CATEGORY_NAMES.has(c.name))
+      // Primero las que vienen por defecto, en su orden; después las demás alfabéticamente
+      .sort((a, b) => {
+        const ia = DEFAULT_ORDER.indexOf(a.name), ib = DEFAULT_ORDER.indexOf(b.name)
+        if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+        return a.name.localeCompare(b.name, 'es')
+      })
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        subcategories: subcategories.filter((s) => s.categoryId === c.id),
+      })),
+    [categories, subcategories, type],
+  )
+
+  // El select devuelve un subtipo fijo o el id de una categoría propia
+  const handleSubTypeChange = (value: string) => {
     resetSubTypeFields()
+    setSubcategoryId('')
+    if (customCategories.some((c) => c.id === value)) {
+      setSubType(isIngreso ? 'OTHER_INCOME' : 'PAGO')
+      setCategoryId(value)
+    } else {
+      setSubType(value as SubType)
+      setCategoryId('')
+    }
   }
 
-  const isIngreso = type === 'INCOME'
+  const handleSelectSubcategory = (catId: string, subId: string) => {
+    if (catId !== categoryId) handleSubTypeChange(catId)
+    setSubcategoryId(subId)
+  }
+
+  const handleAddCategory = async (name: string) => {
+    if (!onAddCategory) return null
+    return onAddCategory(name, type)
+  }
+
+  const handleAddSubcategory = async (catId: string, name: string) => {
+    if (!onAddSubcategory) return null
+    const result = await onAddSubcategory(catId, name)
+    if ('error' in result) return result.error
+    handleSelectSubcategory(catId, result.id)
+    return null
+  }
+
+  const handleDeleteSubcategory = (id: string) => {
+    if (!onDeleteSubcategory) return
+    const sub = subcategories.find((s) => s.id === id)
+    if (!window.confirm(`¿Eliminar la subcategoría "${sub?.name ?? ''}"? Los movimientos que la usan quedan solo con la categoría.`)) return
+    if (subcategoryId === id) setSubcategoryId('')
+    onDeleteSubcategory(id)
+  }
+
+  const handleDeleteCategory = (id: string) => {
+    if (!onDeleteCategory) return
+    const cat = customCategories.find((c) => c.id === id)
+    if (!window.confirm(`¿Eliminar la categoría "${cat?.name ?? ''}"? Los movimientos que la usan quedan sin categoría.`)) return
+    if (categoryId === id) handleSubTypeChange(defaultSubType(type))
+    onDeleteCategory(id)
+  }
+
   const isSaleProduct = subType === 'SALE_PRODUCT'
-  const isSaleService = subType === 'SALE_SERVICE'
   const isSaleBienUso = subType === 'SALE_BIEN_USO'
   const isCobroCredito = subType === 'COBRO_CREDITO'
   const isPurchaseProduct = subType === 'PURCHASE_PRODUCT'
-  const isPurchaseService = subType === 'PURCHASE_SERVICE'
   const isPurchaseBienUso = subType === 'PURCHASE_BIEN_USO'
   const isPagoDeuda = subType === 'PAGO_DEUDA'
   // Cantidad + precio + total: producto en venta o compra
   const showProductSection = isSaleProduct || isPurchaseProduct
-  // Servicio: combobox + monto total directo (un solo renglón)
-  const showServiceSection = isSaleService || isPurchaseService
   // Solo monto total directo
   const showMontoDirecto =
     subType === 'OTHER_INCOME' || subType === 'PAGO' ||
     isCobroCredito || isPagoDeuda ||
-    isSaleBienUso || isPurchaseBienUso ||
-    isSaleService || isPurchaseService
+    isSaleBienUso || isPurchaseBienUso
 
   // Cobro/Pago de crédito jamás pueden ser a crédito (es un movimiento real de caja)
   const noCreditoAllowed = isCobroCredito || isPagoDeuda
@@ -238,13 +331,9 @@ export default function TransactionForm({
   useEffect(() => {
     if (selectedProducto) {
       const precio = isIngreso ? selectedProducto.precioVenta : selectedProducto.precioCosto
-      if (showServiceSection) {
-        if (precio > 0) setMontoDirecto(String(precio))
-      } else {
-        setPrecioUnitario(precio > 0 ? String(precio) : '')
-      }
+      setPrecioUnitario(precio > 0 ? String(precio) : '')
     }
-  }, [selectedProducto, isIngreso, showServiceSection])
+  }, [selectedProducto, isIngreso])
 
   const total = useMemo(() => {
     if (showProductSection) {
@@ -259,11 +348,6 @@ export default function TransactionForm({
     }
     return null
   }, [cantidad, precioUnitario, montoDirecto, showProductSection, showMontoDirecto])
-
-  const productoFilterTipo: 'MERCADERIA' | 'SERVICIO' | undefined =
-    (isSaleProduct || isPurchaseProduct) ? 'MERCADERIA' :
-    (isSaleService || isPurchaseService) ? 'SERVICIO' :
-    undefined
 
   const esCreditoAuto = !noCreditoAllowed && (metodoPago === 'CREDITO' || metodoPago === 'DEUDA')
 
@@ -285,7 +369,11 @@ export default function TransactionForm({
     if (isSaleBienUso && !bienDeUsoId) { setError('Elegí un bien de uso'); setSubmitting(false); return }
     if (isPurchaseBienUso && !bienNombre.trim()) { setError('Indicá el nombre del bien'); setSubmitting(false); return }
     if (showProductSection && !productoId) { setError('Elegí un producto'); setSubmitting(false); return }
-    if (showServiceSection && !productoId) { setError('Elegí un servicio'); setSubmitting(false); return }
+    const selectedCustom = customCategories.find((c) => c.id === categoryId)
+    if (selectedCustom && selectedCustom.subcategories.length > 0 && !subcategoryId) {
+      setError('Elegí una subcategoría'); setSubmitting(false); return
+    }
+    const selectedSub = selectedCustom?.subcategories.find((s) => s.id === subcategoryId)
 
     const formData = new FormData()
     formData.set('amount', String(amount))
@@ -293,13 +381,13 @@ export default function TransactionForm({
       'description',
       description || (
         isSaleProduct && selectedProducto ? `Venta: ${selectedProducto.nombre}` :
-        isSaleService && selectedProducto ? `Servicio: ${selectedProducto.nombre}` :
         isPurchaseProduct && selectedProducto ? `Compra: ${selectedProducto.nombre}` :
-        isPurchaseService && selectedProducto ? `Servicio contratado: ${selectedProducto.nombre}` :
         isPurchaseBienUso && bienNombre ? `Compra de ${bienNombre}` :
         isSaleBienUso ? 'Venta de bien de uso' :
         isCobroCredito ? 'Cobro de crédito' :
         isPagoDeuda ? 'Pago de deuda' :
+        selectedSub ? selectedSub.name :
+        selectedCustom ? selectedCustom.name :
         subType === 'OTHER_INCOME' ? 'Otros ingresos' :
         subType === 'PAGO' ? 'Otros egresos' :
         ''
@@ -309,6 +397,7 @@ export default function TransactionForm({
     formData.set('subType', subType)
     formData.set('accountId', accountId)
     formData.set('categoryId', categoryId)
+    formData.set('subcategoryId', selectedSub ? selectedSub.id : '')
     formData.set('contactId', isCobroCredito || isPagoDeuda ? creditoContactId : contactId)
     formData.set('empleadoId', empleadoId)
     formData.set('date', date)
@@ -320,12 +409,6 @@ export default function TransactionForm({
       formData.set('productoId', productoId)
       formData.set('cantidad', cantidad)
       formData.set('precioUnitario', precioUnitario)
-    }
-    if (showServiceSection && productoId) {
-      // Servicio: cantidad fija = 1, precio unitario = monto total
-      formData.set('productoId', productoId)
-      formData.set('cantidad', '1')
-      formData.set('precioUnitario', String(amount))
     }
     if (isCobroCredito && linkedCreditoId) formData.set('linkedCreditoId', linkedCreditoId)
     if (isPagoDeuda && linkedCreditoId) formData.set('linkedCreditoId', linkedCreditoId)
@@ -364,6 +447,83 @@ export default function TransactionForm({
     ]),
   ]
 
+  const categoriaField = (
+    <div>
+      <label className={LABEL_CLS}>Categorías</label>
+      <OperationTypeSelect
+        value={categoryId || subType}
+        subcategoryId={subcategoryId}
+        onChange={handleSubTypeChange}
+        onSelectSubcategory={handleSelectSubcategory}
+        type={type}
+        customCategories={customCategories}
+        onAddCustom={onAddCategory ? handleAddCategory : undefined}
+        onDeleteCustom={onDeleteCategory ? handleDeleteCategory : undefined}
+        onAddSubcategory={onAddSubcategory ? handleAddSubcategory : undefined}
+        onDeleteSubcategory={onDeleteSubcategory ? handleDeleteSubcategory : undefined}
+      />
+    </div>
+  )
+
+  // Pestaña nueva (estilo iOS) para todas las categorías:
+  // productos → varios ítems con carrito; el resto → monto + mismo bloque de pago
+  const conceptKind: ConceptKind | null =
+    isSaleBienUso ? 'VENTA_BIEN'
+      : isPurchaseBienUso ? 'COMPRA_BIEN'
+      : isCobroCredito ? 'COBRO'
+      : isPagoDeuda ? 'PAGO_DEUDA'
+      : categoryId ? (isIngreso ? 'OTRO_INGRESO' : 'OTRO_EGRESO')
+      : null
+  if (onSaleDone && (isSaleProduct || isPurchaseProduct || conceptKind)) {
+    return (
+      <div className={`flex h-full flex-col ${IOS_FONT}`}>
+        <Caption>Categoría</Caption>
+        <OperationTypeSelect
+          variant="ios"
+          value={categoryId || subType}
+          subcategoryId={subcategoryId}
+          onChange={handleSubTypeChange}
+          onSelectSubcategory={handleSelectSubcategory}
+          type={type}
+          customCategories={customCategories}
+          onAddCustom={onAddCategory ? handleAddCategory : undefined}
+          onDeleteCustom={onDeleteCategory ? handleDeleteCategory : undefined}
+          onAddSubcategory={onAddSubcategory ? handleAddSubcategory : undefined}
+          onDeleteSubcategory={onDeleteSubcategory ? handleDeleteSubcategory : undefined}
+        />
+        {isSaleProduct || isPurchaseProduct ? (
+          <ProductOperationForm
+            key={isSaleProduct ? 'VENTA' : 'COMPRA'}
+            tipo={isSaleProduct ? 'VENTA' : 'COMPRA'}
+            accounts={accounts}
+            contacts={contacts}
+            empleados={empleados}
+            productos={productos}
+            date={date}
+            onDone={onSaleDone}
+            cartSlot={cartSlot}
+            footerSlot={footerSlot}
+          />
+        ) : (
+          <ConceptOperationForm
+            key={`${conceptKind}-${categoryId}`}
+            kind={conceptKind!}
+            accounts={accounts}
+            bienesDeUso={bienesDeUso}
+            date={date}
+            categoryId={categoryId || undefined}
+            subcategoryId={subcategoryId || undefined}
+            preset={initialCreditoPreset ? { linkedCreditoId: initialCreditoPreset.linkedCreditoId, contactId: initialCreditoPreset.contactId } : null}
+            onDone={onSaleDone}
+            onClienteSaldado={onClienteSaldado}
+            onProveedorSaldado={onProveedorSaldado}
+            footerSlot={footerSlot}
+          />
+        )}
+      </div>
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit} className="flex h-full flex-col gap-0">
       {!onTypeChange && (
@@ -397,20 +557,14 @@ export default function TransactionForm({
       )}
 
       <div className="flex flex-1 flex-col gap-5 overflow-y-auto pr-1">
-        <div>
-          <label className={LABEL_CLS}>Fecha</label>
-          <DatePickerField value={date} onChange={setDate} />
-        </div>
+        {!onDateChange && (
+          <div>
+            <label className={LABEL_CLS}>Fecha</label>
+            <DatePickerField value={date} onChange={setDate} />
+          </div>
+        )}
 
-        <div>
-          <label className={LABEL_CLS}>Tipo de movimiento</label>
-          <OperationTypeSelect
-            value={subType}
-            onChange={handleSubTypeChange}
-            type={type}
-            operatingModel={operatingModel}
-          />
-        </div>
+        {categoriaField}
 
         {isCobroCredito && (
           <CobroCreditoPanel
@@ -445,7 +599,8 @@ export default function TransactionForm({
             <p className={SECTION_HEADING_CLS}>Producto</p>
             <ProductoServicioCombobox
               productos={productos}
-              filterTipo={productoFilterTipo}
+              filterTipo="MERCADERIA"
+              placeholder="Buscar producto"
               value={productoId}
               onChange={setProductoId}
             />
@@ -489,34 +644,6 @@ export default function TransactionForm({
                       : '-'}
                   </span>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showServiceSection && (
-          <div className={PANEL_CLS}>
-            <p className={SECTION_HEADING_CLS}>Servicio</p>
-            <ProductoServicioCombobox
-              productos={productos}
-              filterTipo="SERVICIO"
-              value={productoId}
-              onChange={setProductoId}
-            />
-            <div>
-              <label className={LABEL_CLS}>Total</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-light text-gray-400">{CURRENCY_SYMBOL[selectedCurrency]}</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={montoDirecto}
-                  onChange={(e) => setMontoDirecto(e.target.value)}
-                  placeholder="0.00"
-                  className={`${MONTO_INPUT_BASE} focus:border-brand-military focus:ring-brand-military/25`}
-                  required
-                />
               </div>
             </div>
           </div>
@@ -622,33 +749,6 @@ export default function TransactionForm({
           </div>
         )}
 
-        {!isCobroCredito && !isPagoDeuda && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={LABEL_CLS}>{isIngreso ? 'Cliente' : 'Proveedor'}</label>
-              <SelectWrapper>
-                <select value={contactId} onChange={(e) => setContactId(e.target.value)} className={SELECT_CLS}>
-                  <option value="">Sin {isIngreso ? 'cliente' : 'proveedor'}</option>
-                  {filteredContacts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </SelectWrapper>
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Empleado</label>
-              <SelectWrapper>
-                <select value={empleadoId} onChange={(e) => setEmpleadoId(e.target.value)} className={SELECT_CLS}>
-                  <option value="">Ninguno</option>
-                  {empleados.map((em) => (
-                    <option key={em.id} value={em.id}>{em.nombre}{em.cargo ? ` - ${em.cargo}` : ''}</option>
-                  ))}
-                </select>
-              </SelectWrapper>
-            </div>
-          </div>
-        )}
-
         <div>
           <label className={LABEL_CLS}>Método de pago</label>
           <div className={`grid gap-2 ${metodoPagoOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
@@ -698,14 +798,58 @@ export default function TransactionForm({
         )}
 
         <div>
-          <label className={LABEL_CLS}>Descripción (opcional)</label>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Anotación libre"
-            className={INPUT_CLS}
-          />
+          <button
+            type="button"
+            onClick={() => setMasDatosOpen((v) => !v)}
+            aria-expanded={masDatosOpen}
+            className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+          >
+            Más datos
+            <svg className={`h-3 w-3 transition-transform ${masDatosOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {masDatosOpen && (
+            <div className="mt-3 flex flex-col gap-3">
+              {!isCobroCredito && !isPagoDeuda && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={LABEL_CLS}>{isIngreso ? 'Cliente' : 'Proveedor'}</label>
+                    <SelectWrapper>
+                      <select value={contactId} onChange={(e) => setContactId(e.target.value)} className={SELECT_CLS}>
+                        <option value="">Sin {isIngreso ? 'cliente' : 'proveedor'}</option>
+                        {filteredContacts.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </SelectWrapper>
+                  </div>
+                  <div>
+                    <label className={LABEL_CLS}>Empleado</label>
+                    <SelectWrapper>
+                      <select value={empleadoId} onChange={(e) => setEmpleadoId(e.target.value)} className={SELECT_CLS}>
+                        <option value="">Ninguno</option>
+                        {empleados.map((em) => (
+                          <option key={em.id} value={em.id}>{em.nombre}{em.cargo ? ` - ${em.cargo}` : ''}</option>
+                        ))}
+                      </select>
+                    </SelectWrapper>
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className={LABEL_CLS}>Descripción (opcional)</label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Anotación libre"
+                  className={INPUT_CLS}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -35,6 +35,8 @@ export const TRANSACTION_SUBTYPES = [
   // Compras detalladas
   'PURCHASE_PRODUCT', 'PURCHASE_SERVICE', 'PURCHASE_BIEN_USO',
   'PAGO_DEUDA',
+  // Ajuste por arqueo: sobrante (INCOME) o faltante (EXPENSE)
+  'DIFERENCIA_CAJA',
 ] as const
 
 export const TRANSACTION_ESTADOS = [
@@ -57,6 +59,7 @@ export const createTransactionSchema = z.object({
   subType: z.enum(TRANSACTION_SUBTYPES).optional(),
   accountId: z.string().min(1, 'Cuenta inválida'),
   categoryId: z.string().min(1, 'Categoría inválida').optional().or(z.literal('')),
+  subcategoryId: z.string().min(1, 'Subcategoría inválida').optional().or(z.literal('')),
   contactId: z.string().min(1, 'Contacto inválido').optional().or(z.literal('')),
   areaNegocioId: z.string().min(1, 'Área de negocio inválida').optional().or(z.literal('')),
   empleadoId: z.string().min(1, 'Empleado inválido').optional().or(z.literal('')),
@@ -167,6 +170,96 @@ export const createCategorySchema = z.object({
     .min(1, 'El nombre es obligatorio')
     .max(100, 'Máximo 100 caracteres'),
   type: z.enum(['INCOME', 'EXPENSE']).default('EXPENSE'),
+})
+
+// ---- Venta / compra con varios productos y pago dividido ----
+const moneySchema = z.number({ message: 'Monto inválido' }).finite()
+
+export const productOperationSchema = z.object({
+  tipo: z.enum(['VENTA', 'COMPRA']).default('VENTA'),
+  date: z.string().optional(),
+  contactId: z.string().optional(),
+  empleadoId: z.string().optional(),
+  description: z.string().max(200, 'Máximo 200 caracteres').optional(),
+  items: z.array(z.object({
+    productoId: z.string().min(1, 'Producto inválido'),
+    cantidad: z.number().positive('La cantidad debe ser mayor a 0').finite(),
+    precioUnitario: z.number().min(0, 'El precio no puede ser negativo').finite(),
+  })).min(1, 'Agregá al menos un producto'),
+  descuento: moneySchema.min(0, 'El descuento no puede ser negativo').default(0),
+  pagos: z.array(z.object({
+    metodo: z.enum(['EFECTIVO', 'VIRTUAL', 'CREDITO']),
+    accountId: z.string().optional(),
+    monto: moneySchema.positive('Cada parte del pago debe ser mayor a 0'),
+    cuotas: z.array(z.object({
+      monto: moneySchema.positive('Cada cuota debe ser mayor a 0'),
+      fecha: z.string().min(1, 'Cada cuota necesita fecha'),
+    })).optional(),
+  })).min(1, 'Indicá cómo se paga'),
+})
+
+export type ProductOperationInput = z.infer<typeof productOperationSchema>
+
+// ---- Resto de las categorías (sin productos) con pago combinado / cuotas ----
+const pagoSchema = z.object({
+  metodo: z.enum(['EFECTIVO', 'VIRTUAL', 'CREDITO']),
+  accountId: z.string().optional(),
+  monto: moneySchema.positive('Cada parte del pago debe ser mayor a 0'),
+  cuotas: z.array(z.object({
+    monto: moneySchema.positive('Cada cuota debe ser mayor a 0'),
+    fecha: z.string().min(1, 'Cada cuota necesita fecha'),
+  })).optional(),
+})
+
+export const conceptOperationSchema = z.object({
+  // OTRO_*: categorías propias. BIEN: bienes de uso. COBRO / PAGO_DEUDA: saldan créditos
+  kind: z.enum(['OTRO_INGRESO', 'OTRO_EGRESO', 'VENTA_BIEN', 'COMPRA_BIEN', 'COBRO', 'PAGO_DEUDA']),
+  date: z.string().optional(),
+  monto: moneySchema.positive('El monto debe ser mayor a 0'),
+  contactId: z.string().optional(),
+  empleadoId: z.string().optional(),
+  description: z.string().max(200, 'Máximo 200 caracteres').optional(),
+  categoryId: z.string().optional(),
+  subcategoryId: z.string().optional(),
+  bienDeUsoId: z.string().optional(),
+  bien: z.object({
+    nombre: z.string().trim().min(1, 'Indicá el nombre del bien').max(120),
+    categoria: z.string().max(80).optional(),
+    marca: z.string().max(80).optional(),
+  }).optional(),
+  // Cobro / pago de deuda: cuotas a saldar, en el orden en que se aplican
+  creditoIds: z.array(z.string().min(1)).optional(),
+  pagos: z.array(pagoSchema).min(1, 'Indicá cómo se paga'),
+})
+
+export type ConceptOperationInput = z.infer<typeof conceptOperationSchema>
+
+export const createCashTransferSchema = z.object({
+  fromAccountId: z.string().min(1, 'Elegí la caja de origen'),
+  toAccountId: z.string().min(1, 'Elegí la caja de destino'),
+  amount: z.number({ message: 'El monto debe ser un número' }).positive('El monto debe ser mayor a 0').finite(),
+  // Pesos por dólar; obligatorio solo si las cajas son de distinta moneda
+  exchangeRate: z.number().positive('La cotización debe ser mayor a 0').finite().optional(),
+  date: z.string().optional(),
+  description: z.string().max(200, 'Máximo 200 caracteres').optional(),
+}).refine((d) => d.fromAccountId !== d.toAccountId, {
+  message: 'El origen y el destino tienen que ser cajas distintas',
+  path: ['toAccountId'],
+})
+
+export const createCashAdjustmentSchema = z.object({
+  accountId: z.string().min(1, 'Elegí la caja'),
+  counted: z.number({ message: 'Ingresá lo que contaste' }).min(0, 'El monto contado no puede ser negativo').finite(),
+  date: z.string().optional(),
+  description: z.string().max(200, 'Máximo 200 caracteres').optional(),
+})
+
+export const createSubcategorySchema = z.object({
+  name: z
+    .string()
+    .min(1, 'El nombre es obligatorio')
+    .max(100, 'Máximo 100 caracteres'),
+  categoryId: z.string().min(1, 'Categoría inválida'),
 })
 
 // ---- Auth ----

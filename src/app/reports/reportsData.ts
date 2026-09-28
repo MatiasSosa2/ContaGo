@@ -1,4 +1,4 @@
-import { getReportDataExtended } from '@/app/actions'
+import { getReportDataExtended, getCashFlowByCurrency, getIncomeStatement } from '@/app/actions'
 import type { DateRange } from '@/lib/validations'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
@@ -12,6 +12,8 @@ export type ReportsSearchParams = {
   month?: string
   day?: string
   weekStart?: string
+  /** Moneda del flujo de efectivo: ARS (por defecto) o USD */
+  moneda?: string
 }
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -38,6 +40,7 @@ function titleCase(value: string) {
 function resolveExpenseLabel(rawLabel: string, includeInventoryPurchases: boolean) {
   const text = normalizeText(rawLabel)
 
+  if (/diferencias? de caja/.test(text)) return 'Diferencias de caja'
   if (/sueldo|salario|nomina|emplead/.test(text)) return 'Sueldos'
   if (/alquiler|renta|local/.test(text)) return 'Alquiler'
   if (/luz|agua|gas|internet|telefono|servicio/.test(text)) return 'Servicios'
@@ -62,15 +65,33 @@ function resolveLiabilityLabel(rawLabel: string) {
   return 'Otras deudas'
 }
 
-function groupStatementLines(items: Array<{ label: string; amount: number }>, baseAmount: number) {
-  const map = new Map<string, number>()
+type StatementItem = { label: string; amount: number; sub?: string | null }
+type GroupedLine = { label: string; amount: number; pct: number; children?: GroupedLine[] }
+
+function groupStatementLines(items: StatementItem[], baseAmount: number): GroupedLine[] {
+  const map = new Map<string, { amount: number; subs: Map<string, number>; hasSub: boolean }>()
 
   for (const item of items) {
-    map.set(item.label, (map.get(item.label) || 0) + item.amount)
+    const entry = map.get(item.label) ?? { amount: 0, subs: new Map(), hasSub: false }
+    entry.amount += item.amount
+    const subLabel = item.sub?.trim() || 'Sin subcategoría'
+    if (item.sub) entry.hasSub = true
+    entry.subs.set(subLabel, (entry.subs.get(subLabel) || 0) + item.amount)
+    map.set(item.label, entry)
   }
 
   return Array.from(map.entries())
-    .map(([label, amount]) => ({ label, amount, pct: pctOf(amount, baseAmount) }))
+    .map(([label, { amount, subs, hasSub }]) => ({
+      label,
+      amount,
+      pct: pctOf(amount, baseAmount),
+      // Desglose solo si algún movimiento de la línea tiene subcategoría
+      children: hasSub
+        ? Array.from(subs.entries())
+            .map(([subLabel, subAmount]) => ({ label: subLabel, amount: subAmount, pct: pctOf(subAmount, baseAmount) }))
+            .sort((left, right) => right.amount - left.amount)
+        : undefined,
+    }))
     .sort((left, right) => right.amount - left.amount)
 }
 
@@ -78,14 +99,15 @@ function getTransactionLabel(tx: { category?: { name?: string | null } | null; d
   return tx.category?.name?.trim() || tx.description?.trim() || 'Otros'
 }
 
+function getSubcategoryLabel(tx: { subcategory?: { name?: string | null } | null }) {
+  return tx.subcategory?.name?.trim() || null
+}
+
 function isPendingCredit(tx: { esCredito?: boolean | null; estado?: string | null }) {
   const status = (tx.estado || '').toUpperCase()
   return Boolean(tx.esCredito) && (status === 'PENDIENTE' || status === 'VENCIDO')
 }
 
-function isSettledForCashFlow(tx: { esCredito?: boolean | null; estado?: string | null }) {
-  return !isPendingCredit(tx)
-}
 
 function buildQueryString(fields: Record<string, string | number | undefined>) {
   const sp = new URLSearchParams()
@@ -168,15 +190,13 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
 
   const {
     allTx,
-    totalsByCurrency,
-    accountTotalByCurrency,
     activosPorMoneda,
     pasivosPorMoneda,
     cxcPorMoneda,
-    cmvTotal,
     valorInventario,
   } = await getReportDataExtended(range)
   const cur = 'ARS'
+  const txByCurrency = allTx.filter((tx) => (tx.currency || 'ARS') === cur)
 
   // Evolución mensual: siempre últimos 6 meses reales, independiente del período elegido arriba.
   const { monthlyHistory } = await getReportDataExtended()
@@ -189,43 +209,43 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     }
   })
 
-  const totals = totalsByCurrency[cur] || { income: 0, expense: 0 }
-  const txByCurrency = allTx.filter((tx) => (tx.currency || 'ARS') === cur)
-
-  const grossProfit = totals.income - (cmvTotal || 0)
-
-  const operatingExpenseLines = groupStatementLines(
-    txByCurrency
-      .filter((tx) => tx.type === 'EXPENSE')
-      .map((tx) => ({
-        label: resolveExpenseLabel(getTransactionLabel(tx), false),
-        amount: tx.amount,
-      }))
-      .filter((line): line is { label: string; amount: number } => Boolean(line.label)),
-    totals.income,
+  // ── Estado de resultados: ventas y CMV de Inventario, el resto de lo registrado ──
+  // (reglas en src/server/results/income-statement.ts)
+  const er = await getIncomeStatement(
+    periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart, cur,
   )
+  const otherIncomeLines = groupStatementLines(er.otherIncomeItems, er.ventas)
+  const otherIncomeTotal = er.otherIncomeItems.reduce((sum, item) => sum + item.amount, 0)
+  const totalIncome = er.ventas + otherIncomeTotal
+  const grossProfit = er.ventas - er.cmv
 
-  const operatingExpensesTotal = operatingExpenseLines.reduce((sum, line) => sum + line.amount, 0)
-  const netProfit = grossProfit - operatingExpensesTotal
+  const operatingExpenseLines = groupStatementLines(er.expenseItems, totalIncome)
+  const operatingExpensesTotal = er.expenseItems.reduce((sum, item) => sum + item.amount, 0)
+  const netProfit = grossProfit + otherIncomeTotal - operatingExpensesTotal
 
-  const collectedIncome = txByCurrency
-    .filter((tx) => tx.type === 'INCOME' && isSettledForCashFlow(tx))
-    .reduce((sum, tx) => sum + tx.amount, 0)
+  // ── Flujo de efectivo: mismos números que la pantalla de Cajas (src/server/cash/cash-flow.ts) ──
+  const cashCur = params?.moneda === 'USD' ? 'USD' : 'ARS'
+  const cashFlowByCurrency = await getCashFlowByCurrency(
+    periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
+  )
+  const flow = cashFlowByCurrency[cashCur]
+  const flowFrom = new Date(cashFlowByCurrency.from).getTime()
+  const flowTo = new Date(cashFlowByCurrency.to).getTime()
 
+  // Desglose de egresos: los mismos movimientos que suman "Egresos" en Cajas
   const cashExpenseLines = groupStatementLines(
-    txByCurrency
-      .filter((tx) => tx.type === 'EXPENSE' && isSettledForCashFlow(tx))
+    allTx
+      .filter((tx) => {
+        const t = new Date(tx.date).getTime()
+        return tx.type === 'EXPENSE' && !tx.esCredito && (tx.currency || 'ARS') === cashCur && t >= flowFrom && t <= flowTo
+      })
       .map((tx) => ({
         label: resolveExpenseLabel(getTransactionLabel(tx), true) || 'Otros egresos',
         amount: tx.amount,
+        sub: getSubcategoryLabel(tx),
       })),
-    totals.income > 0 ? totals.income : 1,
+    flow.egresos > 0 ? flow.egresos : 1,
   )
-
-  const totalCashExpenses = cashExpenseLines.reduce((sum, line) => sum + line.amount, 0)
-  const closingBalance = accountTotalByCurrency[cur] || 0
-  const netVariation = collectedIncome - totalCashExpenses
-  const openingBalance = closingBalance - netVariation
 
   const totalAssets = (activosPorMoneda[cur] || 0) + (valorInventario || 0) + (cxcPorMoneda[cur] || 0)
   const totalLiabilities = pasivosPorMoneda[cur] || 0
@@ -265,7 +285,15 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     to: params?.to,
   })
 
+  // Año de los gráficos (enero a diciembre): el del período elegido
+  const seriesYear = (range?.to ?? range?.from ?? now).getFullYear()
+  // Mes resaltado en los gráficos cuando se mira un mes puntual
+  const seriesActiveMonth = periodo === 'mensual' && selectedMonth ? selectedMonth - 1 : undefined
+
   return {
+    seriesYear,
+    seriesActiveMonth,
+    cashCurrency: cashCur,
     sessionContext,
     periodo,
     params,
@@ -278,24 +306,28 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     monthlyEvolution,
     results: {
       currency: cur,
-      income: totals.income,
-      cogs: cmvTotal || 0,
+      income: totalIncome,
+      sales: er.ventas,
+      otherIncome: otherIncomeLines,
+      otherIncomeTotal,
+      cogs: er.cmv,
       grossProfit,
-      grossMargin: pctOf(grossProfit, totals.income),
+      grossMargin: pctOf(grossProfit, er.ventas),
       operatingExpenses: operatingExpenseLines,
       operatingExpensesTotal,
-      operatingExpensePct: pctOf(operatingExpensesTotal, totals.income),
+      operatingExpensePct: pctOf(operatingExpensesTotal, totalIncome),
       netProfit,
-      netMargin: pctOf(netProfit, totals.income),
+      netMargin: pctOf(netProfit, totalIncome),
     },
     cashFlow: {
-      currency: cur,
-      openingBalance,
-      collectedIncome,
+      currency: cashCur,
+      openingBalance: flow.saldoInicial,
+      collectedIncome: flow.ingresos,
       expenseLines: cashExpenseLines,
-      totalExpenses: totalCashExpenses,
-      netVariation,
-      closingBalance,
+      totalExpenses: flow.egresos,
+      currencyExchange: flow.cambioMoneda,
+      netVariation: flow.ingresos - flow.egresos + flow.cambioMoneda,
+      closingBalance: flow.saldoFinal,
     },
     balanceSheet: {
       currency: cur,

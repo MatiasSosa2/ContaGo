@@ -1,13 +1,18 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, revalidateTag, updateTag } from 'next/cache'
 import { unstable_cache } from 'next/cache'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
 import {
   updateAccountSchema,
   createContactSchema,
   createCategorySchema,
+  createSubcategorySchema,
+  createCashTransferSchema,
+  createCashAdjustmentSchema,
+  productOperationSchema,
+  conceptOperationSchema,
   createAreaNegocioSchema,
   createProductoSchema,
   createMovimientoStockSchema,
@@ -15,10 +20,29 @@ import {
 } from '@/lib/validations'
 import { generateJournalLines } from '@/server/accounting/journal-engine'
 import { createContableAccountForCategory } from '@/server/accounting/setup-contable-accounts'
+import { CASH_ACCOUNT_TYPES, getCashBalanceOf, getCashBalancesAt, getCashFlowSummary } from '@/server/cash/cash-flow'
+import { getIncomeStatementData } from '@/server/results/income-statement'
+import { getYearlySeriesData } from '@/server/reports/yearly-series'
 
 async function getBusinessId() {
   const sessionContext = await requireBusinessContext()
   return sessionContext.activeBusiness.id
+}
+
+const BUSINESS_TZ = 'America/Argentina/Buenos_Aires'
+
+/**
+ * Fecha de un movimiento a partir del "yyyy-mm-dd" del formulario.
+ * `new Date('2026-09-25')` es medianoche UTC = 24/09 21 h en Argentina, y el movimiento
+ * caía en el día (y a veces el período) anterior. Si es hoy usamos la hora actual;
+ * si es otro día, el mediodía de ese día en Argentina.
+ */
+function parseMovementDate(dateStr: string | undefined | null): Date {
+  if (!dateStr) return new Date()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date(dateStr)
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TZ }).format(new Date())
+  if (dateStr === today) return new Date()
+  return new Date(`${dateStr}T12:00:00-03:00`)
 }
 
 async function getScopedAccount(id: string, businessId: string) {
@@ -43,7 +67,8 @@ async function getOrCreateDefaultCategory(
     subType === 'SALE_SERVICE' ? 'Ventas de servicios' :
     subType === 'SALE_BIEN_USO' ? 'Resultado por venta de bienes de uso' :
     subType === 'COBRO_CREDITO' ? 'Cobros de crédito' :
-    subType === 'PURCHASE' ? 'Compras' :
+    subType === 'DIFERENCIA_CAJA' ? 'Diferencias de caja' :
+    subType === 'PURCHASE' || subType === 'PURCHASE_PRODUCT' ? 'Compras' :
     type === 'INCOME' ? 'Otros ingresos' : 'Otros egresos'
 
   const existing = await prisma.category.findFirst({
@@ -80,7 +105,7 @@ async function getScopedTransaction(id: string, businessId: string) {
 async function getScopedProducto(id: string, businessId: string) {
   return prisma.producto.findFirst({
     where: { id, businessId },
-    select: { id: true, stockActual: true },
+    select: { id: true, stockActual: true, precioCosto: true },
   })
 }
 
@@ -97,15 +122,21 @@ export async function getModalCatalogs() {
   const businessId = await getBusinessId()
   const cached = unstable_cache(
     async (bid: string) => {
-      const [accounts, categories, contacts, areas, productos, empleados, bienesDeUso, business] = await Promise.all([
+      const [accounts, categories, subcategories, contacts, areas, productos, empleados, bienesDeUso, business] = await Promise.all([
         prisma.account.findMany({
-          where: { businessId: bid },
+          // Solo cajas propias: las cuentas contables del sistema no se eligen en formularios
+          where: { businessId: bid, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] } },
           select: { id: true, name: true, currency: true, type: true },
           orderBy: { name: 'asc' },
         }),
         prisma.category.findMany({
           where: { businessId: bid },
           select: { id: true, name: true, type: true },
+        }),
+        prisma.subcategory.findMany({
+          where: { businessId: bid },
+          select: { id: true, name: true, categoryId: true },
+          orderBy: { name: 'asc' },
         }),
         prisma.contact.findMany({
           where: { businessId: bid },
@@ -141,7 +172,7 @@ export async function getModalCatalogs() {
         }),
       ])
       return {
-        accounts, categories, contacts, areas, productos, empleados, bienesDeUso,
+        accounts, categories, subcategories, contacts, areas, productos, empleados, bienesDeUso,
         operatingModel: business?.operatingModel ?? 'BOTH',
       }
     },
@@ -163,7 +194,7 @@ export async function getTransactions() {
   return await prisma.transaction.findMany({
     where: { businessId },
     orderBy: { date: 'desc' },
-    include: { category: true, account: true, contact: true, areaNegocio: true },
+    include: { category: true, subcategory: { select: { name: true } }, account: true, contact: true, areaNegocio: true },
     take: 100
   })
 }
@@ -228,6 +259,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
     subType: (formData.get('subType') as string) || undefined,
     accountId: formData.get('accountId') as string,
     categoryId: formData.get('categoryId') as string,
+    subcategoryId: (formData.get('subcategoryId') as string) || '',
     contactId: formData.get('contactId') as string,
     areaNegocioId: formData.get('areaNegocioId') as string,
     empleadoId: formData.get('empleadoId') as string,
@@ -258,7 +290,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
   }
 
   const {
-    amount, description, type, subType, accountId, categoryId, contactId,
+    amount, description, type, subType, accountId, categoryId, subcategoryId, contactId,
     areaNegocioId, empleadoId, productoId, bienDeUsoId, linkedCreditoId,
     cantidad, precioUnitario,
     date: dateStr, currency, esCredito, estado, fechaVencimiento,
@@ -288,6 +320,22 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
     return { success: false, error: 'Indicá el nombre del bien a comprar' }
   }
 
+  // Subcategoría: debe pertenecer a la categoría elegida, y es obligatoria si la categoría tiene
+  if (categoryId) {
+    const subs = await prisma.subcategory.findMany({
+      where: { categoryId, businessId },
+      select: { id: true },
+    })
+    if (subs.length > 0 && !subcategoryId) {
+      return { success: false, error: 'Elegí una subcategoría' }
+    }
+    if (subcategoryId && !subs.some((s) => s.id === subcategoryId)) {
+      return { success: false, error: 'La subcategoría no corresponde a la categoría' }
+    }
+  } else if (subcategoryId) {
+    return { success: false, error: 'La subcategoría no corresponde a la categoría' }
+  }
+
   let effectiveCategoryId = categoryId
   if (!effectiveCategoryId || effectiveCategoryId === '') {
     const defaultId = await getOrCreateDefaultCategory(
@@ -298,7 +346,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
     effectiveCategoryId = defaultId ?? ''
   }
 
-  const date = dateStr ? new Date(dateStr) : new Date()
+  const date = parseMovementDate(dateStr)
   const fVenc = fechaVencimiento ? new Date(fechaVencimiento) : null
 
   let clienteSaldado = false
@@ -638,6 +686,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
           account: { connect: { id: accountId } },
           business: { connect: { id: businessId } },
           category: effectiveCategoryId && effectiveCategoryId !== '' ? { connect: { id: effectiveCategoryId } } : undefined,
+          subcategory: subcategoryId ? { connect: { id: subcategoryId } } : undefined,
           contact: contactId && contactId !== '' ? { connect: { id: contactId } } : undefined,
           areaNegocio: areaNegocioId && areaNegocioId !== '' ? { connect: { id: areaNegocioId } } : undefined,
           empleado: empleadoId && empleadoId !== '' ? { connect: { id: empleadoId } } : undefined,
@@ -723,6 +772,8 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
               tipo: tipoMov,
               cantidad,
               precio: precioUnitario ?? 0,
+              // CPP del momento de la venta (se leyó antes de cualquier recálculo): base del CMV
+              costoUnitario: tipoMov === 'SALIDA' ? (producto.precioCosto ?? 0) : null,
               motivo: description,
               fecha: date,
               producto: { connect: { id: productoId } },
@@ -813,7 +864,10 @@ export async function getAllTransactions(
   return await prisma.transaction.findMany({
     where: { businessId, ...dateFilter },
     orderBy: { date: 'desc' },
-    include: { category: true, account: true, contact: true, areaNegocio: true },
+    include: {
+      category: true, subcategory: { select: { name: true } }, account: true, contact: true, areaNegocio: true,
+      operacion: { select: { total: true, descuento: true, items: { select: { cantidad: true, producto: { select: { nombre: true } } } } } },
+    },
   })
 }
 
@@ -857,7 +911,7 @@ export async function getReportData(range?: DateRange) {
   const allTx = await prisma.transaction.findMany({
     where: { businessId, ...dateFilter },
     orderBy: { date: 'desc' },
-    include: { category: true, account: true, contact: true, areaNegocio: true },
+    include: { category: true, subcategory: { select: { name: true } }, account: true, contact: true, areaNegocio: true },
   })
 
   // -- Totales por moneda --
@@ -1203,6 +1257,853 @@ export async function deleteCategory(id: string) {
     data: { categoryId: null }
   })
   await prisma.category.deleteMany({ where: { id, businessId } })
+  updateTag(`catalogs:${businessId}`)
+  revalidatePath('/')
+}
+
+// ---- Cambio de caja / Diferencia de caja ----
+
+/** Saldo de una caja al cierre del día indicado (para el arqueo). */
+export async function getCashAccountBalance(accountId: string, dateStr?: string): Promise<ActionResult<{ balance: number }>> {
+  const businessId = await getBusinessId()
+  const asOf = endOfMovementDay(dateStr)
+  const balance = await getCashBalanceOf(businessId, accountId, asOf)
+  if (balance === null) return { success: false, error: 'Caja no encontrada' }
+  return { success: true, data: { balance } }
+}
+
+/**
+ * Flujo de las cajas por moneda para el período (saldo inicial, ingresos, egresos,
+ * cambio de moneda, saldo final). Es lo que muestran Cajas y el Estado de flujo de efectivo.
+ */
+export async function getCashFlowByCurrency(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
+  const businessId = await getBusinessId()
+  const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  const [ARS, USD] = await Promise.all([
+    getCashFlowSummary(businessId, from, to, 'ARS'),
+    getCashFlowSummary(businessId, from, to, 'USD'),
+  ])
+  return { from, to, ARS, USD }
+}
+
+/**
+ * Ingresos y egresos de caja en pesos del período y del período anterior: son los
+ * totales del Estado de flujo de efectivo, para las tarjetas del Balance general.
+ */
+export async function getCashFlowKpis(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
+  const businessId = await getBusinessId()
+  const { from, to, prevFrom, prevTo } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  const [current, prev, usd] = await Promise.all([
+    getCashFlowSummary(businessId, from, to, 'ARS'),
+    getCashFlowSummary(businessId, prevFrom, prevTo, 'ARS'),
+    getCashFlowSummary(businessId, from, to, 'USD'),
+  ])
+  return { current, prev, usdSaldoFinal: usd.saldoFinal }
+}
+
+/** Datos del Estado de resultados del período (ver src/server/results/income-statement.ts). */
+export async function getIncomeStatement(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+  currency = 'ARS',
+) {
+  const businessId = await getBusinessId()
+  const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  return getIncomeStatementData(businessId, from, to, currency)
+}
+
+/** Series mes a mes (enero → diciembre) para los gráficos de los estados. */
+export async function getYearlySeries(year: number, cashCurrency = 'ARS') {
+  const businessId = await getBusinessId()
+  return getYearlySeriesData(businessId, year, cashCurrency)
+}
+
+/** Cambios de caja del período (sin período: todos), con las cajas de origen y destino. */
+export async function getCashTransfers(
+  period?: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
+  const businessId = await getBusinessId()
+  const range = period ? computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart) : null
+  return prisma.cashTransfer.findMany({
+    where: { businessId, ...(range ? { date: { gte: range.from, lte: range.to } } : {}) },
+    orderBy: { date: 'desc' },
+    select: {
+      id: true, date: true, description: true, amountFrom: true, amountTo: true, exchangeRate: true,
+      fromAccount: { select: { name: true, type: true, currency: true } },
+      toAccount: { select: { name: true, type: true, currency: true } },
+    },
+  })
+}
+
+/** Fin del día (hora Argentina) de un "yyyy-mm-dd"; sin fecha, ahora. */
+function endOfMovementDay(dateStr?: string | null): Date {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return new Date()
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TZ }).format(new Date())
+  if (dateStr === today) return new Date()
+  return new Date(`${dateStr}T23:59:59.999-03:00`)
+}
+
+export async function createCashTransfer(formData: FormData): Promise<ActionResult> {
+  const rateRaw = parseFloat(formData.get('exchangeRate') as string)
+  const parsed = createCashTransferSchema.safeParse({
+    fromAccountId: formData.get('fromAccountId') as string,
+    toAccountId: formData.get('toAccountId') as string,
+    amount: parseFloat(formData.get('amount') as string),
+    exchangeRate: isNaN(rateRaw) ? undefined : rateRaw,
+    date: (formData.get('date') as string) || undefined,
+    description: ((formData.get('description') as string) || '').trim() || undefined,
+  })
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+  const { fromAccountId, toAccountId, amount, exchangeRate, date: dateStr, description } = parsed.data
+
+  const businessId = await getBusinessId()
+  const accounts = await prisma.account.findMany({
+    where: {
+      id: { in: [fromAccountId, toAccountId] },
+      businessId,
+      isSystemAccount: false,
+      type: { in: [...CASH_ACCOUNT_TYPES] },
+    },
+    select: { id: true, name: true, currency: true },
+  })
+  const from = accounts.find((a) => a.id === fromAccountId)
+  const to = accounts.find((a) => a.id === toAccountId)
+  if (!from || !to) return { success: false, error: 'Caja no encontrada' }
+
+  // Cotización en pesos por dólar: ARS → USD divide, USD → ARS multiplica
+  let amountTo = amount
+  if (from.currency !== to.currency) {
+    if (!exchangeRate) return { success: false, error: 'Ingresá la cotización' }
+    if (from.currency === 'ARS' && to.currency === 'USD') amountTo = amount / exchangeRate
+    else if (from.currency === 'USD' && to.currency === 'ARS') amountTo = amount * exchangeRate
+    else return { success: false, error: 'Combinación de monedas no soportada' }
+    amountTo = Math.round(amountTo * 100) / 100
+  }
+
+  const date = parseMovementDate(dateStr)
+  const note = description || `Cambio de caja: ${from.name} → ${to.name}`
+
+  await prisma.$transaction(async (tx) => {
+    const transfer = await tx.cashTransfer.create({
+      data: {
+        date,
+        description: note,
+        amountFrom: amount,
+        amountTo,
+        exchangeRate: from.currency !== to.currency ? exchangeRate : null,
+        fromAccount: { connect: { id: from.id } },
+        toAccount: { connect: { id: to.id } },
+        business: { connect: { id: businessId } },
+      },
+      select: { id: true },
+    })
+    await tx.account.update({ where: { id: from.id }, data: { currentBalance: { decrement: amount } } })
+    await tx.account.update({ where: { id: to.id }, data: { currentBalance: { increment: amountTo } } })
+    // Asiento: entra a la caja destino (DEBE), sale de la caja origen (HABER)
+    await tx.journalEntry.create({
+      data: {
+        date,
+        description: note,
+        cashTransfer: { connect: { id: transfer.id } },
+        business: { connect: { id: businessId } },
+        lines: {
+          create: [
+            { accountId: to.id, debit: amountTo, credit: 0, description: note },
+            { accountId: from.id, debit: 0, credit: amount, description: note },
+          ],
+        },
+      },
+    })
+  })
+
+  revalidateTag(`dashboard:${businessId}`, 'max')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function createCashAdjustment(formData: FormData): Promise<ActionResult<{ difference: number }>> {
+  const countedRaw = parseFloat(formData.get('counted') as string)
+  const parsed = createCashAdjustmentSchema.safeParse({
+    accountId: formData.get('accountId') as string,
+    counted: countedRaw,
+    date: (formData.get('date') as string) || undefined,
+    description: ((formData.get('description') as string) || '').trim() || undefined,
+  })
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+  const { accountId, counted, date: dateStr, description } = parsed.data
+
+  const businessId = await getBusinessId()
+  const account = await prisma.account.findFirst({
+    where: { id: accountId, businessId, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] } },
+    select: { id: true, currency: true },
+  })
+  if (!account) return { success: false, error: 'Caja no encontrada' }
+
+  // La diferencia se calcula acá, contra el saldo del sistema a esa fecha
+  const systemBalance = await getCashBalanceOf(businessId, accountId, endOfMovementDay(dateStr))
+  if (systemBalance === null) return { success: false, error: 'Caja no encontrada' }
+  const difference = Math.round((counted - systemBalance) * 100) / 100
+  if (Math.abs(difference) < 0.01) return { success: false, error: 'No hay diferencia: lo contado coincide con el sistema' }
+
+  const isSobrante = difference > 0
+  const fd = new FormData()
+  fd.set('amount', String(Math.abs(difference)))
+  fd.set('description', description || (isSobrante ? 'Sobrante de caja' : 'Faltante de caja'))
+  fd.set('type', isSobrante ? 'INCOME' : 'EXPENSE')
+  fd.set('subType', 'DIFERENCIA_CAJA')
+  fd.set('accountId', accountId)
+  fd.set('currency', account.currency)
+  fd.set('esCredito', 'false')
+  fd.set('estado', isSobrante ? 'COBRADO' : 'PAGADO')
+  if (dateStr) fd.set('date', dateStr)
+  // createTransaction valida estos campos como texto (vacío = sin dato), no como ausentes
+  for (const field of ['categoryId', 'contactId', 'areaNegocioId', 'empleadoId', 'productoId', 'bienDeUsoId', 'linkedCreditoId']) {
+    fd.set(field, '')
+  }
+
+  const result = await createTransaction(fd)
+  if (!result.success) return { success: false, error: result.error }
+  return { success: true, data: { difference } }
+}
+
+// ---- Venta / compra con varios productos y pago dividido ----
+
+const round2 = (v: number) => Math.round(v * 100) / 100
+
+/**
+ * Registra una venta o una compra de productos como Operacion.
+ *
+ * Venta:  los ítems descuentan stock guardando su CPP (base del CMV) y cada parte del
+ *         cobro —o cada cuota a crédito— es una Transaction INCOME SALE_PRODUCT.
+ * Compra: los ítems suman stock y recalculan el CPP con el costo neto de descuento;
+ *         cada parte del pago —o cada cuota de la deuda— es una Transaction EXPENSE
+ *         PURCHASE_PRODUCT.
+ * Así Ventas, CMV, Inventario, Cajas, Flujo y Créditos salen de los mismos datos que
+ * una operación simple.
+ */
+export async function createProductOperation(formData: FormData): Promise<ActionResult<{ operacionId: string }>> {
+  let payload: unknown
+  try {
+    payload = JSON.parse((formData.get('payload') as string) || '{}')
+  } catch {
+    return { success: false, error: 'Datos inválidos' }
+  }
+  const parsed = productOperationSchema.safeParse(payload)
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+  const { tipo, items, descuento, pagos, contactId, empleadoId, description: note, date: dateStr } = parsed.data
+  const esVenta = tipo === 'VENTA'
+
+  const subtotal = round2(items.reduce((s, i) => s + i.cantidad * i.precioUnitario, 0))
+  if (descuento > subtotal) return { success: false, error: 'El descuento no puede superar el subtotal' }
+  const total = round2(subtotal - descuento)
+  if (total <= 0) return { success: false, error: 'El total debe ser mayor a 0' }
+  const pagado = round2(pagos.reduce((s, p) => s + p.monto, 0))
+  if (Math.abs(pagado - total) > 0.01) return { success: false, error: 'La suma de las formas de pago no coincide con el total' }
+
+  const businessId = await getBusinessId()
+
+  // Productos (del negocio)
+  const productoIds = [...new Set(items.map((i) => i.productoId))]
+  const productos = await prisma.producto.findMany({
+    where: { id: { in: productoIds }, businessId },
+    select: { id: true, nombre: true, tipo: true, precioCosto: true, stockActual: true },
+  })
+  if (productos.length !== productoIds.length) return { success: false, error: 'Algún producto no existe' }
+  const productoById = new Map(productos.map((p) => [p.id, p]))
+
+  // Venta: no se vende más de lo que hay en stock (mercadería)
+  if (esVenta) {
+    const cantidadPorProducto = new Map<string, number>()
+    for (const i of items) cantidadPorProducto.set(i.productoId, (cantidadPorProducto.get(i.productoId) ?? 0) + i.cantidad)
+    for (const [id, cantidad] of cantidadPorProducto) {
+      const p = productoById.get(id)!
+      if (p.tipo === 'MERCADERIA' && cantidad > p.stockActual + 1e-9) {
+        return { success: false, error: `No hay stock suficiente de ${p.nombre} (quedan ${p.stockActual.toLocaleString('es-AR')})` }
+      }
+    }
+  }
+
+  // Cajas: la operación es en pesos
+  const cashAccounts = await prisma.account.findMany({
+    where: { businessId, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] }, currency: 'ARS' },
+    select: { id: true, type: true },
+  })
+  const accountById = new Map(cashAccounts.map((a) => [a.id, a]))
+  for (const p of pagos) {
+    if (p.metodo === 'CREDITO') {
+      const cuotas = p.cuotas ?? []
+      if (cuotas.length === 0) return { success: false, error: 'La parte a crédito necesita al menos una cuota' }
+      const sumaCuotas = round2(cuotas.reduce((s, c) => s + c.monto, 0))
+      if (Math.abs(sumaCuotas - p.monto) > 0.01) return { success: false, error: 'Las cuotas no suman el monto a crédito' }
+      continue
+    }
+    const acc = p.accountId ? accountById.get(p.accountId) : undefined
+    if (!acc) return { success: false, error: 'Elegí la caja de cada pago' }
+    if (p.metodo === 'EFECTIVO' && acc.type !== 'CASH') return { success: false, error: 'El pago en efectivo tiene que ir a una caja de efectivo' }
+    if (p.metodo === 'VIRTUAL' && acc.type === 'CASH') return { success: false, error: 'El pago virtual tiene que ir a una cuenta bancaria o billetera' }
+  }
+  // Las cuotas necesitan una caja de referencia (no mueven saldo hasta cobrarse/pagarse)
+  const creditAccountId = pagos.find((p) => p.accountId)?.accountId ?? cashAccounts[0]?.id
+  if (!creditAccountId) return { success: false, error: 'No hay cajas en pesos cargadas' }
+
+  if (contactId) {
+    const contact = await prisma.contact.findFirst({ where: { id: contactId, businessId }, select: { id: true } })
+    if (!contact) return { success: false, error: esVenta ? 'Cliente no encontrado' : 'Proveedor no encontrado' }
+  }
+
+  const txType = esVenta ? 'INCOME' : 'EXPENSE'
+  const subType = esVenta ? 'SALE_PRODUCT' : 'PURCHASE_PRODUCT'
+  const categoryId = await getOrCreateDefaultCategory(businessId, txType, subType)
+  const date = parseMovementDate(dateStr)
+  const nombres = items.map((i) => productoById.get(i.productoId)!.nombre)
+  const listado = nombres.length > 2 ? `${nombres.slice(0, 2).join(', ')} y ${nombres.length - 2} más` : nombres.join(', ')
+  const baseDescription = note || `${esVenta ? 'Venta' : 'Compra'}: ${listado}`
+  // Compra: el descuento general baja el costo de cada unidad en la misma proporción
+  const factorNeto = subtotal > 0 ? total / subtotal : 1
+
+  try {
+    const operacionId = await prisma.$transaction(async (tx) => {
+      const [categoryWithContable, cxcAccount, cxpAccount, inventoryAccount, cogsAccount] = await Promise.all([
+        categoryId ? tx.category.findFirst({ where: { id: categoryId, businessId }, select: { contableAccountId: true } }) : null,
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'RECEIVABLE' }, select: { id: true } }),
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'PAYABLE' }, select: { id: true } }),
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'INVENTORY' }, select: { id: true } }),
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'COGS' }, select: { id: true } }),
+      ])
+
+      const operacion = await tx.operacion.create({
+        data: {
+          tipo,
+          date,
+          description: note || null,
+          subtotal,
+          descuento: round2(descuento),
+          total,
+          contact: contactId ? { connect: { id: contactId } } : undefined,
+          empleado: empleadoId ? { connect: { id: empleadoId } } : undefined,
+          business: { connect: { id: businessId } },
+        },
+        select: { id: true },
+      })
+
+      let cmv = 0
+      for (const item of items) {
+        // Estado actual del producto (puede repetirse en la lista)
+        const producto = productoById.get(item.productoId)!
+        const esMercaderia = producto.tipo === 'MERCADERIA'
+        const costoActual = producto.precioCosto ?? 0
+        const costoNeto = round2(item.precioUnitario * factorNeto)
+        await tx.operacionItem.create({
+          data: {
+            operacion: { connect: { id: operacion.id } },
+            producto: { connect: { id: producto.id } },
+            cantidad: item.cantidad,
+            precioUnitario: item.precioUnitario,
+            subtotal: round2(item.cantidad * item.precioUnitario),
+            costoUnitario: esMercaderia ? (esVenta ? costoActual : costoNeto) : null,
+          },
+        })
+        if (!esMercaderia) continue
+
+        if (esVenta) {
+          // Venta: sale stock a su CPP del momento
+          cmv += item.cantidad * costoActual
+          await tx.producto.update({ where: { id: producto.id }, data: { stockActual: { decrement: item.cantidad } } })
+          producto.stockActual -= item.cantidad
+          await tx.movimientoStock.create({
+            data: {
+              tipo: 'SALIDA', cantidad: item.cantidad, precio: item.precioUnitario, costoUnitario: costoActual,
+              motivo: baseDescription, fecha: date, producto: { connect: { id: producto.id } },
+            },
+          })
+        } else {
+          // Compra: entra stock y se recalcula el costo promedio ponderado
+          const stockPrevio = Math.max(0, producto.stockActual)
+          const stockNuevo = stockPrevio + item.cantidad
+          const cpp = stockNuevo > 0 ? (stockPrevio * costoActual + item.cantidad * costoNeto) / stockNuevo : costoNeto
+          await tx.producto.update({
+            where: { id: producto.id },
+            data: { stockActual: { increment: item.cantidad }, precioCosto: cpp },
+          })
+          producto.stockActual += item.cantidad
+          producto.precioCosto = cpp
+          await tx.movimientoStock.create({
+            data: {
+              tipo: 'ENTRADA', cantidad: item.cantidad, precio: costoNeto,
+              motivo: baseDescription, fecha: date, producto: { connect: { id: producto.id } },
+            },
+          })
+        }
+      }
+
+      // Una Transaction por parte cobrada/pagada y una por cada cuota a crédito
+      type Parte = { amount: number; esCredito: boolean; accountId: string; fechaVencimiento?: Date; cuota?: [number, number] }
+      const partes: Parte[] = pagos.flatMap((p): Parte[] => {
+        if (p.metodo !== 'CREDITO') return [{ amount: p.monto, esCredito: false, accountId: p.accountId! }]
+        const cuotas = p.cuotas ?? []
+        return cuotas.map((c, i) => ({
+          amount: c.monto,
+          esCredito: true,
+          accountId: creditAccountId,
+          fechaVencimiento: new Date(`${c.fecha}T12:00:00-03:00`),
+          cuota: [i + 1, cuotas.length] as [number, number],
+        }))
+      })
+
+      let cmvPendiente = round2(cmv)
+      for (const parte of partes) {
+        const description = parte.cuota
+          ? `${baseDescription} · cuota ${parte.cuota[0]}/${parte.cuota[1]}`
+          : baseDescription
+        const newTx = await tx.transaction.create({
+          data: {
+            amount: parte.amount,
+            description,
+            type: txType,
+            subType,
+            date,
+            currency: 'ARS',
+            esCredito: parte.esCredito,
+            estado: parte.esCredito ? 'PENDIENTE' : (esVenta ? 'COBRADO' : 'PAGADO'),
+            fechaVencimiento: parte.fechaVencimiento ?? null,
+            cuotaNumero: parte.cuota?.[0] ?? null,
+            cuotasTotal: parte.cuota?.[1] ?? null,
+            account: { connect: { id: parte.accountId } },
+            business: { connect: { id: businessId } },
+            operacion: { connect: { id: operacion.id } },
+            category: categoryId ? { connect: { id: categoryId } } : undefined,
+            contact: contactId ? { connect: { id: contactId } } : undefined,
+            empleado: empleadoId ? { connect: { id: empleadoId } } : undefined,
+          },
+          select: { id: true },
+        })
+        if (!parte.esCredito) {
+          await tx.account.update({
+            where: { id: parte.accountId },
+            data: { currentBalance: esVenta ? { increment: parte.amount } : { decrement: parte.amount } },
+          })
+        }
+
+        // Asiento. Venta: el costo de la mercadería va una sola vez, en el primer movimiento.
+        const journal = generateJournalLines({
+          amount: parte.amount,
+          type: txType,
+          esCredito: parte.esCredito,
+          physicalAccountId: parte.accountId,
+          categoryContableAccountId: categoryWithContable?.contableAccountId ?? null,
+          cxcAccountId: cxcAccount?.id ?? null,
+          cxpAccountId: cxpAccount?.id ?? null,
+          description,
+          mode: esVenta ? (cmvPendiente > 0 ? 'SALE_PRODUCT' : 'STANDARD') : 'PURCHASE_PRODUCT',
+          costoMercaderia: esVenta && cmvPendiente > 0 ? cmvPendiente : undefined,
+          inventoryAccountId: inventoryAccount?.id ?? null,
+          cogsAccountId: cogsAccount?.id ?? null,
+        })
+        if (journal.ok) {
+          await tx.journalEntry.create({
+            data: { date, description, transactionId: newTx.id, businessId, lines: { create: journal.lines } },
+          })
+          if (esVenta) cmvPendiente = 0
+        }
+      }
+
+      return operacion.id
+    })
+
+    revalidateTag(`dashboard:${businessId}`, 'max')
+    revalidatePath('/')
+    revalidatePath('/stock')
+    revalidatePath('/creditos')
+    return { success: true, data: { operacionId } }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : `Error al registrar la ${esVenta ? 'venta' : 'compra'}` }
+  }
+}
+
+// ---- Resto de las categorías con pago combinado / cuotas ----
+
+type ConceptResult = ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string }>
+
+/**
+ * Registra las categorías que no son de productos con el mismo esquema de pago que las
+ * ventas/compras de productos (medios combinados, crédito en cuotas):
+ * - OTRO_INGRESO / OTRO_EGRESO: categorías propias (con subcategoría si corresponde).
+ * - VENTA_BIEN / COMPRA_BIEN: bienes de uso (baja o alta del activo, una sola vez).
+ * - COBRO / PAGO_DEUDA: saldan una o varias cuotas pendientes; lo pagado se aplica a
+ *   las cuotas en el orden recibido (sin crédito: es el pago de uno).
+ * Si el pago tiene más de una parte, las Transactions se agrupan en una Operacion
+ * (una sola fila en Cajas).
+ */
+export async function createConceptOperation(formData: FormData): Promise<ConceptResult> {
+  let payload: unknown
+  try {
+    payload = JSON.parse((formData.get('payload') as string) || '{}')
+  } catch {
+    return { success: false, error: 'Datos inválidos' }
+  }
+  const parsed = conceptOperationSchema.safeParse(payload)
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+  const { kind, monto: montoRaw, pagos, contactId, empleadoId, description: note, date: dateStr } = parsed.data
+  const monto = round2(montoRaw)
+
+  const esIngreso = kind === 'OTRO_INGRESO' || kind === 'VENTA_BIEN' || kind === 'COBRO'
+  const esSaldo = kind === 'COBRO' || kind === 'PAGO_DEUDA'
+  const txType = esIngreso ? 'INCOME' : 'EXPENSE'
+  const subType =
+    kind === 'OTRO_INGRESO' ? 'OTHER_INCOME'
+      : kind === 'OTRO_EGRESO' ? 'PAGO'
+      : kind === 'VENTA_BIEN' ? 'SALE_BIEN_USO'
+      : kind === 'COMPRA_BIEN' ? 'PURCHASE_BIEN_USO'
+      : kind === 'COBRO' ? 'COBRO_CREDITO'
+      : 'PAGO_DEUDA'
+
+  const pagado = round2(pagos.reduce((s, p) => s + p.monto, 0))
+  if (Math.abs(pagado - monto) > 0.01) return { success: false, error: 'La suma de las formas de pago no coincide con el monto' }
+  if (esSaldo && pagos.some((p) => p.metodo === 'CREDITO')) {
+    return { success: false, error: 'Un cobro o pago de deuda no puede ser a crédito' }
+  }
+
+  const businessId = await getBusinessId()
+
+  // Cajas en pesos
+  const cashAccounts = await prisma.account.findMany({
+    where: { businessId, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] }, currency: 'ARS' },
+    select: { id: true, type: true },
+  })
+  const accountById = new Map(cashAccounts.map((a) => [a.id, a]))
+  for (const p of pagos) {
+    if (p.metodo === 'CREDITO') {
+      const cuotas = p.cuotas ?? []
+      if (cuotas.length === 0) return { success: false, error: 'La parte a crédito necesita al menos una cuota' }
+      const suma = round2(cuotas.reduce((s, c) => s + c.monto, 0))
+      if (Math.abs(suma - p.monto) > 0.01) return { success: false, error: 'Las cuotas no suman el monto a crédito' }
+      continue
+    }
+    const acc = p.accountId ? accountById.get(p.accountId) : undefined
+    if (!acc) return { success: false, error: 'Elegí la caja de cada pago' }
+    if (p.metodo === 'EFECTIVO' && acc.type !== 'CASH') return { success: false, error: 'El pago en efectivo tiene que ir a una caja de efectivo' }
+    if (p.metodo === 'VIRTUAL' && acc.type === 'CASH') return { success: false, error: 'El pago virtual tiene que ir a una cuenta bancaria o billetera' }
+  }
+  const creditAccountId = pagos.find((p) => p.accountId)?.accountId ?? cashAccounts[0]?.id
+  if (!creditAccountId) return { success: false, error: 'No hay cajas en pesos cargadas' }
+
+  if (contactId) {
+    const contact = await prisma.contact.findFirst({ where: { id: contactId, businessId }, select: { id: true } })
+    if (!contact) return { success: false, error: 'Contacto no encontrado' }
+  }
+
+  // ── Datos propios de cada tipo ──
+  let categoryId: string | null = null
+  let subcategoryId: string | null = null
+  let bienVenta: { id: string; nombre: string; valorNeto: number } | null = null
+  let creditos: { id: string; amount: number; saldo: number; contactId: string | null; contactName: string | null }[] = []
+  let label = ''
+
+  if (kind === 'OTRO_INGRESO' || kind === 'OTRO_EGRESO') {
+    if (!parsed.data.categoryId) return { success: false, error: 'Elegí una categoría' }
+    const category = await prisma.category.findFirst({
+      where: { id: parsed.data.categoryId, businessId, type: txType },
+      select: { id: true, name: true, subcategories: { select: { id: true, name: true } } },
+    })
+    if (!category) return { success: false, error: 'Categoría no encontrada' }
+    const sub = category.subcategories.find((s) => s.id === parsed.data.subcategoryId)
+    if (category.subcategories.length > 0 && !sub) return { success: false, error: 'Elegí una subcategoría' }
+    categoryId = category.id
+    subcategoryId = sub?.id ?? null
+    label = sub ? sub.name : category.name
+  } else {
+    categoryId = await getOrCreateDefaultCategory(businessId, txType, subType)
+  }
+
+  if (kind === 'VENTA_BIEN') {
+    const bien = await prisma.bienDeUso.findFirst({
+      where: { id: parsed.data.bienDeUsoId ?? '', businessId, activo: true },
+      select: { id: true, nombre: true, valorAdquisicion: true, depreciacionAcumulada: true },
+    })
+    if (!bien) return { success: false, error: 'Elegí un bien de uso' }
+    bienVenta = { id: bien.id, nombre: bien.nombre, valorNeto: Math.max(0, bien.valorAdquisicion - bien.depreciacionAcumulada) }
+    label = `Venta de ${bien.nombre}`
+  }
+  if (kind === 'COMPRA_BIEN') {
+    if (!parsed.data.bien) return { success: false, error: 'Indicá el nombre del bien' }
+    label = `Compra de ${parsed.data.bien.nombre}`
+  }
+
+  if (esSaldo) {
+    const ids = parsed.data.creditoIds ?? []
+    if (ids.length === 0) return { success: false, error: kind === 'COBRO' ? 'Elegí qué cuotas se cobran' : 'Elegí qué cuotas se pagan' }
+    const rows = await prisma.transaction.findMany({
+      where: { id: { in: ids }, businessId, esCredito: true, type: txType, estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } },
+      select: { id: true, amount: true, contactId: true, contact: { select: { name: true } }, cobrosAplicados: { select: { amount: true } } },
+    })
+    if (rows.length !== ids.length) return { success: false, error: 'Alguna cuota ya no está pendiente' }
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    creditos = ids.map((id) => {
+      const r = byId.get(id)!
+      const aplicado = r.cobrosAplicados.reduce((s, c) => s + c.amount, 0)
+      return { id: r.id, amount: r.amount, saldo: round2(r.amount - aplicado), contactId: r.contactId, contactName: r.contact?.name ?? null }
+    })
+    const saldoTotal = round2(creditos.reduce((s, c) => s + c.saldo, 0))
+    if (monto > saldoTotal + 0.01) return { success: false, error: `El monto supera el saldo pendiente (${saldoTotal.toLocaleString('es-AR')})` }
+    label = kind === 'COBRO' ? 'Cobro de crédito' : 'Pago de deuda'
+  }
+
+  const date = parseMovementDate(dateStr)
+  const baseDescription = note || label
+
+  // Partes: una por medio no a crédito y una por cada cuota
+  type Parte = { amount: number; esCredito: boolean; accountId: string; fechaVencimiento?: Date; cuota?: [number, number] }
+  const partes: Parte[] = pagos.flatMap((p): Parte[] => {
+    if (p.metodo !== 'CREDITO') return [{ amount: p.monto, esCredito: false, accountId: p.accountId! }]
+    const cuotas = p.cuotas ?? []
+    return cuotas.map((c, i) => ({
+      amount: c.monto,
+      esCredito: true,
+      accountId: creditAccountId,
+      fechaVencimiento: new Date(`${c.fecha}T12:00:00-03:00`),
+      cuota: [i + 1, cuotas.length] as [number, number],
+    }))
+  })
+
+  let clienteSaldado = false
+  let clienteNombre: string | undefined
+  let proveedorSaldado = false
+  let proveedorNombre: string | undefined
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const [categoryWithContable, cxcAccount, cxpAccount, fixedAccount] = await Promise.all([
+        categoryId ? tx.category.findFirst({ where: { id: categoryId, businessId }, select: { contableAccountId: true } }) : null,
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'RECEIVABLE' }, select: { id: true } }),
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'PAYABLE' }, select: { id: true } }),
+        tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'FIXED_ASSET' }, select: { id: true } }),
+      ])
+
+      // Más de una parte → se agrupan en una Operacion
+      const operacion = partes.length > 1 || (esSaldo && creditos.length > 1)
+        ? await tx.operacion.create({
+            data: {
+              tipo: kind,
+              date,
+              description: note || null,
+              subtotal: monto,
+              descuento: 0,
+              total: monto,
+              contact: contactId ? { connect: { id: contactId } } : undefined,
+              empleado: empleadoId ? { connect: { id: empleadoId } } : undefined,
+              business: { connect: { id: businessId } },
+            },
+            select: { id: true },
+          })
+        : null
+
+      // Bienes de uso: la baja o el alta del activo se hace una sola vez
+      let bienId: string | null = bienVenta?.id ?? null
+      if (bienVenta) await tx.bienDeUso.update({ where: { id: bienVenta.id }, data: { activo: false } })
+      if (kind === 'COMPRA_BIEN' && parsed.data.bien) {
+        const nuevo = await tx.bienDeUso.create({
+          data: {
+            nombre: parsed.data.bien.nombre,
+            categoria: parsed.data.bien.categoria || null,
+            marca: parsed.data.bien.marca || null,
+            valorAdquisicion: monto,
+            valorResidual: 0,
+            depreciacionAcumulada: 0,
+            fechaAdquisicion: date,
+            activo: true,
+            businessId,
+          },
+          select: { id: true },
+        })
+        bienId = nuevo.id
+      }
+
+      const crearMovimiento = async (parte: Parte, extra: { linkedCreditoId?: string; contactId?: string | null; journalMode: Parameters<typeof generateJournalLines>[0]['mode']; valorNeto?: number }) => {
+        const description = parte.cuota ? `${baseDescription} · cuota ${parte.cuota[0]}/${parte.cuota[1]}` : baseDescription
+        const contacto = extra.contactId !== undefined ? extra.contactId : (contactId || null)
+        const newTx = await tx.transaction.create({
+          data: {
+            amount: parte.amount,
+            description,
+            type: txType,
+            subType,
+            date,
+            currency: 'ARS',
+            esCredito: parte.esCredito,
+            estado: parte.esCredito ? 'PENDIENTE' : (esIngreso ? 'COBRADO' : 'PAGADO'),
+            fechaVencimiento: parte.fechaVencimiento ?? null,
+            cuotaNumero: parte.cuota?.[0] ?? null,
+            cuotasTotal: parte.cuota?.[1] ?? null,
+            account: { connect: { id: parte.accountId } },
+            business: { connect: { id: businessId } },
+            operacion: operacion ? { connect: { id: operacion.id } } : undefined,
+            category: categoryId && !esSaldo ? { connect: { id: categoryId } } : undefined,
+            subcategory: subcategoryId ? { connect: { id: subcategoryId } } : undefined,
+            bienDeUso: bienId ? { connect: { id: bienId } } : undefined,
+            linkedCredito: extra.linkedCreditoId ? { connect: { id: extra.linkedCreditoId } } : undefined,
+            contact: contacto ? { connect: { id: contacto } } : undefined,
+            empleado: empleadoId ? { connect: { id: empleadoId } } : undefined,
+          },
+          select: { id: true },
+        })
+        if (!parte.esCredito) {
+          await tx.account.update({
+            where: { id: parte.accountId },
+            data: { currentBalance: esIngreso ? { increment: parte.amount } : { decrement: parte.amount } },
+          })
+        }
+        const journal = generateJournalLines({
+          amount: parte.amount,
+          type: txType,
+          esCredito: parte.esCredito,
+          physicalAccountId: parte.accountId,
+          categoryContableAccountId: categoryWithContable?.contableAccountId ?? null,
+          cxcAccountId: cxcAccount?.id ?? null,
+          cxpAccountId: cxpAccount?.id ?? null,
+          description,
+          mode: extra.journalMode,
+          fixedAssetAccountId: fixedAccount?.id ?? null,
+          bienValorNetoEnLibros: extra.valorNeto,
+        })
+        if (journal.ok) {
+          await tx.journalEntry.create({
+            data: { date, description, transactionId: newTx.id, businessId, lines: { create: journal.lines } },
+          })
+        }
+      }
+
+      if (esSaldo) {
+        // Lo pagado se aplica a las cuotas en orden; cada tramo es un cobro/pago vinculado
+        const saldos = creditos.map((c) => ({ ...c }))
+        let ci = 0
+        for (const parte of partes) {
+          let resto = parte.amount
+          while (resto > 0.001 && ci < saldos.length) {
+            const credito = saldos[ci]
+            const aplicar = round2(Math.min(resto, credito.saldo))
+            if (aplicar > 0) {
+              await crearMovimiento({ ...parte, amount: aplicar }, {
+                linkedCreditoId: credito.id,
+                contactId: credito.contactId,
+                journalMode: kind === 'COBRO' ? 'COBRO_CREDITO' : 'PAGO_DEUDA',
+              })
+              credito.saldo = round2(credito.saldo - aplicar)
+              resto = round2(resto - aplicar)
+            }
+            if (credito.saldo <= 0.001) ci++
+          }
+        }
+        // Estado de cada cuota
+        for (const c of saldos) {
+          const original = creditos.find((x) => x.id === c.id)!
+          if (Math.abs(original.saldo - c.saldo) < 0.001) continue
+          const saldada = c.saldo <= 0.001
+          await tx.transaction.update({
+            where: { id: c.id },
+            data: { estado: saldada ? (kind === 'COBRO' ? 'COBRADO' : 'PAGADO') : 'PARCIAL' },
+          })
+        }
+        // ¿El cliente / proveedor quedó sin deuda?
+        const contacto = creditos[0].contactId
+        if (contacto) {
+          const [pendiente, aplicado] = await Promise.all([
+            tx.transaction.aggregate({
+              where: { businessId, contactId: contacto, esCredito: true, type: txType, estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } },
+              _sum: { amount: true },
+            }),
+            tx.transaction.aggregate({
+              where: { businessId, linkedCredito: { contactId: contacto, esCredito: true, type: txType, estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } } },
+              _sum: { amount: true },
+            }),
+          ])
+          if ((pendiente._sum.amount ?? 0) - (aplicado._sum.amount ?? 0) <= 0.001) {
+            if (kind === 'COBRO') { clienteSaldado = true; clienteNombre = creditos[0].contactName ?? undefined }
+            else { proveedorSaldado = true; proveedorNombre = creditos[0].contactName ?? undefined }
+          }
+        }
+        return
+      }
+
+      // Resto: un movimiento por parte. Venta de bien: el valor neto sale una sola vez.
+      let valorNetoPendiente = bienVenta?.valorNeto ?? 0
+      for (const parte of partes) {
+        const mode =
+          kind === 'VENTA_BIEN' ? 'SALE_BIEN_USO'
+            : kind === 'COMPRA_BIEN' ? 'PURCHASE_BIEN_USO'
+            : 'STANDARD'
+        await crearMovimiento(parte, { journalMode: mode, valorNeto: kind === 'VENTA_BIEN' ? valorNetoPendiente : undefined })
+        valorNetoPendiente = 0
+      }
+    })
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Error al registrar la operación' }
+  }
+
+  revalidateTag(`dashboard:${businessId}`, 'max')
+  revalidatePath('/')
+  revalidatePath('/creditos')
+  revalidatePath('/bienes-de-uso')
+  return { success: true, data: { clienteSaldado, clienteNombre, proveedorSaldado, proveedorNombre } }
+}
+
+// ---- Subcategory CRUD ----
+
+export async function createSubcategory(formData: FormData): Promise<ActionResult<{ id: string; name: string; categoryId: string }>> {
+  const parsed = createSubcategorySchema.safeParse({
+    name: (formData.get('name') as string)?.trim(),
+    categoryId: formData.get('categoryId') as string,
+  })
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+  const businessId = await getBusinessId()
+  const category = await prisma.category.findFirst({
+    where: { id: parsed.data.categoryId, businessId },
+    select: { id: true },
+  })
+  if (!category) return { success: false, error: 'La categoría no existe' }
+
+  const created = await prisma.subcategory.create({
+    data: { name: parsed.data.name, categoryId: category.id, businessId },
+    select: { id: true, name: true, categoryId: true },
+  })
+  updateTag(`catalogs:${businessId}`)
+  revalidatePath('/')
+  return { success: true, data: created }
+}
+
+export async function deleteSubcategory(id: string) {
+  const businessId = await getBusinessId()
+  // Los movimientos conservan la categoría padre y quedan sin subcategoría (onDelete: SetNull)
+  await prisma.subcategory.deleteMany({ where: { id, businessId } })
+  updateTag(`catalogs:${businessId}`)
   revalidatePath('/')
 }
 
@@ -1239,7 +2140,7 @@ export async function getCreditosDeudas(
       ],
     },
     orderBy: [{ estado: 'asc' }, { fechaVencimiento: 'asc' }],
-    include: { contact: true, category: true, account: true, areaNegocio: true },
+    include: { contact: true, category: true, subcategory: { select: { name: true } }, account: true, areaNegocio: true },
   })
 }
 
@@ -1293,6 +2194,10 @@ export async function getProductos(
       stockInicialPeriodo: 0,
       entradasPeriodo: 0,
       salidasPeriodo: 0,
+      cmvPeriodo: 0,
+      valorInicialPeriodo: 0,
+      valorCompradoPeriodo: 0,
+      valorFinalPeriodo: 0,
     }))
   }
 
@@ -1308,25 +2213,50 @@ export async function getProductos(
     delta[m.productoId] = (delta[m.productoId] || 0) + signed
   }
 
-  // Movimientos dentro del período seleccionado
-  const movsEnPeriodo = await prisma.movimientoStock.findMany({
-    where: { producto: { businessId }, fecha: { gte: from, lte: to } },
-    select: { productoId: true, tipo: true, cantidad: true },
+  // Movimientos hasta el cierre del período, en orden: se "reproducen" para saber
+  // unidades y valor (al costo promedio ponderado de cada momento) al inicio y al cierre.
+  // Así Inicial + Comprado − Vendido = Final, siempre, y valorizado a lo que realmente costó.
+  const movs = await prisma.movimientoStock.findMany({
+    where: { producto: { businessId }, fecha: { lte: to } },
+    orderBy: [{ fecha: 'asc' }, { createdAt: 'asc' }],
+    select: { productoId: true, tipo: true, cantidad: true, precio: true, costoUnitario: true, fecha: true },
   })
-  const entradas: Record<string, number> = {}
-  const salidas: Record<string, number> = {}
-  const ajusteNeto: Record<string, number> = {}
-  for (const m of movsEnPeriodo) {
-    if (m.tipo === 'ENTRADA') entradas[m.productoId] = (entradas[m.productoId] || 0) + m.cantidad
-    else if (m.tipo === 'SALIDA') salidas[m.productoId] = (salidas[m.productoId] || 0) + m.cantidad
-    else ajusteNeto[m.productoId] = (ajusteNeto[m.productoId] || 0) + m.cantidad
+  type Flujo = { stock: number; valor: number; valorInicial: number; entradas: number; salidas: number; ajuste: number; comprado: number; cmv: number; abierto: boolean }
+  const costoActual = Object.fromEntries(productos.map((p) => [p.id, p.precioCosto ?? 0]))
+  const flujo: Record<string, Flujo> = {}
+  const cerrarInicio = (f: Flujo) => { if (!f.abierto) { f.valorInicial = f.valor; f.abierto = true } }
+  for (const m of movs) {
+    const f = (flujo[m.productoId] ??= { stock: 0, valor: 0, valorInicial: 0, entradas: 0, salidas: 0, ajuste: 0, comprado: 0, cmv: 0, abierto: false })
+    const enPeriodo = m.fecha >= from
+    if (enPeriodo) cerrarInicio(f)
+    const cpp = f.stock > 0 ? f.valor / f.stock : costoActual[m.productoId] ?? 0
+    if (m.tipo === 'ENTRADA') {
+      const costo = m.precio > 0 ? m.precio : cpp
+      f.stock += m.cantidad
+      f.valor += m.cantidad * costo
+      if (enPeriodo) { f.entradas += m.cantidad; f.comprado += m.cantidad * costo }
+    } else if (m.tipo === 'SALIDA') {
+      // CMV: cada salida a su CPP del momento (salidas viejas sin costo guardado: el del momento)
+      const costo = m.costoUnitario ?? cpp
+      f.stock -= m.cantidad
+      f.valor -= m.cantidad * costo
+      if (enPeriodo) { f.salidas += m.cantidad; f.cmv += m.cantidad * costo }
+    } else {
+      // Ajuste: la cantidad es el stock resultante
+      const antes = f.stock
+      f.stock = m.cantidad
+      f.valor = m.cantidad * cpp
+      if (enPeriodo) f.ajuste += m.cantidad - antes
+    }
   }
 
   return productos.map(p => {
+    const f = flujo[p.id]
+    if (f) cerrarInicio(f)
     const stockFinal = (p.stockActual ?? 0) - (delta[p.id] || 0)
-    const ent = entradas[p.id] || 0
-    const sal = salidas[p.id] || 0
-    const aj = ajusteNeto[p.id] || 0
+    const ent = f?.entradas ?? 0
+    const sal = f?.salidas ?? 0
+    const aj = f?.ajuste ?? 0
     const stockInicial = stockFinal - ent + sal - aj
     return {
       ...p,
@@ -1334,11 +2264,15 @@ export async function getProductos(
       stockInicialPeriodo: stockInicial,
       entradasPeriodo: ent,
       salidasPeriodo: sal,
+      cmvPeriodo: f?.cmv ?? 0,
+      valorInicialPeriodo: f?.valorInicial ?? 0,
+      valorCompradoPeriodo: f?.comprado ?? 0,
+      valorFinalPeriodo: f?.valor ?? 0,
     }
   })
 }
 
-export async function createProducto(formData: FormData): Promise<ActionResult> {
+export async function createProducto(formData: FormData): Promise<ActionResult<{ id: string }>> {
   const alertaRaw = formData.get('alertaStock') as string | null
   const alertaStockParsed = alertaRaw && alertaRaw.trim() !== '' ? parseFloat(alertaRaw) : null
   const imagenRaw = (formData.get('imagenUrl') as string | null)?.trim() || ''
@@ -1364,16 +2298,18 @@ export async function createProducto(formData: FormData): Promise<ActionResult> 
 
   const businessId = await getBusinessId()
 
-  await prisma.producto.create({ data: {
+  const creado = await prisma.producto.create({ data: {
     ...parsed.data,
     descripcion: parsed.data.descripcion || null,
     imagenUrl: parsed.data.imagenUrl || null,
     categoria: parsed.data.categoria || null,
     marca: parsed.data.marca || null,
     businessId,
-  }})
+  }, select: { id: true } })
   revalidatePath('/stock')
-  return { success: true }
+  // Los catálogos del formulario de registración también lo tienen que ver
+  updateTag(`catalogs:${businessId}`)
+  return { success: true, data: { id: creado.id } }
 }
 
 export async function updateProducto(id: string, formData: FormData): Promise<ActionResult> {
@@ -1458,7 +2394,11 @@ export async function addMovimientoStock(formData: FormData): Promise<ActionResu
   }
 
   await prisma.movimientoStock.create({
-    data: { productoId, tipo, cantidad, precio, motivo: motivo || null, fecha },
+    data: {
+      productoId, tipo, cantidad, precio, motivo: motivo || null, fecha,
+      // Salida manual (merma, consumo): también cuenta al CMV con el CPP actual
+      costoUnitario: tipo === 'SALIDA' ? producto.precioCosto : null,
+    },
   })
 
   // Actualizar stockActual
@@ -2006,11 +2946,18 @@ async function _fetchDashboardStats(
   const now = new Date()
   const { from, to, prevFrom, prevTo, label: periodLabel } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
 
+  // Solo lo que movió caja en pesos (mismo criterio que el Estado de flujo de efectivo):
+  // sin ventas/compras a crédito hasta que se cobran/pagan, sin cuentas del sistema.
+  const cashOnly = {
+    esCredito: false,
+    account: { isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] }, currency: 'ARS' },
+  }
+
   // ── Fetch current + previous period transactions in parallel ──
   // prevTxs only needs aggregates; creditosDeudas only needs amounts + status
   const [currentTxs, prevTxs, creditosDeudas, accounts] = await Promise.all([
     prisma.transaction.findMany({
-      where: { businessId, date: { gte: from, lte: to } },
+      where: { businessId, date: { gte: from, lte: to }, ...cashOnly },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       select: {
         id: true, description: true, amount: true, currency: true,
@@ -2020,7 +2967,7 @@ async function _fetchDashboardStats(
       },
     }),
     prisma.transaction.findMany({
-      where: { businessId, date: { gte: prevFrom, lte: prevTo } },
+      where: { businessId, date: { gte: prevFrom, lte: prevTo }, ...cashOnly },
       select: { amount: true, type: true },
     }),
     prisma.transaction.findMany({
@@ -2293,9 +3240,9 @@ export async function getCajasData(
 ): Promise<CajasData> {
   const businessId = await getBusinessId()
 
-  // Traer todas las cuentas del negocio
+  // Solo cajas propias (no las cuentas contables del sistema)
   const accounts = await prisma.account.findMany({
-    where: { businessId },
+    where: { businessId, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] } },
   })
 
   // Rango efectivo: si no hay period, usar "hoy" como ventana de variación pero balance actual.
@@ -2307,23 +3254,12 @@ export async function getCajasData(
   const periodTo = range?.to ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
   const periodLabel = range?.label
 
-  // Balance asof "periodTo": sumar INCOME - EXPENSE de todas las transacciones <= periodTo por cuenta.
-  // Solo se calcula si hay period; si no, se usa account.currentBalance.
-  const balanceAsofByAccount: Record<string, number> = {}
-  if (period) {
-    const txAsof = await prisma.transaction.findMany({
-      where: { businessId, date: { lte: periodTo } },
-      select: { accountId: true, amount: true, type: true },
-    })
-    for (const tx of txAsof) {
-      const delta = tx.type === 'INCOME' ? tx.amount : -tx.amount
-      balanceAsofByAccount[tx.accountId] = (balanceAsofByAccount[tx.accountId] || 0) + delta
-    }
-  }
+  // Saldo de cada caja al cierre del período (misma fuente que el historial y el flujo de efectivo)
+  const balanceAsofByAccount = period ? await getCashBalancesAt(businessId, periodTo) : {}
 
-  // Movimientos del período: contar y calcular variación dentro de [periodFrom, periodTo]
+  // Movimientos del período que mueven plata: contar y calcular variación dentro de [periodFrom, periodTo]
   const txPeriodo = await prisma.transaction.findMany({
-    where: { businessId, date: { gte: periodFrom, lte: periodTo } },
+    where: { businessId, esCredito: false, date: { gte: periodFrom, lte: periodTo } },
     select: { accountId: true, amount: true, type: true },
   })
 
@@ -2671,6 +3607,7 @@ export async function createCategoryWithContable(formData: FormData): Promise<Ac
     select: { id: true, name: true },
   })
   await createContableAccountForCategory(created.id, created.name, parsed.data.type, businessId, prisma as never)
+  updateTag(`catalogs:${businessId}`)
   revalidatePath('/')
   return { success: true, data: created }
 }

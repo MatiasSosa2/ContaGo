@@ -3,6 +3,8 @@ import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import PrintButton from '@/components/PrintButton'
 import FlujoDetail from '@/components/financial-statements/FlujoDetail'
+import { FlujoCharts } from '@/components/financial-statements/StatementCharts'
+import { getYearlySeries } from '@/app/actions'
 import { getReportsViewData, type ReportsSearchParams } from '../reportsData'
 import { Suspense } from 'react'
 
@@ -24,7 +26,19 @@ export default async function FlujoCajaPage({
     periodLabel,
     queryString,
     cashFlow,
+    cashCurrency,
+    seriesYear,
+    seriesActiveMonth,
   } = await getReportsViewData(searchParams)
+  const series = await getYearlySeries(seriesYear, cashCurrency)
+
+  const monedaHref = (moneda: 'ARS' | 'USD') => {
+    const sp = new URLSearchParams(queryString)
+    if (moneda === 'USD') sp.set('moneda', 'USD')
+    else sp.delete('moneda')
+    const qs = sp.toString()
+    return `/reports/flujo-caja${qs ? `?${qs}` : ''}`
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
@@ -70,11 +84,31 @@ export default async function FlujoCajaPage({
             </div>
           </div>
 
-          <div className="shrink-0"><PrintButton /></div>
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="flex overflow-hidden border border-[#E5E7EB] text-xs font-semibold dark:border-white/10" role="group" aria-label="Moneda">
+              {(['ARS', 'USD'] as const).map((moneda) => (
+                <Link
+                  key={moneda}
+                  href={monedaHref(moneda)}
+                  aria-current={cashCurrency === moneda ? 'true' : undefined}
+                  className={`px-3 py-1.5 transition ${cashCurrency === moneda ? 'bg-brand-military text-white' : 'text-[#6B7280] hover:text-[#1F2937] dark:text-[#A3A3A3] dark:hover:text-white'}`}
+                >
+                  {moneda === 'ARS' ? 'Pesos' : 'Dólares'}
+                </Link>
+              ))}
+            </div>
+            <PrintButton />
+          </div>
         </div>
 
-        <div className="bg-[#F9FAFB] px-6 py-6 dark:bg-[#0F0F0F]">
-          <FlujoDetail data={cashFlow} />
+        {/* Cuadro con números a la izquierda; los dos gráficos a la derecha, del mismo alto */}
+        <div className="grid grid-cols-1 gap-5 bg-[#F9FAFB] px-6 py-6 dark:bg-[#0F0F0F] lg:grid-cols-2">
+          <div className="min-w-0">
+            <FlujoDetail data={cashFlow} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            <FlujoCharts series={series} currency={cashCurrency} activeMonth={seriesActiveMonth} />
+          </div>
         </div>
       </section>
     </div>

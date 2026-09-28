@@ -60,9 +60,64 @@ interface CajasMovementItem {
   esCredito?: boolean
   estado?: string
   category: { name: string } | null
+  subcategory?: { name: string } | null
   account: { name: string; type: string } | null
   contact?: { name: string } | null
+  /** Pata de un cambio de caja (sale de una caja / entra en otra) */
+  isTransfer?: boolean
+  /** "Caja chica → Banco", para mostrar en la lista */
+  transferLabel?: string
+  /** Parte de una venta con varios productos / pago dividido */
+  operacionId?: string | null
+  operacion?: { total: number; descuento: number; items: { cantidad: number; producto: { nombre: string } }[] } | null
+  cuotaNumero?: number | null
+  cuotasTotal?: number | null
 }
+
+/** Fila de la lista: un movimiento suelto o una operación con sus partes de pago */
+type MovementRow = CajasMovementItem & { parts?: CajasMovementItem[] }
+
+function groupByOperacion(movements: CajasMovementItem[]): MovementRow[] {
+  const rows: MovementRow[] = []
+  const byOp = new Map<string, MovementRow>()
+  for (const mov of movements) {
+    if (!mov.operacionId || !mov.operacion) { rows.push(mov); continue }
+    const row = byOp.get(mov.operacionId)
+    if (row) { row.parts!.push(mov); continue }
+    const nueva: MovementRow = { ...mov, id: mov.operacionId, amount: mov.operacion.total, parts: [mov] }
+    byOp.set(mov.operacionId, nueva)
+    rows.push(nueva)
+  }
+  return rows
+}
+
+/** "Efectivo · Caja Chica $10.000" / "Crédito · 3 cuotas $19.800" */
+function describeParts(parts: CajasMovementItem[]) {
+  const lines: { label: string; amount: number; currency: string }[] = []
+  const credit = parts.filter((p) => p.esCredito)
+  for (const p of parts.filter((x) => !x.esCredito)) {
+    lines.push({ label: `${p.account?.type === 'CASH' ? 'Efectivo' : 'Virtual'} · ${p.account?.name ?? ''}`, amount: p.amount, currency: p.currency })
+  }
+  if (credit.length > 0) {
+    lines.push({
+      label: `Crédito · ${credit.length} cuota${credit.length > 1 ? 's' : ''}`,
+      amount: credit.reduce((s, p) => s + p.amount, 0),
+      currency: credit[0].currency,
+    })
+  }
+  return lines
+}
+
+export type CashFlowSummary = {
+  currency: string
+  saldoInicial: number
+  ingresos: number
+  egresos: number
+  cambioMoneda: number
+  saldoFinal: number
+}
+
+type CashFlowByCurrency = { ARS: CashFlowSummary; USD: CashFlowSummary }
 
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
 const CAJA_CURRENCIES = ['ARS', 'USD'] as const
@@ -97,6 +152,16 @@ function getSubTypeLabel(subType: string | null | undefined): string {
     COBRO: 'Otros Ingresos',
     PURCHASE: 'Compra',
     PAGO: 'Otros Egresos',
+    SALE_PRODUCT: 'Venta de productos',
+    SALE_SERVICE: 'Venta de servicios',
+    SALE_BIEN_USO: 'Venta de bien de uso',
+    COBRO_CREDITO: 'Cobro de crédito',
+    OTHER_INCOME: 'Otros Ingresos',
+    PURCHASE_PRODUCT: 'Compra de productos',
+    PURCHASE_SERVICE: 'Compra de servicios',
+    PURCHASE_BIEN_USO: 'Compra de bien de uso',
+    PAGO_DEUDA: 'Pago de deuda',
+    DIFERENCIA_CAJA: 'Diferencia de caja',
   }
   return map[subType] ?? subType
 }
@@ -109,45 +174,6 @@ function getOrigin(mov: CajasMovementItem): OriginKey {
   return 'virtual'
 }
 
-
-// Agrupa según granularidad del período
-// Calcula el saldo acumulado de todos los movimientos anteriores al inicio del período
-function computePrePeriodBalance(
-  allMovements: CajasMovementItem[],
-  period: ChartPeriod,
-  customFrom?: string,
-  customTo?: string,
-  selectedYear?: number,
-  selectedMonth?: number,
-  selectedDay?: string,
-  selectedWeekStart?: string,
-): number {
-  const now = new Date()
-  let rangeFrom: Date | undefined
-
-  if (period === 'diario') {
-    if (selectedDay) rangeFrom = new Date(selectedDay + 'T00:00:00')
-    else { rangeFrom = new Date(now); rangeFrom.setHours(0, 0, 0, 0) }
-  } else if (period === 'semanal') {
-    if (selectedWeekStart) rangeFrom = new Date(selectedWeekStart + 'T00:00:00')
-    else { rangeFrom = new Date(now); rangeFrom.setDate(now.getDate() - now.getDay()) }
-  } else if (period === 'mensual') {
-    const y = selectedYear ?? now.getFullYear()
-    const m = (selectedMonth ?? (now.getMonth() + 1)) - 1
-    rangeFrom = new Date(y, m, 1, 0, 0, 0)
-  } else if (period === 'anual') {
-    const y = selectedYear ?? now.getFullYear()
-    rangeFrom = new Date(y, 0, 1, 0, 0, 0)
-  } else if (period === 'custom') {
-    if (customFrom) rangeFrom = new Date(customFrom + 'T00:00:00')
-  }
-
-  if (!rangeFrom) return 0
-
-  return allMovements
-    .filter(m => !m.esCredito && new Date(m.date) < rangeFrom!)
-    .reduce((acc, m) => acc + (m.type === 'INCOME' ? m.amount : -m.amount), 0)
-}
 
 // buildChartData: usa la granularidad del período seleccionado,
 // pero el saldo parte del acumulado real (prePeriodBalance)
@@ -210,29 +236,36 @@ function buildChartData(
     .filter(m => { const d = new Date(m.date); return d >= rangeFrom! && d <= rangeTo! })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  const groups = new Map<string, { label: string; ingresos: number; egresos: number; order: number }>()
+  type Group = { label: string; ingresos: number; egresos: number; cambios: number; order: number }
+  const groups = new Map<string, Group>()
+  // Los cambios de caja mueven el saldo pero no son ingreso ni egreso
+  const addMov = (g: Group, mov: CajasMovementItem) => {
+    if (mov.isTransfer) g.cambios += mov.type === 'INCOME' ? mov.amount : -mov.amount
+    else if (mov.type === 'INCOME') g.ingresos += mov.amount
+    else g.egresos += mov.amount
+  }
 
   if (mode === 'hour') {
     for (let h = 0; h < 24; h++) {
-      groups.set(String(h), { label: `${h}:00`, ingresos: 0, egresos: 0, order: h })
+      groups.set(String(h), { label: `${h}:00`, ingresos: 0, egresos: 0, cambios: 0, order: h })
     }
     for (const mov of sorted) {
       const g = groups.get(String(new Date(mov.date).getHours()))
-      if (g) { if (mov.type === 'INCOME') g.ingresos += mov.amount; else g.egresos += mov.amount }
+      if (g) addMov(g, mov)
     }
   } else if (mode === 'day') {
     const cursor = new Date(rangeFrom)
     let order = 0
     while (cursor <= rangeTo) {
       const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
-      groups.set(key, { label: `${cursor.getDate()}/${cursor.getMonth() + 1}`, ingresos: 0, egresos: 0, order: order++ })
+      groups.set(key, { label: `${cursor.getDate()}/${cursor.getMonth() + 1}`, ingresos: 0, egresos: 0, cambios: 0, order: order++ })
       cursor.setDate(cursor.getDate() + 1)
     }
     for (const mov of sorted) {
       const d = new Date(mov.date)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       const g = groups.get(key)
-      if (g) { if (mov.type === 'INCOME') g.ingresos += mov.amount; else g.egresos += mov.amount }
+      if (g) addMov(g, mov)
     }
   } else if (mode === 'month') {
     const startY = rangeFrom.getFullYear(), startM = rangeFrom.getMonth()
@@ -241,22 +274,22 @@ function buildChartData(
     while (cy < endY || (cy === endY && cm <= endM)) {
       const key = `${cy}-${String(cm + 1).padStart(2, '0')}`
       const lbl = new Date(cy, cm, 1).toLocaleDateString('es-AR', { month: 'short' })
-      groups.set(key, { label: lbl, ingresos: 0, egresos: 0, order: order++ })
+      groups.set(key, { label: lbl, ingresos: 0, egresos: 0, cambios: 0, order: order++ })
       cm++; if (cm > 11) { cm = 0; cy++ }
     }
     for (const mov of sorted) {
       const d = new Date(mov.date)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       const g = groups.get(key)
-      if (g) { if (mov.type === 'INCOME') g.ingresos += mov.amount; else g.egresos += mov.amount }
+      if (g) addMov(g, mov)
     }
   }
 
   // El saldo arranca desde el acumulado real antes del período
   let runSaldo = prePeriodBalance
   return [...groups.values()].sort((a, b) => a.order - b.order).map(e => {
-    runSaldo += e.ingresos - e.egresos
-    return { label: e.label, ingresos: Math.round(e.ingresos), egresos: Math.round(e.egresos), saldo: Math.round(runSaldo) }
+    runSaldo += e.ingresos - e.egresos + e.cambios
+    return { label: e.label, ingresos: Math.round(e.ingresos), egresos: Math.round(e.egresos), cambios: Math.round(e.cambios), saldo: Math.round(runSaldo) }
   })
 }
 
@@ -287,15 +320,6 @@ function MovementIcon() {
   )
 }
 
-// ── Chart Modal ──────────────────────────────────────────────────────────────
-function ChartIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
-    </svg>
-  )
-}
-
 // ── Estado Badge ────────────────────────────────────────────────────────────
 function EstadoBadge({ type, esCredito }: { type: string; esCredito: boolean }) {
   if (type === 'INCOME' && !esCredito)
@@ -307,22 +331,41 @@ function EstadoBadge({ type, esCredito }: { type: string; esCredito: boolean }) 
   return <span className="inline-flex rounded-full border border-red-700 bg-red-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">A pagar</span>
 }
 
-// ── Historial Modal ─────────────────────────────────────────────────────────
-function HistorialModal({
-  allMovements,
-  movements,
-  period,
-  customFrom,
-  customTo,
-  selectedYear,
-  selectedMonth,
-  selectedDay,
-  selectedWeekStart,
-  totalBalance,
-  onClose,
-}: {
-  allMovements: CajasMovementItem[]
+// Recuadro del gráfico: ingresos, egresos, cambio de moneda (solo si hubo) y saldo
+type HistorialPoint = { label: string; ingresos: number; egresos: number; cambios: number; saldo: number }
+function HistorialTooltip({ active, payload, fmt }: { active?: boolean; payload?: readonly { payload?: HistorialPoint }[]; fmt: (v: number) => string }) {
+  const point = payload?.[0]?.payload
+  if (!active || !point) return null
+  const rows: [string, number, string][] = [
+    ['Ingresos', point.ingresos, CHART_COLORS.ing],
+    ['Egresos', point.egresos, CHART_COLORS.egr],
+    ...(point.cambios !== 0 ? [['Cambio de moneda', point.cambios, '#71717A'] as [string, number, string]] : []),
+    ['Saldo', point.saldo, CHART_COLORS.saldo],
+  ]
+  return (
+    <div className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-[11px] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-[#1C1C1E]">
+      <p className="mb-1 text-stone-500 dark:text-stone-400">{point.label}</p>
+      {rows.map(([name, value, color]) => (
+        <p key={name} className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
+            <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+            {name}
+          </span>
+          <span className="font-mono font-semibold text-[#1F2937] tabular-nums dark:text-[#E8E8E8]">{name === 'Cambio de moneda' && value > 0 ? '+' : ''}{fmt(value)}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+// ── Historial ───────────────────────────────────────────────────────────────
+// Los saldos e importes vienen del servidor (src/server/cash/cash-flow.ts), igual
+// que en el Estado de flujo de efectivo. El gráfico solo reparte esos movimientos
+// en el tiempo, arrancando del saldo inicial.
+
+type HistorialProps = {
   movements: CajasMovementItem[]
+  cashFlow: CashFlowByCurrency
   period: ChartPeriod
   customFrom?: string
   customTo?: string
@@ -330,16 +373,49 @@ function HistorialModal({
   selectedMonth?: number
   selectedDay?: string
   selectedWeekStart?: string
-  totalBalance: number
-  onClose: () => void
-}) {
-  const { chartData, prePeriodBalance } = useMemo(() => {
-    const pre = computePrePeriodBalance(allMovements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
-    return {
-      chartData: buildChartData(movements, period, pre, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
-      prePeriodBalance: pre,
-    }
-  }, [allMovements, movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart])
+}
+
+function useHistorialData(props: HistorialProps, currency: CajaCurrency) {
+  const { movements, cashFlow, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart } = props
+  const summary = cashFlow[currency]
+  const chartData = useMemo(
+    () => buildChartData(
+      movements.filter((m) => (m.currency || 'ARS') === currency),
+      period, summary.saldoInicial, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
+    ),
+    [movements, currency, summary.saldoInicial, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart],
+  )
+  return { summary, chartData }
+}
+
+function CurrencyToggle({ value, onChange, size = 'sm' }: { value: CajaCurrency; onChange: (c: CajaCurrency) => void; size?: 'xs' | 'sm' }) {
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-[#E5E7EB] dark:border-white/10" role="group" aria-label="Moneda">
+      {CAJA_CURRENCIES.map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onChange(c) }}
+          aria-pressed={value === c}
+          className={`font-semibold transition ${size === 'xs' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-[11px]'} ${
+            value === c ? 'bg-brand-military text-white' : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-200'
+          }`}
+        >
+          {c}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function HistorialModal({
+  currency,
+  onCurrencyChange,
+  onClose,
+  ...props
+}: HistorialProps & { currency: CajaCurrency; onCurrencyChange: (c: CajaCurrency) => void; onClose: () => void }) {
+  const { summary, chartData } = useHistorialData(props, currency)
+  const sym = CURRENCY_SYMBOL[currency]
 
   const fmtAxis = (v: number) => {
     const abs = Math.abs(v)
@@ -347,23 +423,21 @@ function HistorialModal({
     if (abs >= 1_000) return `${(v / 1_000).toFixed(0)}K`
     return String(v)
   }
-
-  const totalIng = chartData.reduce((s, d) => s + d.ingresos, 0)
-  const totalEgr = chartData.reduce((s, d) => s + d.egresos, 0)
+  const fmtSaldo = (v: number) => `${v < 0 ? '− ' : ''}${sym}${Math.abs(Math.round(v)).toLocaleString('es-AR')}`
+  const saldoCls = (v: number) => v >= 0 ? 'text-[#1F2937] dark:text-[#E8E8E8]' : 'text-[#A65D57]'
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#141414]">
+      <div className="relative z-10 flex h-[90vh] w-[92vw] max-w-[1600px] flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#141414]">
         <div className="flex items-center justify-between border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 py-4 dark:border-white/10 dark:bg-[#171717]">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">Análisis financiero</p>
-            <h3 className="mt-0.5 text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Historial de Caja</h3>
-          </div>
+          <h3 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Historial de caja</h3>
           <div className="flex items-center gap-3">
+            <CurrencyToggle value={currency} onChange={onCurrencyChange} />
             <button
               type="button"
               onClick={onClose}
+              aria-label="Cerrar"
               className="rounded-xl border border-stone-200 bg-white p-2 text-stone-400 transition hover:text-stone-700 dark:border-white/10 dark:bg-[#1B1B1B] dark:hover:text-stone-200"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -373,11 +447,11 @@ function HistorialModal({
           </div>
         </div>
 
-        <div className="p-5">
+        <div className="flex min-h-0 flex-1 flex-col p-5">
           {chartData.length === 0 ? (
-            <div className="flex items-center justify-center py-16 text-sm text-stone-400">Sin datos para este período</div>
+            <div className="flex flex-1 items-center justify-center text-sm text-stone-400">Sin datos para este período</div>
           ) : (
-            <div className="h-80">
+            <div className="min-h-0 flex-1">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 12, right: 16, left: 4, bottom: 4 }} barCategoryGap="22%" barGap={2}>
                   <defs>
@@ -394,14 +468,7 @@ function HistorialModal({
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="left" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={48} />
                   <YAxis yAxisId="right" orientation="right" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: CHART_COLORS.saldo }} axisLine={false} tickLine={false} width={52} />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(197,160,101,0.08)' }}
-                    formatter={(value, name) => {
-                      const labels: Record<string, string> = { ingresos: 'Ingresos', egresos: 'Egresos', saldo: 'Saldo acumulado' }
-                      return [`$${Math.abs(Number(value)).toLocaleString('es-AR')}`, labels[String(name)] ?? String(name)]
-                    }}
-                    contentStyle={{ fontSize: 12, borderRadius: 10, border: '1px solid #E5E7EB', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
-                  />
+                  <Tooltip cursor={{ fill: 'rgba(197,160,101,0.08)' }} content={(p) => <HistorialTooltip active={p.active} payload={p.payload as never} fmt={fmtSaldo} />} />
                   <Legend
                     verticalAlign="top"
                     align="right"
@@ -413,14 +480,14 @@ function HistorialModal({
                       return <span style={{ fontSize: 11, color: '#6B7280' }}>{m[String(value)] ?? String(value)}</span>
                     }}
                   />
-                  {prePeriodBalance !== 0 && (
+                  {summary.saldoInicial !== 0 && (
                     <ReferenceLine
                       yAxisId="right"
-                      y={prePeriodBalance}
+                      y={summary.saldoInicial}
                       stroke={CHART_COLORS.saldo}
                       strokeDasharray="4 4"
                       strokeOpacity={0.55}
-                      label={{ value: 'Saldo acumulado', position: 'insideTopRight', fill: CHART_COLORS.saldo, fontSize: 10 }}
+                      label={{ value: 'Saldo inicial', position: 'insideTopRight', fill: CHART_COLORS.saldo, fontSize: 10 }}
                     />
                   )}
                   <Bar yAxisId="left" dataKey="ingresos" fill="url(#modalIngFill)" radius={[4, 4, 0, 0] as [number, number, number, number]} maxBarSize={28} />
@@ -432,20 +499,22 @@ function HistorialModal({
           )}
         </div>
 
-        <div className="grid grid-cols-3 divide-x divide-[#E5E7EB] border-t border-[#ECE7E1] dark:divide-white/10 dark:border-white/10">
+        <div className="grid grid-cols-2 divide-x divide-[#E5E7EB] border-t border-[#ECE7E1] dark:divide-white/10 dark:border-white/10 sm:grid-cols-4">
+          <div className="px-5 py-4 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Saldo inicial</p>
+            <p className={`mt-1 font-mono text-sm font-bold ${saldoCls(summary.saldoInicial)}`}>{fmtSaldo(summary.saldoInicial)}</p>
+          </div>
           <div className="px-5 py-4 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Ingresos</p>
-            <p className="mt-1 font-mono text-sm font-bold text-[#3A4D39]">${totalIng.toLocaleString('es-AR')}</p>
+            <p className="mt-1 font-mono text-sm font-bold text-[#3A4D39]">{fmtSaldo(summary.ingresos)}</p>
           </div>
           <div className="px-5 py-4 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Egresos</p>
-            <p className="mt-1 font-mono text-sm font-bold text-[#A65D57]">${totalEgr.toLocaleString('es-AR')}</p>
+            <p className="mt-1 font-mono text-sm font-bold text-[#A65D57]">{fmtSaldo(summary.egresos)}</p>
           </div>
           <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Saldo total</p>
-            <p className={`mt-1 font-mono text-sm font-bold ${totalBalance >= 0 ? 'text-[#3A4D39]' : 'text-[#A65D57]'}`}>
-              {totalBalance < 0 ? '− ' : ''}${Math.abs(totalBalance).toLocaleString('es-AR')}
-            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Saldo final</p>
+            <p className={`mt-1 font-mono text-sm font-bold ${saldoCls(summary.saldoFinal)}`}>{fmtSaldo(summary.saldoFinal)}</p>
           </div>
         </div>
       </div>
@@ -453,134 +522,93 @@ function HistorialModal({
   )
 }
 
-// ── Historial Card ──────────────────────────────────────────────────────────
-function HistorialCard({
-  allMovements,
-  movements,
-  period,
-  customFrom,
-  customTo,
-  selectedYear,
-  selectedMonth,
-  selectedDay,
-  selectedWeekStart,
-  totalBalance,
-}: {
-  allMovements: CajasMovementItem[]
-  movements: CajasMovementItem[]
-  period: ChartPeriod
-  customFrom?: string
-  customTo?: string
-  selectedYear?: number
-  selectedMonth?: number
-  selectedDay?: string
-  selectedWeekStart?: string
-  totalBalance: number
-}) {
+function HistorialCard(props: HistorialProps) {
   const [open, setOpen] = useState(false)
-  const { previewData, totalIng, totalEgr } = useMemo(() => {
-    const prePeriodBalance = computePrePeriodBalance(allMovements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
-    const data = buildChartData(movements, period, prePeriodBalance, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
-    return {
-      previewData: data,
-      totalIng: data.reduce((s, d) => s + d.ingresos, 0),
-      totalEgr: data.reduce((s, d) => s + d.egresos, 0),
-    }
-  }, [allMovements, movements, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart])
+  const [currency, setCurrency] = useState<CajaCurrency>('ARS')
+  const { summary, chartData } = useHistorialData(props, currency)
+  const sym = CURRENCY_SYMBOL[currency]
 
   const fmtCompact = (v: number) => {
     const abs = Math.abs(v)
-    if (abs >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
-    if (abs >= 1_000) return `$${(v / 1_000).toFixed(0)}K`
-    return `$${v}`
+    const sign = v < 0 ? '− ' : ''
+    if (abs >= 1_000_000) return `${sign}${sym}${(abs / 1_000_000).toFixed(1)}M`
+    if (abs >= 1_000) return `${sign}${sym}${(abs / 1_000).toFixed(0)}K`
+    return `${sign}${sym}${Math.round(abs)}`
   }
+  const saldoCls = (v: number) => v >= 0 ? 'text-[#1F2937] dark:text-[#E8E8E8]' : 'text-[#A65D57] dark:text-[#F2B272]'
 
   return (
     <>
-      <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414]">
-        <div className="border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 pb-4 pt-5 dark:border-white/10 dark:bg-[#171717]">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center bg-brand-gold-light text-brand-gold-dark dark:bg-[#3B2E1A] dark:text-[#D7B36B]">
-              <ChartIcon />
-            </div>
-            <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Historial</h2>
-            <span className="ml-auto text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400">
-              Acumulado
-            </span>
-          </div>
+      <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414]">
+        {/* Sin fila de título: el selector de moneda flota en la esquina y el gráfico usa todo el alto */}
+        <div className="absolute right-3 top-3 z-10 bg-white/80 backdrop-blur-sm dark:bg-[#141414]/80">
+          <CurrencyToggle value={currency} onChange={setCurrency} size="xs" />
         </div>
 
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="group flex flex-1 flex-col gap-3 px-4 pt-3 pb-2 text-left transition hover:bg-[#FAFBFC] dark:hover:bg-[#171717]"
+          aria-label={`Ver historial de caja en ${currency} en grande`}
+          className="group flex flex-1 flex-col gap-3 px-3 pt-3 pb-3 text-left transition hover:bg-[#FAFBFC] dark:hover:bg-[#171717]"
         >
-          {previewData.length === 0 ? (
+          {chartData.length === 0 ? (
             <div className="flex flex-1 items-center justify-center py-8">
               <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-400">Sin movimientos</p>
             </div>
           ) : (
-            <>
-              <div className="h-28 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={previewData} margin={{ top: 6, right: 6, left: 0, bottom: 0 }} barCategoryGap="22%" barGap={1}>
-                    <defs>
-                      <linearGradient id="histIngFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={CHART_COLORS.ing} stopOpacity={0.9} />
-                        <stop offset="100%" stopColor={CHART_COLORS.ing} stopOpacity={0.35} />
-                      </linearGradient>
-                      <linearGradient id="histEgrFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={CHART_COLORS.egr} stopOpacity={0.9} />
-                        <stop offset="100%" stopColor={CHART_COLORS.egr} stopOpacity={0.35} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="label" hide />
-                    <YAxis yAxisId="left" hide />
-                    <YAxis yAxisId="right" orientation="right" hide />
-                    <Bar yAxisId="left" dataKey="ingresos" fill="url(#histIngFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={5} />
-                    <Bar yAxisId="left" dataKey="egresos" fill="url(#histEgrFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={5} />
-                    <Line yAxisId="right" type="monotone" dataKey="saldo" stroke={CHART_COLORS.saldo} strokeWidth={2.25} dot={false} activeDot={false} />
-                  </ComposedChart>
-                </ResponsiveContainer>
+            <div className="relative min-h-[180px] w-full flex-1">
+              <div className="absolute inset-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 30, right: 6, left: 6, bottom: 0 }} barCategoryGap="22%" barGap={1}>
+                  <defs>
+                    <linearGradient id="histIngFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.ing} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={CHART_COLORS.ing} stopOpacity={0.35} />
+                    </linearGradient>
+                    <linearGradient id="histEgrFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.egr} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={CHART_COLORS.egr} stopOpacity={0.35} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9CA3AF' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={14} height={16} />
+                  <YAxis yAxisId="left" hide />
+                  <YAxis yAxisId="right" orientation="right" hide />
+                  <Tooltip cursor={{ fill: 'rgba(197,160,101,0.08)' }} content={(p) => <HistorialTooltip active={p.active} payload={p.payload as never} fmt={fmtCompact} />} />
+                  <Bar yAxisId="left" dataKey="ingresos" fill="url(#histIngFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={8} />
+                  <Bar yAxisId="left" dataKey="egresos" fill="url(#histEgrFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={8} />
+                  <Line yAxisId="right" type="monotone" dataKey="saldo" stroke={CHART_COLORS.saldo} strokeWidth={2.25} dot={false} activeDot={{ r: 3.5, stroke: '#fff', strokeWidth: 1.5, fill: CHART_COLORS.saldo }} />
+                </ComposedChart>
+              </ResponsiveContainer>
               </div>
-
-              <div className="grid grid-cols-3 gap-1 pt-1">
-                <div className="text-center">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Ingresos</p>
-                  <p className="mt-0.5 font-mono text-[11px] font-bold text-[#3A4D39] dark:text-[#9AC7A8]">{fmtCompact(totalIng)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Egresos</p>
-                  <p className="mt-0.5 font-mono text-[11px] font-bold text-[#A65D57] dark:text-[#F2B272]">{fmtCompact(totalEgr)}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Saldo</p>
-                  <p className={`mt-0.5 font-mono text-[11px] font-bold ${totalBalance >= 0 ? 'text-[#3A4D39] dark:text-[#9AC7A8]' : 'text-[#A65D57] dark:text-[#F2B272]'}`}>
-                    {totalBalance < 0 ? '− ' : ''}{fmtCompact(Math.abs(totalBalance))}
-                  </p>
-                </div>
-              </div>
-            </>
+            </div>
           )}
 
-          <span className="mt-auto block text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400 transition group-hover:text-brand-gold-dark dark:group-hover:text-[#D7B36B]">
-            Ver detalle →
-          </span>
+          <div className="grid grid-cols-4 gap-1 pt-1">
+            <div className="text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Saldo inicial</p>
+              <p className={`mt-0.5 font-mono text-[11px] font-bold ${saldoCls(summary.saldoInicial)}`}>{fmtCompact(summary.saldoInicial)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Ingresos</p>
+              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#3A4D39] dark:text-[#9AC7A8]">{fmtCompact(summary.ingresos)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Egresos</p>
+              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#A65D57] dark:text-[#F2B272]">{fmtCompact(summary.egresos)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Saldo final</p>
+              <p className={`mt-0.5 font-mono text-[11px] font-bold ${saldoCls(summary.saldoFinal)}`}>{fmtCompact(summary.saldoFinal)}</p>
+            </div>
+          </div>
         </button>
       </div>
 
       {open && (
         <HistorialModal
-          allMovements={allMovements}
-          movements={movements}
-          period={period}
-          customFrom={customFrom}
-          customTo={customTo}
-          selectedYear={selectedYear}
-          selectedMonth={selectedMonth}
-          selectedDay={selectedDay}
-          selectedWeekStart={selectedWeekStart}
-          totalBalance={totalBalance}
+          {...props}
+          currency={currency}
+          onCurrencyChange={setCurrency}
           onClose={() => setOpen(false)}
         />
       )}
@@ -641,14 +669,7 @@ function CajaDetailsModal({
                   key={acc.id}
                   className="flex items-center justify-between rounded-xl border border-[#ECE7E1] px-3.5 py-3 dark:border-white/10"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[#1F2937] dark:text-[#E8E8E8]">{acc.name}</p>
-                    <p className="mt-0.5 text-xs text-stone-400">
-                      {acc.recentMovements > 0
-                        ? `${acc.recentMovements} movimiento${acc.recentMovements !== 1 ? 's' : ''} esta semana`
-                        : 'Sin movimientos recientes'}
-                    </p>
-                  </div>
+                  <p className="min-w-0 truncate text-sm font-medium text-[#1F2937] dark:text-[#E8E8E8]">{acc.name}</p>
                   <p className="ml-3 shrink-0 text-sm font-mono font-semibold text-[#1F2937] dark:text-[#E8E8E8] num-tabular">
                     {fmtMoney(acc.currentBalance, acc.currency)}
                   </p>
@@ -671,8 +692,32 @@ function CajaDetailsModal({
   )
 }
 
+// Búsqueda sin tildes ni mayúsculas
+const normalizeSearch = (v: string) => v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+// Fecha local "yyyy-mm-dd" (la de toISOString es UTC y puede correr el día)
+function localDateKey(value: string | Date) {
+  const d = new Date(value)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Todo el texto por el que se puede buscar un movimiento
+function searchText(mov: CajasMovementItem) {
+  return normalizeSearch([
+    mov.description,
+    mov.isTransfer ? 'Cambio de caja' : getSubTypeLabel(mov.subType),
+    mov.transferLabel,
+    mov.category?.name,
+    mov.subcategory?.name,
+    mov.contact?.name,
+    mov.account?.name,
+    ...(mov.operacion?.items.map((i) => i.producto.nombre) ?? []),
+  ].filter(Boolean).join(' '))
+}
+
 function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
   const [origins, setOrigins] = useState<Set<OriginKey>>(new Set())
+  const [query, setQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
@@ -687,20 +732,21 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
     setPage(1)
   }
 
+  const terms = useMemo(() => normalizeSearch(query).split(/s+/).filter(Boolean), [query])
+
   const filtered = useMemo(() => {
-    return movements.filter(mov => {
-      if (origins.size > 0 && !origins.has(getOrigin(mov))) return false
-      if (dateFrom) {
-        const d = new Date(mov.date).toISOString().slice(0, 10)
-        if (d < dateFrom) return false
-      }
-      if (dateTo) {
-        const d = new Date(mov.date).toISOString().slice(0, 10)
-        if (d > dateTo) return false
+    return groupByOperacion(movements).filter(mov => {
+      // Una operación entra en el filtro si alguna de sus partes coincide
+      if (origins.size > 0 && !(mov.parts ?? [mov]).some((p) => origins.has(getOrigin(p)))) return false
+      if (dateFrom && localDateKey(mov.date) < dateFrom) return false
+      if (dateTo && localDateKey(mov.date) > dateTo) return false
+      if (terms.length > 0) {
+        const text = (mov.parts ?? [mov]).map(searchText).join(' ')
+        if (!terms.every((t) => text.includes(t))) return false
       }
       return true
     })
-  }, [movements, origins, dateFrom, dateTo])
+  }, [movements, origins, dateFrom, dateTo, terms])
 
   const paginated = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
   const hasMore = paginated.length < filtered.length
@@ -746,6 +792,23 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
         </div>
 
         <div className="flex flex-wrap items-end gap-4">
+          <div className="min-w-[220px] flex-1 basis-[260px]">
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Buscar</p>
+            <div className="relative">
+              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
+              </svg>
+              <input
+                type="search"
+                value={query}
+                onChange={e => { setQuery(e.target.value); setPage(1) }}
+                placeholder="Descripción, cliente, proveedor, categoría, producto…"
+                aria-label="Buscar movimientos"
+                className="h-[38px] w-full border border-[#E5E7EB] bg-white pl-9 pr-3 text-sm text-stone-700 outline-none transition placeholder:text-stone-400 focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-200"
+              />
+            </div>
+          </div>
+
           <div>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Origen</p>
             <div className="flex flex-wrap gap-2">
@@ -818,8 +881,8 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                   return (
                     <tr
                       key={mov.id}
-                      className={`border-b border-[#ECE7E1] transition hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] ${
-                        isIncome ? 'border-l-[3px] border-l-[#3A4D39]' : 'border-l-[3px] border-l-[#A65D57]'
+                      className={`border-b border-[#ECE7E1] transition hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
+                        mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[#3A4D39]' : 'border-l-[#A65D57]'
                       }`}
                     >
                       <td className="px-5 py-3 align-middle whitespace-nowrap">
@@ -827,18 +890,43 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                       </td>
 
                       <td className="px-5 py-3 align-middle">
-                        <p className="text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{getSubTypeLabel(mov.subType)}</p>
+                        <p className="text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{mov.isTransfer ? 'Cambio de caja' : getSubTypeLabel(mov.subType)}</p>
+                        {mov.parts && mov.operacion && (
+                          <p className="mt-0.5 text-[11px] text-stone-400" title={mov.operacion.items.map((i) => `${i.cantidad} × ${i.producto.nombre}`).join('\n')}>
+                            {mov.operacion.items.length} producto{mov.operacion.items.length !== 1 ? 's' : ''}
+                            {mov.operacion.descuento > 0 ? ` · desc. ${fmtMoney(mov.operacion.descuento, mov.currency)}` : ''}
+                          </p>
+                        )}
+                        {mov.isTransfer && mov.transferLabel && (
+                          <p className="mt-0.5 text-[11px] text-stone-400">{mov.transferLabel}</p>
+                        )}
                         {mov.category && (
-                          <p className="mt-0.5 text-[11px] text-stone-400">{mov.category.name}</p>
+                          <p className="mt-0.5 text-[11px] text-stone-400">{mov.category.name}{mov.subcategory ? ` › ${mov.subcategory.name}` : ''}</p>
                         )}
                       </td>
 
                       <td className="px-5 py-3 align-middle">
-                        <EstadoBadge type={mov.type} esCredito={esCredito} />
+                        {mov.isTransfer
+                          ? <span className="inline-flex rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-600 dark:border-white/15 dark:bg-white/5 dark:text-zinc-300">{isIncome ? 'Entra' : 'Sale'}</span>
+                          : mov.parts && mov.parts.some((p) => p.esCredito) && mov.parts.some((p) => !p.esCredito)
+                            ? <span className={`inline-flex rounded-full border bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide dark:bg-transparent ${
+                                isIncome ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400' : 'border-red-300 text-red-600 dark:text-red-400'
+                              }`}>Parcial</span>
+                            : <EstadoBadge type={mov.type} esCredito={mov.parts ? mov.parts.every((p) => p.esCredito) : esCredito} />}
                       </td>
 
                       <td className="px-5 py-3 align-middle">
-                        {esCredito ? (
+                        {mov.parts ? (
+                          // Operación: un renglón chico por cada forma de pago
+                          <div className="flex flex-col gap-0.5">
+                            {describeParts(mov.parts).map((line) => (
+                              <span key={line.label} className="flex items-baseline justify-between gap-3 text-[11px] text-stone-500 dark:text-stone-400">
+                                <span className="truncate">{line.label}</span>
+                                <span className="font-mono tabular-nums">{fmtMoney(line.amount, line.currency)}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : esCredito ? (
                           <span className="text-sm text-stone-400">N/A</span>
                         ) : (
                           <div className="flex flex-col gap-0.5">
@@ -861,7 +949,8 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
 
                       <td className="px-5 py-3 text-right align-middle whitespace-nowrap">
                         <span className={`text-sm font-mono font-bold num-tabular ${
-                          isIncome ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'
+                          mov.isTransfer ? 'text-zinc-600 dark:text-zinc-300'
+                            : isIncome ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'
                         }`}>
                           {isIncome ? '+' : '−'}{fmtMoney(mov.amount, mov.currency)}
                         </span>
@@ -1005,7 +1094,7 @@ function CajaGroupColumn({
 interface CajasClientProps {
   data: CajasData
   movements: CajasMovementItem[]
-  allMovements: CajasMovementItem[]
+  cashFlow: CashFlowByCurrency
   period: ChartPeriod
   customFrom?: string
   customTo?: string
@@ -1018,7 +1107,7 @@ interface CajasClientProps {
 export default function CajasClient({
   data,
   movements,
-  allMovements,
+  cashFlow,
   period,
   customFrom,
   customTo,
@@ -1033,7 +1122,7 @@ export default function CajasClient({
         <CajaGroupColumn label="Efectivo" icon={<CashIcon />} group={data.efectivo} variant="military" />
         <CajaGroupColumn label="Virtual" icon={<VirtualIcon />} group={data.virtual} variant="gold" />
         <HistorialCard
-          allMovements={allMovements}
+          cashFlow={cashFlow}
           movements={movements}
           period={period}
           customFrom={customFrom}
@@ -1042,7 +1131,6 @@ export default function CajasClient({
           selectedMonth={selectedMonth}
           selectedDay={selectedDay}
           selectedWeekStart={selectedWeekStart}
-          totalBalance={data.efectivo.total + data.virtual.total}
         />
       </div>
       <MovementsPanel movements={movements} />

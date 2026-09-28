@@ -35,7 +35,7 @@ export default async function StockPage({
   const productos = await getProductos(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
 
   return (
-    <div className="min-h-screen bg-[#F7F9FB] font-sans text-[#1F2937] dark:bg-black dark:text-gray-100">
+    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F7F9FB] p-4 font-sans text-[#1F2937] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
 
       <AppHeader
         title="Inventario"

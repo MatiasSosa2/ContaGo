@@ -134,6 +134,9 @@ model Business {
   // Tablas Financieras pertenecientes al negocio
   accounts       Account[]
   categories     Category[]
+  subcategories  Subcategory[]
+  cashTransfers  CashTransfer[]
+  operaciones    Operacion[]
   transactions   Transaction[]
   contacts       Contact[]
   areas          AreaNegocio[]
@@ -188,6 +191,8 @@ model Account {
 
   transactions     Transaction[]
   journalLines     JournalLine[]
+  transfersOut     CashTransfer[] @relation("TransferFrom")
+  transfersIn      CashTransfer[] @relation("TransferTo")
   // Categorías que usan esta cuenta como su cuenta contable del sistema
   categoryContable Category[]    @relation("CategoryContableAccount")
 
@@ -203,6 +208,7 @@ model Category {
   name         String
   type         String
   transactions Transaction[]
+  subcategories Subcategory[]
 
   // Cuenta contable del sistema asociada a esta categoría (INCOME/EXPENSE)
   contableAccountId String?   @unique
@@ -213,6 +219,97 @@ model Category {
 
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+// Operación de venta (luego también compra) con varios productos y pago dividido.
+// Cada parte del pago —y cada cuota de la parte a crédito— es una Transaction con
+// operacionId; los productos son OperacionItem y mueven stock.
+model Operacion {
+  id           String          @id @default(uuid())
+  tipo         String          // VENTA | COMPRA
+  date         DateTime        @default(now())
+  description  String?
+  subtotal     Float           // Σ cantidad × precio de los ítems
+  descuento    Float           @default(0) // descuento general en monto
+  total        Float           // subtotal − descuento
+
+  contactId    String?
+  contact      Contact?        @relation(fields: [contactId], references: [id])
+  empleadoId   String?
+  empleado     Empleado?       @relation(fields: [empleadoId], references: [id])
+
+  items        OperacionItem[]
+  transactions Transaction[]
+
+  businessId   String
+  business     Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([businessId, date])
+}
+
+model OperacionItem {
+  id             String    @id @default(uuid())
+  operacionId    String
+  operacion      Operacion @relation(fields: [operacionId], references: [id], onDelete: Cascade)
+  productoId     String
+  producto       Producto  @relation(fields: [productoId], references: [id])
+  cantidad       Float
+  precioUnitario Float
+  subtotal       Float
+  // CPP del producto al momento de la venta (base del CMV)
+  costoUnitario  Float?
+
+  @@index([operacionId])
+}
+
+// Cambio de caja: mueve plata entre dos cajas propias (puede cambiar de moneda).
+// No es ingreso ni egreso: solo cambia el saldo de las dos cajas.
+model CashTransfer {
+  id            String   @id @default(uuid())
+  date          DateTime @default(now())
+  description   String?
+
+  fromAccountId String
+  fromAccount   Account  @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId   String
+  toAccount     Account  @relation("TransferTo", fields: [toAccountId], references: [id])
+
+  // Monto que sale (moneda de origen) y que entra (moneda de destino)
+  amountFrom    Float
+  amountTo      Float
+  // Cotización en pesos por dólar, solo si cambia la moneda
+  exchangeRate  Float?
+
+  journalEntry  JournalEntry?
+
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([businessId, date])
+}
+
+// Detalle opcional dentro de una categoría propia (ej. Sueldos › Sueldo Matías).
+// La contabilidad usa la cuenta de la categoría padre.
+model Subcategory {
+  id           String        @id @default(uuid())
+  name         String
+  categoryId   String
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  businessId   String
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([categoryId])
 }
 
 model Transaction {
@@ -239,6 +336,16 @@ model Transaction {
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
+
+  subcategoryId String?
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+
+  // Parte de una operación con varios productos / pago dividido
+  operacionId   String?
+  operacion     Operacion?   @relation(fields: [operacionId], references: [id], onDelete: SetNull)
+  // Si es una cuota de la parte a crédito: número y total de cuotas
+  cuotaNumero   Int?
+  cuotasTotal   Int?
 
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id])
@@ -301,6 +408,7 @@ model Producto {
   activo        Boolean           @default(true)
   movimientos   MovimientoStock[]
   transactions  Transaction[]
+  operacionItems OperacionItem[]
 
   businessId     String
   business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -338,6 +446,9 @@ model MovimientoStock {
   tipo       String   // ENTRADA | SALIDA | AJUSTE
   cantidad   Float
   precio     Float    @default(0)
+  // SALIDA: costo promedio ponderado (CPP) del producto al momento de la salida.
+  // CMV = cantidad × costoUnitario. Null en salidas viejas (se usa el costo actual).
+  costoUnitario Float?
   motivo     String?
   fecha      DateTime @default(now())
   productoId String
@@ -368,6 +479,7 @@ model Contact {
   taxId        String?       // CUIT / CUIL / DNI del contacto
   type         String        // CLIENT, SUPPLIER
   transactions Transaction[]
+  operaciones  Operacion[]
 
   businessId     String
   business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -384,6 +496,7 @@ model Empleado {
   phone        String?
   activo       Boolean       @default(true)
   transactions Transaction[]
+  operaciones  Operacion[]
 
   businessId   String
   business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -403,6 +516,10 @@ model JournalEntry {
   // Relación 1:1 con la Transaction que lo originó
   transactionId String?       @unique
   transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  // O con el cambio de caja que lo originó
+  cashTransferId String?      @unique
+  cashTransfer   CashTransfer? @relation(fields: [cashTransferId], references: [id], onDelete: Cascade)
 
   lines         JournalLine[]
 

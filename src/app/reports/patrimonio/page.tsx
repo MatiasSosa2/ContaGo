@@ -3,6 +3,8 @@ import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import PrintButton from '@/components/PrintButton'
 import PatrimonioDetail from '@/components/financial-statements/PatrimonioDetail'
+import { PatrimonioCharts } from '@/components/financial-statements/StatementCharts'
+import { getYearlySeries } from '@/app/actions'
 import { getReportsViewData, type ReportsSearchParams } from '../reportsData'
 import { Suspense } from 'react'
 
@@ -24,7 +26,10 @@ export default async function PatrimonioPage({
     periodLabel,
     queryString,
     balanceSheet,
+    seriesYear,
+    seriesActiveMonth,
   } = await getReportsViewData(searchParams)
+  const series = await getYearlySeries(seriesYear, 'ARS')
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
@@ -73,8 +78,14 @@ export default async function PatrimonioPage({
           <div className="shrink-0"><PrintButton /></div>
         </div>
 
-        <div className="bg-[#F9FAFB] px-6 py-6 dark:bg-[#0F0F0F]">
-          <PatrimonioDetail data={balanceSheet} />
+        {/* Cuadro con números a la izquierda; los dos gráficos a la derecha, del mismo alto */}
+        <div className="grid grid-cols-1 gap-5 bg-[#F9FAFB] px-6 py-6 dark:bg-[#0F0F0F] lg:grid-cols-2">
+          <div className="min-w-0">
+            <PatrimonioDetail data={balanceSheet} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            <PatrimonioCharts series={series} balance={balanceSheet} activeMonth={seriesActiveMonth} />
+          </div>
         </div>
       </section>
     </div>
