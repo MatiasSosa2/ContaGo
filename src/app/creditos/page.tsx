@@ -1,4 +1,4 @@
-import { getCreditosDeudas, getAssetSnapshotAsOf } from '@/app/actions'
+import { getCreditAccounts } from '@/app/actions'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
@@ -29,10 +29,8 @@ export default async function CreditosPage({
   const selectedDay = sp?.day
   const selectedWeekStart = sp?.weekStart
 
-  const [data, snapshot] = await Promise.all([
-    getCreditosDeudas(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
-    getAssetSnapshotAsOf(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
-  ])
+  // Saldos por cliente / proveedor al cierre del período, neteados de cobros y pagos
+  const accounts = await getCreditAccounts(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
@@ -62,7 +60,7 @@ export default async function CreditosPage({
       />
 
       {/* ══ CONTENIDO PRINCIPAL — Client Component ═══════════════════════════ */}
-      <CreditosClient creditos={data as any} totalACobrar={snapshot.totalACobrar} totalAPagar={snapshot.totalAPagar} />
+      <CreditosClient accounts={accounts} />
     </div>
   )
 }

@@ -307,6 +307,13 @@ export async function deleteSubcategory(id: string) {
   return databaseActions.deleteSubcategory(id);
 }
 
+export async function getCreditAccounts(...args: CashPeriodArgs) {
+  if (USE_MOCK) return [];
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCreditAccounts(period as CashPeriodKey, ...rest);
+}
+
 export async function getCreditosDeudas(
   period?: string,
   customFrom?: string,

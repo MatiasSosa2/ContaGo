@@ -263,12 +263,15 @@ async function DashboardContent({
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Caja</span>
           </div>
+          {/* Monto centrado en el espacio que queda debajo del título */}
+          <div className="flex flex-1 flex-col justify-center">
           <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{cajaTotal < 0 ? '−' : ''}{fmt(cajaTotal)}</p>
           {cajaUsd !== 0 && (
             <p className="mt-1 font-mono text-sm font-semibold num-tabular text-stone-500 dark:text-stone-400">
               {cajaUsd < 0 ? '− ' : '+ '}US${Math.abs(cajaUsd).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
             </p>
           )}
+          </div>
         </Link>
 
         {/* Créditos / Deudas */}
@@ -282,6 +285,8 @@ async function DashboardContent({
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Créditos / Deudas</span>
           </div>
+          {/* Monto centrado en el espacio que queda debajo del título */}
+          <div className="flex flex-1 flex-col justify-center">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
               <p className="text-[10px] font-semibold text-emerald-500/80 dark:text-emerald-400">A cobrar</p>
@@ -291,6 +296,7 @@ async function DashboardContent({
               <p className="text-[10px] font-semibold text-red-500/80 dark:text-red-400">A pagar</p>
               <p className="font-mono text-[1.15rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8] whitespace-nowrap">{fmt(totalAPagar)}</p>
             </div>
+          </div>
           </div>
         </Link>
 
@@ -305,7 +311,10 @@ async function DashboardContent({
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Stock</span>
           </div>
+          {/* Monto centrado en el espacio que queda debajo del título */}
+          <div className="flex flex-1 flex-col justify-center">
           <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{fmt(stockTotal)}</p>
+          </div>
         </Link>
 
         {/* Bienes de Uso */}

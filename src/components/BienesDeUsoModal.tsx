@@ -91,9 +91,12 @@ export default function BienesDeUsoModal({
           </span>
           <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Bienes de Uso</span>
         </div>
-        <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">
-          {fmt(bienesTotal)}
-        </p>
+        {/* Monto centrado en el espacio que queda debajo del título */}
+        <div className="flex flex-1 flex-col justify-center">
+          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">
+            {fmt(bienesTotal)}
+          </p>
+        </div>
       </button>
 
       {/* Modal */}

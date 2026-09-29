@@ -23,6 +23,7 @@ import { createContableAccountForCategory } from '@/server/accounting/setup-cont
 import { CASH_ACCOUNT_TYPES, getCashBalanceOf, getCashBalancesAt, getCashFlowSummary } from '@/server/cash/cash-flow'
 import { getIncomeStatementData } from '@/server/results/income-statement'
 import { getYearlySeriesData } from '@/server/reports/yearly-series'
+import { getCreditAccountsData } from '@/server/credits/credit-balances'
 
 async function getBusinessId() {
   const sessionContext = await requireBusinessContext()
@@ -2108,6 +2109,24 @@ export async function deleteSubcategory(id: string) {
 }
 
 // ---- Créditos y Deudas ----
+
+/**
+ * Créditos y deudas por cliente / proveedor al cierre del período: saldo neteado de
+ * cobros y pagos, cuotas pendientes e historial (ver src/server/credits/credit-balances.ts).
+ */
+export async function getCreditAccounts(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
+  const businessId = await getBusinessId()
+  const { to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  return getCreditAccountsData(businessId, to)
+}
 
 export async function getCreditosDeudas(
   period?: DashboardPeriodKey,

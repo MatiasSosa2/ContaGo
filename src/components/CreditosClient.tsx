@@ -1,36 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { marcarEstadoCredito } from '@/app/actions'
-
-export interface CreditoTx {
-  id: string
-  description: string
-  amount: number
-  currency: string
-  type: string
-  date: Date | string
-  fechaVencimiento: Date | string | null
-  estado: string
-  contact: { id: string; name: string; type: string } | null
-  category: { name: string } | null
-  subcategory?: { name: string } | null
-}
+import { useState } from 'react'
+import type { CreditAccount } from '@/server/credits/credit-balances'
 
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
 
-const ESTADO_LABELS: Record<string, string> = {
-  PENDIENTE: 'Pendiente',
-  PARCIAL: 'Parcial',
-  VENCIDO: 'Vencido',
-  COBRADO: 'Cobrado',
-  PAGADO: 'Pagado',
-}
-
-type FiltroType = 'TODOS' | 'PENDIENTE' | 'VENCIDO' | 'COBRADO' | 'PAGADO'
-
 function fmt(v: number, cur = 'ARS') {
-  return `${CURRENCY_SYMBOL[cur] || '$'}${Math.abs(v).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
+  return `${CURRENCY_SYMBOL[cur] || '$'}${Math.abs(v).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 }
 
 function fmtDate(d: Date | string | null) {
@@ -38,10 +14,7 @@ function fmtDate(d: Date | string | null) {
   return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
-function isVencido(fechaVencimiento: Date | string | null, estado: string) {
-  if (!fechaVencimiento || estado === 'COBRADO' || estado === 'PAGADO') return false
-  return new Date(fechaVencimiento) < new Date()
-}
+const isPast = (d: Date | string | null) => Boolean(d && new Date(d) < new Date())
 
 // ── Íconos ──
 function CxCIcon() {
@@ -60,19 +33,11 @@ function CxPIcon() {
   )
 }
 
-function sortByLatest(items: CreditoTx[]) {
-  return [...items].sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
-}
-
-function getPendingItems(items: CreditoTx[]) {
-  return items.filter(item => {
-    const realEstado = isVencido(item.fechaVencimiento, item.estado) ? 'VENCIDO' : item.estado
-    return realEstado === 'PENDIENTE' || realEstado === 'VENCIDO'
-  })
-}
-
-function getPendingTotal(items: CreditoTx[]) {
-  return getPendingItems(items).reduce((sum, item) => sum + item.amount, 0)
+/** Más urgentes primero: por próximo vencimiento; sin vencimiento, al final */
+function sortByVencimiento(items: CreditAccount[]) {
+  return [...items].sort((a, b) =>
+    (a.proximoVencimiento ? new Date(a.proximoVencimiento).getTime() : Infinity) -
+    (b.proximoVencimiento ? new Date(b.proximoVencimiento).getTime() : Infinity))
 }
 
 function SummarySplitCard({
@@ -183,323 +148,243 @@ function SummarySplitCard({
   )
 }
 
-function CreditoListRow({
-  tx,
-  isCxC,
-  onMarcar,
-  isPending,
-}: {
-  tx: CreditoTx
-  isCxC: boolean
-  onMarcar: (id: string, estado: string) => void
-  isPending: boolean
-}) {
-  const venc = isVencido(tx.fechaVencimiento, tx.estado)
-  const isPendOrVenc = tx.estado === 'PENDIENTE' || tx.estado === 'PARCIAL' || tx.estado === 'VENCIDO' || venc
-  const principalName = tx.contact?.name || tx.description
-  const fechaCreacion = new Date(tx.date)
-
-  const dispatchOpenAction = () => {
-    if (typeof window === 'undefined') return
-    window.dispatchEvent(new CustomEvent('contago:open-credito-action', {
-      detail: {
-        type: isCxC ? 'INCOME' : 'EXPENSE',
-        subType: isCxC ? 'COBRO_CREDITO' : 'PAGO_DEUDA',
-        linkedCreditoId: tx.id,
-        contactId: tx.contact?.id ?? '',
-        saldoMax: tx.amount,
-      },
-    }))
-  }
+// ── Fila: próximo vencimiento, cliente/proveedor y saldo. Toda la fila abre la ficha ──
+function CreditAccountRow({ account, onOpen }: { account: CreditAccount; onOpen: () => void }) {
+  const isCxC = account.type === 'INCOME'
+  const saldado = account.saldo <= 0
+  const vencido = isPast(account.proximoVencimiento) && !saldado
 
   return (
-    <div
-      className={`group flex items-stretch border-b border-[#ECE7E1] bg-white transition hover:bg-[#FAFBFA] dark:border-white/5 dark:bg-transparent dark:hover:bg-white/[0.03] ${
-        isCxC ? 'border-l-[3px] border-l-[#3A4D39]' : 'border-l-[3px] border-l-[#A65D57]'
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`flex w-full items-center border-b border-l-[3px] border-[#ECE7E1] bg-white text-left transition hover:bg-[#FAFBFA] dark:border-white/5 dark:bg-transparent dark:hover:bg-white/[0.03] ${
+        isCxC ? 'border-l-[#3A4D39]' : 'border-l-[#A65D57]'
       }`}
     >
-      {/* Fecha + vencimiento */}
-      <div className="flex min-w-[110px] flex-col justify-center px-4 py-3">
-        <span className="text-sm font-medium text-[#4B5563] dark:text-stone-300 whitespace-nowrap">
-          {fmtDate(fechaCreacion)}
-        </span>
-        {tx.fechaVencimiento && (
-          <span className={`mt-0.5 text-[11px] font-mono num-tabular whitespace-nowrap ${venc ? 'text-red-500 font-semibold' : 'text-stone-400'}`}>
-            vence {fmtDate(tx.fechaVencimiento)}
+      <span className={`w-[110px] shrink-0 px-4 py-4 text-sm font-medium tabular-nums ${vencido ? 'font-semibold text-red-500' : 'text-[#4B5563] dark:text-stone-300'}`}>
+        {saldado ? '—' : fmtDate(account.proximoVencimiento)}
+      </span>
+      <span className="min-w-0 flex-1 truncate px-4 py-4 text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{account.name}</span>
+      <span className="shrink-0 px-4 py-4 text-right">
+        {saldado ? (
+          <span className="rounded-full border border-stone-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-stone-400 dark:border-white/10">Saldado</span>
+        ) : (
+          <span className={`font-mono text-sm font-bold num-tabular ${isCxC ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'}`}>
+            {isCxC ? '+' : '−'}{fmt(account.saldo, account.currency)}
           </span>
         )}
-      </div>
-
-      {/* Concepto / Categoría */}
-      <div className="flex flex-1 min-w-0 flex-col justify-center px-4 py-3">
-        <p className="truncate text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{principalName}</p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-stone-400">
-          {tx.contact?.name && tx.description && tx.description !== tx.contact.name && (
-            <span className="truncate">{tx.description}</span>
-          )}
-          {tx.category && <span className="truncate">{tx.category.name}{tx.subcategory ? ` › ${tx.subcategory.name}` : ''}</span>}
-        </div>
-      </div>
-
-      {/* Importe */}
-      <div className="flex min-w-[110px] flex-col items-end justify-center px-4 py-3 whitespace-nowrap">
-        <span className={`text-sm font-mono font-bold num-tabular ${
-          isCxC ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'
-        }`}>
-          {isCxC ? '+' : '−'}{fmt(tx.amount, tx.currency)}
-        </span>
-      </div>
-
-      {/* Acción */}
-      <div className="flex items-center px-3 py-3">
-        {isPendOrVenc ? (
-          <button
-            type="button"
-            onClick={dispatchOpenAction}
-            disabled={isPending}
-            className="inline-flex items-center gap-1 border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            {isCxC ? 'Cobrar' : 'Pagar'}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onMarcar(tx.id, 'PENDIENTE')}
-            disabled={isPending}
-            className="inline-flex border border-stone-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-500 transition hover:border-brand-military hover:text-brand-military disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-400"
-          >
-            Reabrir
-          </button>
-        )}
-      </div>
-    </div>
+      </span>
+      <svg className="mr-3 h-4 w-4 shrink-0 text-stone-300 dark:text-stone-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
   )
 }
 
-function CreditosListModal({
-  open,
-  onClose,
-  title,
-  items,
-  isCxC,
-  onMarcar,
-  isPending,
-}: {
-  open: boolean
-  onClose: () => void
-  title: string
-  items: CreditoTx[]
-  isCxC: boolean
-  onMarcar: (id: string, estado: string) => void
-  isPending: boolean
-}) {
-  if (!open) return null
-
+function Modal({ onClose, children, maxWidth = 'max-w-[920px]' }: { onClose: () => void; children: React.ReactNode; maxWidth?: string }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-5 sm:p-6">
       <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative my-4 flex max-h-[calc(100vh-56px)] w-full max-w-[920px] flex-col overflow-hidden border border-stone-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)] sm:max-h-[calc(100vh-72px)] dark:border-white/10 dark:bg-[#141414]">
+      <div className={`relative my-4 flex max-h-[calc(100vh-56px)] w-full ${maxWidth} flex-col overflow-hidden border border-stone-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)] sm:max-h-[calc(100vh-72px)] dark:border-white/10 dark:bg-[#141414]`}>
         <button
           onClick={onClose}
           className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center border border-stone-200 bg-white/95 text-stone-500 shadow-sm transition-colors hover:text-stone-700 dark:border-white/10 dark:bg-[#1B1B1B] dark:text-stone-300"
-          aria-label="Cerrar modal"
+          aria-label="Cerrar"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-
-        <div className="border-b border-stone-100 px-5 py-4 pr-14 dark:border-white/10">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">Detalle completo</p>
-          <h3 className="mt-0.5 text-base font-semibold text-stone-900 dark:text-[#E8E8E8]">{title}</h3>
-          <p className="mt-0.5 text-sm text-stone-500 dark:text-[#A3A3A3]">Mostrando {items.length} registro{items.length !== 1 ? 's' : ''}.</p>
-        </div>
-
-        <div className="overflow-y-auto">
-          {items.length === 0 ? (
-            <div className="py-10 text-center">
-              <p className="text-sm text-[#9CA3AF]">No hay registros para mostrar.</p>
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              {items.map(tx => (
-                <CreditoListRow
-                  key={tx.id}
-                  tx={tx}
-                  isCxC={isCxC}
-                  onMarcar={onMarcar}
-                  isPending={isPending}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {children}
       </div>
     </div>
   )
 }
 
+// ── Ficha: saldo, cuotas pendientes y movimientos (crédito inicial y cobros/pagos) ──
+function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onClose: () => void }) {
+  const isCxC = account.type === 'INCOME'
+  const cur = account.currency
+
+  // Abre el "+" en Cobro / Pago con este cliente y su cuota más vieja ya elegidos
+  const cobrarOPagar = () => {
+    if (!account.primeraPendienteId) return
+    window.dispatchEvent(new CustomEvent('contago:open-credito-action', {
+      detail: {
+        type: isCxC ? 'INCOME' : 'EXPENSE',
+        subType: isCxC ? 'COBRO_CREDITO' : 'PAGO_DEUDA',
+        linkedCreditoId: account.primeraPendienteId,
+        contactId: account.contactId ?? '',
+        saldoMax: account.cuotasPendientes[0]?.saldo ?? account.saldo,
+      },
+    }))
+    onClose()
+  }
+
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-[640px]">
+      <div className="border-b border-stone-100 px-5 py-4 pr-14 dark:border-white/10">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">{isCxC ? 'Cliente' : 'Proveedor'}</p>
+        <h3 className="mt-0.5 truncate text-base font-semibold text-stone-900 dark:text-[#E8E8E8]">{account.name}</h3>
+      </div>
+
+      <div className="overflow-y-auto">
+        {/* Saldo restante */}
+        <div className="px-5 py-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">Saldo {isCxC ? 'a cobrar' : 'a pagar'}</p>
+          <p className={`mt-1 font-mono text-[32px] font-bold leading-none num-tabular ${isCxC ? 'text-brand-military-dark dark:text-[#6EBC8A]' : 'text-brand-gold-dark dark:text-[#C5A065]'}`}>
+            {fmt(account.saldo, cur)}
+          </p>
+          <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
+            {isCxC ? 'Vendido' : 'Comprado'} a crédito {fmt(account.total, cur)} · {isCxC ? 'Cobrado' : 'Pagado'} {fmt(account.aplicado, cur)}
+          </p>
+        </div>
+
+        {/* Cuotas pendientes */}
+        {account.cuotasPendientes.length > 0 && (
+          <div className="border-t border-[#ECE7E1] dark:border-white/10">
+            <p className="px-5 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Cuotas pendientes</p>
+            {account.cuotasPendientes.map((q) => (
+              <div key={q.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+                <span className={`w-[76px] shrink-0 tabular-nums ${q.vencida ? 'font-semibold text-red-500' : 'text-stone-500 dark:text-stone-400'}`}>{fmtDate(q.fechaVencimiento)}</span>
+                <span className="min-w-0 flex-1 truncate text-[#374151] dark:text-stone-300">
+                  {q.description}
+                  {q.cuotasTotal && q.cuotasTotal > 1 ? <span className="text-stone-400"> · cuota {q.cuotaNumero}/{q.cuotasTotal}</span> : null}
+                </span>
+                <span className="shrink-0 font-mono font-semibold num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{fmt(q.saldo, cur)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Movimientos: + crédito inicial / − cobros y pagos, con la fecha en que impactaron en caja */}
+        <div className="border-t border-[#ECE7E1] pb-3 dark:border-white/10">
+          <p className="px-5 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Movimientos</p>
+          {account.movimientos.map((m) => {
+            const esCredito = m.kind === 'CREDITO'
+            return (
+              <div key={m.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+                <span className="w-[76px] shrink-0 tabular-nums text-stone-500 dark:text-stone-400">{fmtDate(m.date)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[#374151] dark:text-stone-300">
+                    {esCredito ? (isCxC ? 'Venta a crédito' : 'Compra a crédito') : (isCxC ? 'Cobro' : 'Pago')}
+                  </span>
+                  <span className="block truncate text-[11px] text-stone-400">{esCredito ? m.description : m.account ?? m.description}</span>
+                </span>
+                <span className={`shrink-0 font-mono font-semibold num-tabular ${esCredito ? 'text-[#1F2937] dark:text-[#E8E8E8]' : isCxC ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'}`}>
+                  {esCredito ? '+' : '−'}{fmt(m.amount, cur)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {account.saldo > 0 && account.primeraPendienteId && (
+        <div className="border-t border-[#ECE7E1] px-5 py-4 dark:border-white/10">
+          <button
+            type="button"
+            onClick={cobrarOPagar}
+            className={`w-full py-3 text-sm font-semibold text-white shadow-sm transition ${isCxC ? 'bg-brand-military hover:bg-brand-military-dark' : 'bg-brand-oxide hover:opacity-90'}`}
+          >
+            {isCxC ? 'Cobrar' : 'Pagar'}
+          </button>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
 // ── Panel CxC (cobrar) o CxP (pagar) ──
-function CreditoGroupPanel({
-  label,
-  icon,
-  items,
-  filtro,
-  totalResuelto,
-  onMarcar,
-  isPending,
-}: {
+function CreditGroupPanel({ label, icon, isCxC, accounts, total }: {
   label: string
   icon: React.ReactNode
-  items: CreditoTx[]
-  filtro: FiltroType
-  totalResuelto: number
-  onMarcar: (id: string, estado: string) => void
-  isPending: boolean
+  isCxC: boolean
+  accounts: CreditAccount[]
+  total: number
 }) {
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+  const [openKey, setOpenKey] = useState<string | null>(null)
 
-  const filtered = filtro === 'TODOS' ? items : items.filter(c => {
-    const realEstado = isVencido(c.fechaVencimiento, c.estado) ? 'VENCIDO' : c.estado
-    // "PENDIENTE" agrupa todos los abiertos (PENDIENTE + PARCIAL + VENCIDO) para que
-    // coincidan con el total mostrado arriba (snapshot de cuentas por cobrar/pagar).
-    if (filtro === 'PENDIENTE') return realEstado === 'PENDIENTE' || realEstado === 'PARCIAL' || realEstado === 'VENCIDO'
-    return realEstado === filtro
-  })
-  const orderedFiltered = sortByLatest(filtered)
-  const previewItems = orderedFiltered.slice(0, 3)
-
-  const isCxC = items[0]?.type === 'INCOME' || label === 'CxC'
+  const abiertos = sortByVencimiento(accounts.filter((a) => a.saldo > 0))
+  // En "Ver todos" también los saldados, al final, para poder ver su historial
+  const todos = [...abiertos, ...accounts.filter((a) => a.saldo <= 0).sort((a, b) => a.name.localeCompare(b.name))]
+  const abierta = accounts.find((a) => a.key === openKey) ?? null
 
   return (
     <div
       className="bg-white dark:bg-[#141414] border border-[#E5E7EB] dark:border-white/10 overflow-hidden"
       style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}
     >
-        {/* Header + monto total pendiente */}
-        <div className="px-5 pt-5 pb-4 bg-gradient-to-b from-[#FAFBFC] to-white dark:from-[#141414] dark:to-[#141414]">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-9 h-9 flex items-center justify-center ${isCxC ? 'bg-brand-military-light text-brand-military' : 'bg-brand-gold-light text-brand-gold-dark'}`}>
-                {icon}
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
-              </div>
+      <div className="px-5 pt-5 pb-4 bg-gradient-to-b from-[#FAFBFC] to-white dark:from-[#141414] dark:to-[#141414]">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-9 h-9 flex items-center justify-center ${isCxC ? 'bg-brand-military-light text-brand-military' : 'bg-brand-gold-light text-brand-gold-dark'}`}>
+              {icon}
             </div>
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="border border-[#D6D3D1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#57534E] transition-colors hover:border-[#A8A29E] hover:text-[#1F2937] dark:border-white/10 dark:bg-white/5 dark:text-[#D6D3D1]"
-            >
-              Ver todos
-            </button>
+            <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
           </div>
-          <p className={`text-3xl md:text-[32px] font-mono font-bold num-tabular leading-none ${isCxC ? 'text-brand-military-dark dark:text-[#6EBC8A]' : 'text-brand-gold-dark dark:text-[#C5A065]'}`}>
-            {fmt(totalResuelto)}
-          </p>
-          <p className="text-xs text-[#9CA3AF] mt-1">pendiente de {isCxC ? 'cobro' : 'pago'}</p>
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="border border-[#D6D3D1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#57534E] transition-colors hover:border-[#A8A29E] hover:text-[#1F2937] dark:border-white/10 dark:bg-white/5 dark:text-[#D6D3D1]"
+          >
+            Ver todos
+          </button>
         </div>
+        <p className={`text-3xl md:text-[32px] font-mono font-bold num-tabular leading-none ${isCxC ? 'text-brand-military-dark dark:text-[#6EBC8A]' : 'text-brand-gold-dark dark:text-[#C5A065]'}`}>
+          {fmt(total)}
+        </p>
+        <p className="text-xs text-[#9CA3AF] mt-1">pendiente de {isCxC ? 'cobro' : 'pago'}</p>
+      </div>
 
-        {/* Lista de items */}
-        <div className="border-t border-[#ECE7E1] dark:border-white/10">
-          {orderedFiltered.length === 0 ? (
-            <div className="py-8 text-center">
-              <p className="text-sm text-[#9CA3AF]">Sin registros para este filtro</p>
-              <p className="text-xs text-[#D1D5DB] dark:text-[#555] mt-1">Registrá un movimiento desde el Panel Principal</p>
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              {previewItems.map(tx => (
-                <CreditoListRow
-                  key={tx.id}
-                  tx={tx}
-                  isCxC={isCxC}
-                  onMarcar={onMarcar}
-                  isPending={isPending}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="border-t border-[#ECE7E1] dark:border-white/10">
+        {abiertos.length === 0 ? (
+          <p className="py-8 text-center text-sm text-[#9CA3AF]">{isCxC ? 'Nadie te debe' : 'No debés nada'} por ahora</p>
+        ) : (
+          abiertos.slice(0, 3).map((a) => <CreditAccountRow key={a.key} account={a} onOpen={() => setOpenKey(a.key)} />)
+        )}
+      </div>
 
-        <CreditosListModal
-          open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          title={label}
-          items={orderedFiltered}
-          isCxC={isCxC}
-          onMarcar={onMarcar}
-          isPending={isPending}
-        />
+      {showAll && (
+        <Modal onClose={() => setShowAll(false)}>
+          <div className="border-b border-stone-100 px-5 py-4 pr-14 dark:border-white/10">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">{isCxC ? 'Clientes' : 'Proveedores'}</p>
+            <h3 className="mt-0.5 text-base font-semibold text-stone-900 dark:text-[#E8E8E8]">{label}</h3>
+          </div>
+          <div className="overflow-y-auto">
+            {todos.length === 0 ? (
+              <p className="py-10 text-center text-sm text-[#9CA3AF]">No hay registros para mostrar.</p>
+            ) : (
+              todos.map((a) => <CreditAccountRow key={a.key} account={a} onOpen={() => setOpenKey(a.key)} />)
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {abierta && <CreditAccountSheet account={abierta} onClose={() => setOpenKey(null)} />}
     </div>
   )
 }
 
 // ── Componente principal ──
-export default function CreditosClient({
-  creditos: initialCreditos,
-  totalACobrar: totalACobrarSnapshot,
-  totalAPagar: totalAPagarSnapshot,
-}: {
-  creditos: CreditoTx[]
-  totalACobrar?: number
-  totalAPagar?: number
-}) {
-  const [creditos, setCreditos] = useState<CreditoTx[]>(initialCreditos)
-  const [filtro, setFiltro] = useState<FiltroType>('PENDIENTE')
-  const [isPending, startTransition] = useTransition()
-
-  function handleMarcar(id: string, estado: string) {
-    startTransition(async () => {
-      await marcarEstadoCredito(id, estado)
-      // Revalidar optimistamente en cliente
-      setCreditos(prev =>
-        prev.map(c => c.id === id ? { ...c, estado } : c)
-      )
-    })
-  }
-
-  const cxc = creditos.filter(c => c.type === 'INCOME')
-  const cxp = creditos.filter(c => c.type === 'EXPENSE')
-  // Usar totales del snapshot (misma fuente que Balance General) si están disponibles
-  const totalPorCobrar = totalACobrarSnapshot ?? getPendingTotal(cxc)
-  const totalPorPagar = totalAPagarSnapshot ?? getPendingTotal(cxp)
-  const diferenciaNeta = totalPorCobrar - totalPorPagar
+export default function CreditosClient({ accounts }: { accounts: CreditAccount[] }) {
+  const cxc = accounts.filter((a) => a.type === 'INCOME')
+  const cxp = accounts.filter((a) => a.type === 'EXPENSE')
+  // Totales en pesos = suma de los saldos de la lista (misma regla que el Balance general)
+  const sumArs = (list: CreditAccount[]) => list.filter((a) => a.currency === 'ARS').reduce((s, a) => s + a.saldo, 0)
+  const totalPorCobrar = sumArs(cxc)
+  const totalPorPagar = sumArs(cxp)
 
   return (
     <div className="space-y-6">
-      {/* Dos columnas: CxC y CxP */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <CreditoGroupPanel
-          label="Cuentas por Cobrar"
-          icon={<CxCIcon />}
-          items={cxc}
-          filtro={filtro}
-          totalResuelto={totalPorCobrar}
-          onMarcar={handleMarcar}
-          isPending={isPending}
-        />
-        <CreditoGroupPanel
-          label="Cuentas por Pagar"
-          icon={<CxPIcon />}
-          items={cxp}
-          filtro={filtro}
-          totalResuelto={totalPorPagar}
-          onMarcar={handleMarcar}
-          isPending={isPending}
-        />
+        <CreditGroupPanel label="Cuentas por Cobrar" icon={<CxCIcon />} isCxC accounts={cxc} total={totalPorCobrar} />
+        <CreditGroupPanel label="Cuentas por Pagar" icon={<CxPIcon />} isCxC={false} accounts={cxp} total={totalPorPagar} />
       </div>
 
-      <SummarySplitCard
-        porCobrar={totalPorCobrar}
-        porPagar={totalPorPagar}
-        diferencia={diferenciaNeta}
-      />
+      <SummarySplitCard porCobrar={totalPorCobrar} porPagar={totalPorPagar} diferencia={totalPorCobrar - totalPorPagar} />
     </div>
   )
 }
