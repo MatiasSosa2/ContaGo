@@ -1,4 +1,3 @@
-import ThemeToggle from '@/components/ThemeToggle'
 
 type Role = 'ADMIN' | 'COLLABORATOR' | 'VIEWER'
 type Provider = 'google' | 'apple' | 'credentials' | 'mock'
@@ -110,12 +109,7 @@ export default function AppHeader({ title, icon, actions, sessionContext }: AppH
           user={sessionContext.user}
           business={sessionContext.activeBusiness}
         />
-
-        {/* ── ThemeToggle ─── */}
-        <div className="flex shrink-0 items-center gap-1.5">
-          <ThemeToggle compact />
-        </div>
-
+        {/* El modo oscuro está en el pie del panel izquierdo */}
       </div>
     </header>
   )

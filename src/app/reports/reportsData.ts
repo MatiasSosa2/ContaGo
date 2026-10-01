@@ -1,4 +1,4 @@
-import { getReportDataExtended, getCashFlowByCurrency, getIncomeStatement } from '@/app/actions'
+import { getReportDataExtended, getCashFlowByCurrency, getIncomeStatement, getCashAccountsSnapshot, getCashTransfers, getBalanceSheet } from '@/app/actions'
 import type { DateRange } from '@/lib/validations'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
@@ -14,6 +14,8 @@ export type ReportsSearchParams = {
   weekStart?: string
   /** Moneda del flujo de efectivo: ARS (por defecto) o USD */
   moneda?: string
+  /** Flujo de efectivo de una sola caja (id de la cuenta) */
+  caja?: string
 }
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -55,16 +57,6 @@ function resolveExpenseLabel(rawLabel: string, includeInventoryPurchases: boolea
   return cleaned || 'Otros gastos'
 }
 
-function resolveLiabilityLabel(rawLabel: string) {
-  const text = normalizeText(rawLabel)
-
-  if (/prestamo|credito|financiacion|financiamiento|cuota/.test(text)) return 'Prestamos'
-  if (/impuesto|iva|afip|monotributo|ingresos brutos/.test(text)) return 'Impuestos a pagar'
-  if (/proveedor|mercader|mercaderia|mercadoria|compra|stock|inventario|insumo/.test(text)) return 'Proveedores'
-
-  return 'Otras deudas'
-}
-
 type StatementItem = { label: string; amount: number; sub?: string | null }
 type GroupedLine = { label: string; amount: number; pct: number; children?: GroupedLine[] }
 
@@ -101,11 +93,6 @@ function getTransactionLabel(tx: { category?: { name?: string | null } | null; d
 
 function getSubcategoryLabel(tx: { subcategory?: { name?: string | null } | null }) {
   return tx.subcategory?.name?.trim() || null
-}
-
-function isPendingCredit(tx: { esCredito?: boolean | null; estado?: string | null }) {
-  const status = (tx.estado || '').toUpperCase()
-  return Boolean(tx.esCredito) && (status === 'PENDIENTE' || status === 'VENCIDO')
 }
 
 
@@ -188,15 +175,8 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     periodLabel = `${MONTH_NAMES[m - 1]} ${y}`
   }
 
-  const {
-    allTx,
-    activosPorMoneda,
-    pasivosPorMoneda,
-    cxcPorMoneda,
-    valorInventario,
-  } = await getReportDataExtended(range)
+  const { allTx } = await getReportDataExtended(range)
   const cur = 'ARS'
-  const txByCurrency = allTx.filter((tx) => (tx.currency || 'ARS') === cur)
 
   // Evolución mensual: siempre últimos 6 meses reales, independiente del período elegido arriba.
   const { monthlyHistory } = await getReportDataExtended()
@@ -239,39 +219,62 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
         const t = new Date(tx.date).getTime()
         return tx.type === 'EXPENSE' && !tx.esCredito && (tx.currency || 'ARS') === cashCur && t >= flowFrom && t <= flowTo
       })
-      .map((tx) => ({
-        label: resolveExpenseLabel(getTransactionLabel(tx), true) || 'Otros egresos',
-        amount: tx.amount,
-        sub: getSubcategoryLabel(tx),
-      })),
+      .map((tx) =>
+        // Pagos de deudas a proveedores: un solo renglón, con cada proveedor como detalle
+        tx.subType === 'PAGO_DEUDA'
+          ? { label: 'Pagos a proveedores', amount: tx.amount, sub: tx.contact?.name?.trim() || null }
+          : {
+              label: resolveExpenseLabel(getTransactionLabel(tx), true) || 'Otros egresos',
+              amount: tx.amount,
+              sub: getSubcategoryLabel(tx),
+            },
+      ),
     flow.egresos > 0 ? flow.egresos : 1,
   )
 
-  const totalAssets = (activosPorMoneda[cur] || 0) + (valorInventario || 0) + (cxcPorMoneda[cur] || 0)
-  const totalLiabilities = pasivosPorMoneda[cur] || 0
+  // Ingresos cobrados por categoría: los mismos movimientos que suman "Ingresos" en Cajas
+  const INCOME_LABEL: Record<string, string> = {
+    SALE_PRODUCT: 'Ventas cobradas', SALE: 'Ventas cobradas', COBRO_CREDITO: 'Cobros de créditos',
+    SALE_BIEN_USO: 'Venta de bienes de uso', DIFERENCIA_CAJA: 'Sobrantes de caja',
+  }
+  const cashIncomeLines = groupStatementLines(
+    allTx
+      .filter((tx) => {
+        const t = new Date(tx.date).getTime()
+        return tx.type === 'INCOME' && !tx.esCredito && (tx.currency || 'ARS') === cashCur && t >= flowFrom && t <= flowTo
+      })
+      .map((tx) => ({ label: INCOME_LABEL[tx.subType ?? ''] ?? getTransactionLabel(tx), amount: tx.amount })),
+    flow.ingresos > 0 ? flow.ingresos : 1,
+  )
+
+  // Saldo de cada caja al inicio y al cierre, y detalle de los cambios de moneda
+  const periodArgs = [periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart] as const
+  const [cashAccountsSnapshot, transfers] = await Promise.all([
+    getCashAccountsSnapshot(...periodArgs, cashCur),
+    getCashTransfers(...periodArgs),
+  ])
+  const fmtUsd = (v: number) => `US$${Math.round(v).toLocaleString('es-AR')}`
+  const exchangeNotes = transfers
+    .filter((t) => t.fromAccount.currency !== t.toAccount.currency && (t.fromAccount.currency === cashCur || t.toAccount.currency === cashCur))
+    .map((t) => {
+      const compra = t.toAccount.currency === 'USD'
+      const dolares = compra ? t.amountTo : t.amountFrom
+      const cotizacion = t.exchangeRate ? ` a $${Math.round(t.exchangeRate).toLocaleString('es-AR')}` : ''
+      return `${compra ? 'Compra' : 'Venta'} de ${fmtUsd(dolares)}${cotizacion}`
+    })
+
+  // Patrimonio: mismo cálculo que el Estado patrimonial (todo al cierre del período)
+  const { current: balance } = await getBalanceSheet(
+    periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
+  )
+  const totalAssets = balance.totalActivo
+  const totalLiabilities = balance.totalPasivo
   const assetLines = groupStatementLines(
-    [
-      { label: 'Caja y bancos', amount: activosPorMoneda[cur] || 0 },
-      { label: 'Mercaderia', amount: valorInventario || 0 },
-      { label: 'Creditos a cobrar', amount: cxcPorMoneda[cur] || 0 },
-    ].filter((line) => line.amount > 0),
+    balance.activo.filter((r) => r.amount > 0).map((r) => ({ label: r.label, amount: r.amount })),
     totalAssets || 1,
   )
-
-  const pendingLiabilityLines = groupStatementLines(
-    txByCurrency
-      .filter((tx) => tx.type === 'EXPENSE' && isPendingCredit(tx))
-      .map((tx) => ({ label: resolveLiabilityLabel(getTransactionLabel(tx)), amount: tx.amount })),
-    totalLiabilities || 1,
-  )
-
-  const groupedLiabilityTotal = pendingLiabilityLines.reduce((sum, line) => sum + line.amount, 0)
-  const residualLiabilities = Math.max(0, totalLiabilities - groupedLiabilityTotal)
   const liabilityLines = groupStatementLines(
-    [
-      ...pendingLiabilityLines.map((line) => ({ label: line.label, amount: line.amount })),
-      ...(residualLiabilities > 0 ? [{ label: 'Otras deudas', amount: residualLiabilities }] : []),
-    ],
+    balance.pasivo.flatMap((r) => r.items.map((i) => ({ label: i.label, amount: i.amount }))),
     totalLiabilities || 1,
   )
 
@@ -323,11 +326,14 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
       currency: cashCur,
       openingBalance: flow.saldoInicial,
       collectedIncome: flow.ingresos,
+      incomeLines: cashIncomeLines,
       expenseLines: cashExpenseLines,
       totalExpenses: flow.egresos,
       currencyExchange: flow.cambioMoneda,
       netVariation: flow.ingresos - flow.egresos + flow.cambioMoneda,
       closingBalance: flow.saldoFinal,
+      accounts: cashAccountsSnapshot,
+      exchangeNotes,
     },
     balanceSheet: {
       currency: cur,
@@ -338,4 +344,33 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
       equity: totalAssets - totalLiabilities,
     },
   }
+}
+
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+/**
+ * Período anterior para las comparaciones de las tarjetas (mes o año anterior).
+ * Si el período elegido está en curso, el anterior se corta en el mismo día, así la
+ * comparación es justa (medio mes contra medio mes). Null en día / semana / personalizado.
+ */
+export function previousPeriodArgs(periodo: string, selectedYear?: number, selectedMonth?: number) {
+  if (!selectedYear || (periodo === 'mensual' && !selectedMonth) || (periodo !== 'mensual' && periodo !== 'anual')) return null
+  const mensual = periodo === 'mensual'
+  const prevYear = mensual ? (selectedMonth === 1 ? selectedYear - 1 : selectedYear) : selectedYear - 1
+  const prevMonth = mensual ? (selectedMonth === 1 ? 12 : selectedMonth! - 1) : undefined
+  const label = prevMonth ? MESES_CORTOS[prevMonth - 1] : String(prevYear)
+
+  const hoy = new Date()
+  const enCurso = mensual
+    ? selectedYear === hoy.getFullYear() && selectedMonth === hoy.getMonth() + 1
+    : selectedYear === hoy.getFullYear()
+  if (!enCurso) {
+    return { label, period: periodo as PeriodKey, from: undefined, to: undefined, year: prevYear, month: prevMonth }
+  }
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const desde = new Date(prevYear, (prevMonth ?? 1) - 1, 1)
+  const hasta = mensual
+    ? new Date(prevYear, prevMonth! - 1, Math.min(hoy.getDate(), new Date(prevYear, prevMonth!, 0).getDate()))
+    : new Date(prevYear, hoy.getMonth(), hoy.getDate())
+  return { label, period: 'custom' as PeriodKey, from: iso(desde), to: iso(hasta), year: undefined, month: undefined }
 }

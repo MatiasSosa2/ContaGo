@@ -26,16 +26,20 @@ export type CashFlowSummary = {
   egresos: number
   /** Neto de cambios de caja que cruzaron de/hacia otra moneda (+ entró, − salió) */
   cambioMoneda: number
+  /** Bruto de los cambios de caja que entraron / salieron del conjunto de cajas mirado */
+  entradasCaja: number
+  salidasCaja: number
   saldoFinal: number
 }
 
-async function getCashAccounts(businessId: string, currency?: string) {
+async function getCashAccounts(businessId: string, currency?: string, accountId?: string) {
   return prisma.account.findMany({
     where: {
       businessId,
       isSystemAccount: false,
       type: { in: [...CASH_ACCOUNT_TYPES] },
       ...(currency ? { currency } : {}),
+      ...(accountId ? { id: accountId } : {}),
     },
     select: { id: true, currentBalance: true, currency: true },
   })
@@ -71,16 +75,18 @@ async function getCashEffects(businessId: string, accountIds: string[], date: { 
 
   // Transferencias: se compensan si origen y destino están en el conjunto
   let cambioMoneda = 0
+  let entradasCaja = 0
+  let salidasCaja = 0
   for (const t of transfers) {
     const fromIn = ids.has(t.fromAccountId)
     const toIn = ids.has(t.toAccountId)
     if (fromIn) add(t.fromAccountId, -t.amountFrom)
     if (toIn) add(t.toAccountId, t.amountTo)
-    if (fromIn && !toIn) cambioMoneda -= t.amountFrom
-    if (toIn && !fromIn) cambioMoneda += t.amountTo
+    if (fromIn && !toIn) { cambioMoneda -= t.amountFrom; salidasCaja += t.amountFrom }
+    if (toIn && !fromIn) { cambioMoneda += t.amountTo; entradasCaja += t.amountTo }
   }
 
-  return { byAccount, ingresos, egresos, cambioMoneda }
+  return { byAccount, ingresos, egresos, cambioMoneda, entradasCaja, salidasCaja }
 }
 
 /** Saldo de cada caja al cierre de `asOf` (id de cuenta → saldo). */
@@ -103,12 +109,15 @@ export async function getCashBalanceOf(businessId: string, accountId: string, as
   return account.currentBalance - (after.byAccount[account.id] || 0)
 }
 
-/** Saldo inicial, ingresos, egresos, cambio de moneda y saldo final de una moneda en [from, to]. */
-export async function getCashFlowSummary(businessId: string, from: Date, to: Date, currency: string): Promise<CashFlowSummary> {
-  const accounts = await getCashAccounts(businessId, currency)
+/**
+ * Saldo inicial, ingresos, egresos, cambio de moneda y saldo final de una moneda en [from, to].
+ * Con accountId, solo esa caja: sus cambios con otras cajas quedan en entradasCaja / salidasCaja.
+ */
+export async function getCashFlowSummary(businessId: string, from: Date, to: Date, currency: string, accountId?: string): Promise<CashFlowSummary> {
+  const accounts = await getCashAccounts(businessId, currency, accountId)
   const ids = accounts.map((a) => a.id)
   if (ids.length === 0) {
-    return { currency, saldoInicial: 0, ingresos: 0, egresos: 0, cambioMoneda: 0, saldoFinal: 0 }
+    return { currency, saldoInicial: 0, ingresos: 0, egresos: 0, cambioMoneda: 0, entradasCaja: 0, salidasCaja: 0, saldoFinal: 0 }
   }
 
   const [after, period] = await Promise.all([
@@ -127,6 +136,8 @@ export async function getCashFlowSummary(businessId: string, from: Date, to: Dat
     ingresos: period.ingresos,
     egresos: period.egresos,
     cambioMoneda: period.cambioMoneda,
+    entradasCaja: period.entradasCaja,
+    salidasCaja: period.salidasCaja,
     saldoFinal,
   }
 }

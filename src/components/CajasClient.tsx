@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import {
   ResponsiveContainer,
@@ -732,7 +733,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
     setPage(1)
   }
 
-  const terms = useMemo(() => normalizeSearch(query).split(/s+/).filter(Boolean), [query])
+  const terms = useMemo(() => normalizeSearch(query).split(/\s+/).filter(Boolean), [query])
 
   const filtered = useMemo(() => {
     return groupByOperacion(movements).filter(mov => {
@@ -748,7 +749,20 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
     })
   }, [movements, origins, dateFrom, dateTo, terms])
 
-  const paginated = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
+  // Llegada desde el gráfico del Balance general (?mov=id): se muestra y resalta ese movimiento
+  const targetMov = useSearchParams().get('mov')
+  const targetIdx = targetMov ? filtered.findIndex((m) => m.id === targetMov || m.parts?.some((p) => p.id === targetMov)) : -1
+  const targetRowId = targetIdx >= 0 ? filtered[targetIdx].id : null
+  const minPage = targetIdx >= 0 ? Math.ceil((targetIdx + 1) / PAGE_SIZE) : 1
+  const [highlight, setHighlight] = useState(true)
+  useEffect(() => {
+    if (!targetRowId) return
+    document.getElementById(`mov-${targetRowId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const t = setTimeout(() => setHighlight(false), 2500)
+    return () => clearTimeout(t)
+  }, [targetRowId])
+
+  const paginated = useMemo(() => filtered.slice(0, Math.max(page, minPage) * PAGE_SIZE), [filtered, page, minPage])
   const hasMore = paginated.length < filtered.length
 
   const originOptions: { key: OriginKey; label: string; active: string; idle: string }[] = [
@@ -881,9 +895,10 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                   return (
                     <tr
                       key={mov.id}
-                      className={`border-b border-[#ECE7E1] transition hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
+                      id={`mov-${mov.id}`}
+                      className={`border-b border-[#ECE7E1] transition-colors duration-700 hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
                         mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[#3A4D39]' : 'border-l-[#A65D57]'
-                      }`}
+                      } ${highlight && mov.id === targetRowId ? 'bg-[#FFF4D6] dark:bg-[#3A3220]' : ''}`}
                     >
                       <td className="px-5 py-3 align-middle whitespace-nowrap">
                         <span className="text-sm font-medium text-[#4B5563] dark:text-stone-300">{fmtDate(mov.date)}</span>

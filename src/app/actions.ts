@@ -398,7 +398,8 @@ export async function getReportDataExtended(range?: DateRange) {
       valorInventario: 0, 
       valorInventarioVenta: 0, 
       margenBrutoInventario: 0, 
-      topProductosPorStock: [] 
+      topProductosPorStock: [],
+      valorBienesUso: 0,
     }
   }
   const databaseActions = await getDatabaseActions();
@@ -533,10 +534,10 @@ export async function getCashFlowByCurrency(...args: CashPeriodArgs) {
   return databaseActions.getCashFlowByCurrency(period as CashPeriodKey, ...rest);
 }
 
-export async function getYearlySeries(year: number, cashCurrency = 'ARS') {
+export async function getYearlySeries(year: number, cashCurrency = 'ARS', accountId?: string) {
   if (USE_MOCK) return { year, resultados: Array(12).fill(null), flujo: Array(12).fill(null), patrimonio: Array(12).fill(null) };
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getYearlySeries(year, cashCurrency);
+  return databaseActions.getYearlySeries(year, cashCurrency, accountId);
 }
 
 /** Todos los cambios de caja, desde el primero */
@@ -561,6 +562,39 @@ export async function getCashFlowKpis(...args: CashPeriodArgs) {
   const [period, ...rest] = args;
   const databaseActions = await getDatabaseActions();
   return databaseActions.getCashFlowKpis(period as CashPeriodKey, ...rest);
+}
+
+export async function getReportInsights(...args: CashPeriodArgs) {
+  if (USE_MOCK) return { clientes: [], productos: [], consumidoresFinales: { ventas: 0, pct: 0 } };
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getReportInsights(period as CashPeriodKey, ...rest);
+}
+
+export async function getBalanceSheet(...args: CashPeriodArgs) {
+  if (USE_MOCK) {
+    const empty = { asOf: new Date(), rate: null, activo: [], pasivo: [], totalActivo: 0, totalPasivo: 0, patrimonio: 0 };
+    return { current: empty, previous: empty };
+  }
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getBalanceSheet(period as CashPeriodKey, ...rest);
+}
+
+export async function getCashStatement(...args: [...CashPeriodArgs, currency?: string, accountId?: string | null]) {
+  if (USE_MOCK) {
+    return { currency: 'ARS', accountId: null, saldoInicial: 0, saldoFinal: 0, ingresos: [], totalIngresos: 0, egresos: [], totalEgresos: 0, cambioMoneda: 0, exchangeNotes: [], accounts: [] };
+  }
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCashStatement(period as CashPeriodKey, ...rest);
+}
+
+export async function getCashAccountsSnapshot(...args: [...CashPeriodArgs, currency?: string]) {
+  if (USE_MOCK) return [] as { name: string; type: string; inicio: number; cierre: number }[];
+  const [period, ...rest] = args;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCashAccountsSnapshot(period as CashPeriodKey, ...rest);
 }
 
 export async function getIncomeStatement(...args: [...CashPeriodArgs, currency?: string]) {

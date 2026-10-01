@@ -31,12 +31,18 @@ export type CashFlowData = {
   currency: string
   openingBalance: number
   collectedIncome: number
+  /** Ingresos cobrados por categoría (ventas cobradas, cobros de créditos...) */
+  incomeLines: StatementLine[]
   expenseLines: StatementLine[]
   totalExpenses: number
   /** Neto de cambios de caja con otra moneda (+ entró, − salió) */
   currencyExchange: number
   netVariation: number
   closingBalance: number
+  /** Saldo de cada caja al inicio y al cierre */
+  accounts: { name: string; type: string; inicio: number; cierre: number }[]
+  /** Detalle de los cambios de moneda del período (ej. "Compra de US$1.000") */
+  exchangeNotes: string[]
 }
 
 export type BalanceSheetData = {
@@ -51,7 +57,7 @@ export type BalanceSheetData = {
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
 
 export function fmtAmount(value: number, currency: string, signed = false) {
-  const formatted = `${CURRENCY_SYMBOL[currency] || '$'}${Math.abs(value).toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
+  const formatted = `${CURRENCY_SYMBOL[currency] || '$'}${Math.abs(value).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`
 
   if (!signed) {
     // Un saldo negativo nunca pierde el signo

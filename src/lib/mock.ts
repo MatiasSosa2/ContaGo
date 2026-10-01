@@ -50,21 +50,23 @@ export const MOCK_PRODUCTOS = [
   { id: '1', nombre: 'Producto Demo A', descripcion: null, categoria: null, marca: null, unidad: 'unidad', metodoCosteo: 'PROMEDIO', currency: 'ARS', precioVenta: 100, precioCosto: 50, stockActual: 100, enTransito: 0, activo: true, businessId: 'demo', createdAt: new Date(), updatedAt: new Date(), movimientos: [] },
 ]
 
+const MOCK_WEEK: [string, number, number][] = [
+  ['Lun', 80000, 50000], ['Mar', 90000, 60000], ['Mié', 70000, 45000], ['Jue', 85000, 55000],
+  ['Vie', 100000, 70000], ['Sáb', 50000, 40000], ['Dom', 25000, 30000],
+]
+
 export function getMockDashboardStats(_period?: string, _customFrom?: string, _customTo?: string) {
   const catColors = ['#3A4D39', '#C5A065', '#5A7A57', '#d4ae84', '#6b8f65', '#c49a6c']
 
   return {
     kpis: { income: 500000, expense: 350000, gain: 150000, marginPct: 30 },
     prevKpis: { income: 420000, expense: 310000, gain: 110000, marginPct: 26.2 },
-    chartData: [
-      { label: 'Lun', income: 80000, expense: 50000, net: 30000 },
-      { label: 'Mar', income: 90000, expense: 60000, net: 30000 },
-      { label: 'Mié', income: 70000, expense: 45000, net: 25000 },
-      { label: 'Jue', income: 85000, expense: 55000, net: 30000 },
-      { label: 'Vie', income: 100000, expense: 70000, net: 30000 },
-      { label: 'Sáb', income: 50000, expense: 40000, net: 10000 },
-      { label: 'Dom', income: 25000, expense: 30000, net: -5000 },
-    ],
+    // Cada día: un ingreso (posición 2i) y un egreso (2i + 1) en chartTx
+    chartData: MOCK_WEEK.map(([label, income, expense], i) => ({ label, income, expense, net: income - expense, txIdx: [2 * i, 2 * i + 1] })),
+    chartTx: MOCK_WEEK.flatMap(([label, income, expense], i) => [
+      { id: `mock-in-${i}`, type: 'INCOME', amount: income, date: new Date(), description: `Ventas ${label}`, category: 'Venta de productos', account: 'Caja' },
+      { id: `mock-out-${i}`, type: 'EXPENSE', amount: expense, date: new Date(), description: `Gastos ${label}`, category: 'Sueldos', account: 'Banco' },
+    ]),
     categoryBreakdown: [
       { name: 'Alquiler', value: 150000, color: catColors[0] },
       { name: 'Sueldos', value: 120000, color: catColors[1] },

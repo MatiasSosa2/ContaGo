@@ -2,10 +2,11 @@ import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import PrintButton from '@/components/PrintButton'
-import PatrimonioDetail from '@/components/financial-statements/PatrimonioDetail'
+import PatrimonioDetail, { type BalanceTrends } from '@/components/financial-statements/PatrimonioDetail'
 import { PatrimonioCharts } from '@/components/financial-statements/StatementCharts'
-import { getYearlySeries } from '@/app/actions'
-import { getReportsViewData, type ReportsSearchParams } from '../reportsData'
+import { SF_FONT, StatementHeader } from '@/components/financial-statements/modern'
+import { getBalanceSheet, getYearlySeries } from '@/app/actions'
+import { getReportsViewData, previousPeriodArgs, type ReportsSearchParams } from '../reportsData'
 import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
@@ -25,14 +26,37 @@ export default async function PatrimonioPage({
     selectedWeekStart,
     periodLabel,
     queryString,
-    balanceSheet,
     seriesYear,
     seriesActiveMonth,
   } = await getReportsViewData(searchParams)
-  const series = await getYearlySeries(seriesYear, 'ARS')
+  const moneda: 'ARS' | 'USD' = params?.moneda === 'USD' ? 'USD' : 'ARS'
+
+  // Patrimonio al cierre del período y al cierre anterior (todo a la misma fecha de corte)
+  const [{ current, previous }, series] = await Promise.all([
+    getBalanceSheet(periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    getYearlySeries(seriesYear, 'ARS'),
+  ])
+
+  // Tendencia de las tarjetas: los meses del año con datos (hasta el mes elegido)
+  const upTo = seriesActiveMonth ?? 11
+  const meses = series.patrimonio.slice(0, upTo + 1).filter((m): m is NonNullable<typeof m> => m !== null)
+  const conv = (v: number, rate: number | null) => (moneda === 'USD' ? (rate ? v / rate : 0) : v)
+  const trends: BalanceTrends = {
+    activo: meses.map((m) => conv(m.activos, m.rate)),
+    pasivo: meses.map((m) => conv(m.pasivos, m.rate)),
+  }
+  const prevLabel = previousPeriodArgs(periodo, selectedYear, selectedMonth)?.label ?? 'anterior'
+
+  const monedaHref = (m: 'ARS' | 'USD') => {
+    const sp = new URLSearchParams(queryString)
+    if (m === 'USD') sp.set('moneda', 'USD')
+    else sp.delete('moneda')
+    const qs = sp.toString()
+    return `/reports/patrimonio${qs ? `?${qs}` : ''}`
+  }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F2F2F7] dark:bg-black">
       <AppHeader
         title="Estado Patrimonial"
         showRoleBadge={false}
@@ -57,37 +81,43 @@ export default async function PatrimonioPage({
         }
       />
 
-      <section className="executive-panel overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-[#E5E7EB] bg-[#FCFDFC] px-5 py-4 dark:border-white/10 dark:bg-[#141414] sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={`/reports${queryString ? `?${queryString}` : ''}`}
-              className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#D1D5DB] text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB] dark:hover:border-white/30 dark:hover:text-white"
-              aria-label="Volver a estados"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-            <div>
-              <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Estado de situación patrimonial</h2>
-              <p className="text-xs text-[#9CA3AF]">{periodLabel}</p>
+      <StatementHeader
+        title="Estado patrimonial"
+        period={`Al cierre de ${periodLabel}`}
+        backHref={`/reports${queryString ? `?${queryString}` : ''}`}
+        actions={
+          <div className="flex items-center gap-2">
+            {/* Pesos | Dólares: control segmentado estilo iOS */}
+            <div className="flex rounded-[9px] bg-black/[0.06] p-0.5 dark:bg-white/[0.1]" role="group" aria-label="Moneda" style={{ fontFamily: SF_FONT }}>
+              {(['ARS', 'USD'] as const).map((m) => (
+                <Link
+                  key={m}
+                  href={monedaHref(m)}
+                  aria-current={moneda === m ? 'true' : undefined}
+                  className={`rounded-[7px] px-3 py-1 text-[13px] font-medium transition ${
+                    moneda === m
+                      ? 'bg-white text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white'
+                      : 'text-[#3C3C43] hover:opacity-70 dark:text-[#EBEBF5]/80'
+                  }`}
+                >
+                  {m === 'ARS' ? 'Pesos' : 'Dólares'}
+                </Link>
+              ))}
             </div>
+            <PrintButton />
           </div>
+        }
+      />
 
-          <div className="shrink-0"><PrintButton /></div>
+      {/* Cuadro con números a la izquierda (60%); los dos gráficos a la derecha (40%) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+        <div className="min-w-0">
+          <PatrimonioDetail data={current} previous={previous} currency={moneda} trends={trends} prevLabel={prevLabel} />
         </div>
-
-        {/* Cuadro con números a la izquierda; los dos gráficos a la derecha, del mismo alto */}
-        <div className="grid grid-cols-1 gap-5 bg-[#F9FAFB] px-6 py-6 dark:bg-[#0F0F0F] lg:grid-cols-2">
-          <div className="min-w-0">
-            <PatrimonioDetail data={balanceSheet} />
-          </div>
-          <div className="flex min-w-0 flex-col gap-4">
-            <PatrimonioCharts series={series} balance={balanceSheet} activeMonth={seriesActiveMonth} />
-          </div>
+        <div className="flex min-w-0 flex-col gap-4">
+          <PatrimonioCharts series={series} balance={current} currency={moneda} activeMonth={seriesActiveMonth} />
         </div>
-      </section>
+      </div>
     </div>
   )
 }

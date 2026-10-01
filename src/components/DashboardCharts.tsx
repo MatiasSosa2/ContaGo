@@ -3,6 +3,8 @@
 import ReactECharts from 'echarts-for-react'
 import type { EChartsOption } from 'echarts'
 import { useState, useEffect, useMemo, useRef } from 'react'
+import CashEvolutionChart from '@/components/dashboard/CashEvolutionChart'
+import type { DashboardChartTx } from '@/app/actions.database'
 
 // ── Hook de detección de tema ──────────────────────────────────────────────────
 function useDarkMode() {
@@ -685,7 +687,8 @@ export function DebtStatusBar({ data, height = 48 }: DebtStatusBarProps) {
 type EvView = 'overview' | 'income_cats' | 'expense_cats' | 'net'
 
 interface EvolutionTabsProps {
-  chartData: { label: string; income: number; expense: number; net: number }[]
+  chartData: { label: string; income: number; expense: number; net: number; txIdx: number[] }[]
+  chartTx: DashboardChartTx[]
   categoryBreakdown: { name: string; value: number; color: string }[]
   incomeCategoryBreakdown: { name: string; value: number; color: string }[]
 }
@@ -698,7 +701,7 @@ function EmptyChart({ message = 'Sin datos históricos aún' }: { message?: stri
   )
 }
 
-export function EvolutionTabs({ chartData, categoryBreakdown, incomeCategoryBreakdown }: EvolutionTabsProps) {
+export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown }: EvolutionTabsProps) {
   const [view, setView] = useState<EvView>('overview')
   const isDark = useDarkMode()
 
@@ -813,11 +816,7 @@ export function EvolutionTabs({ chartData, categoryBreakdown, incomeCategoryBrea
 
       {/* Contenido del gráfico */}
       <div className="p-4">
-        {view === 'overview' && (
-          hasData
-            ? <FinancialOverviewChart data={chartData} height={280} />
-            : <EmptyChart />
-        )}
+        {view === 'overview' && <CashEvolutionChart chartData={chartData} chartTx={chartTx} height={280} />}
         {view === 'income_cats' && (
           incomeDonutData.length > 0
             ? <DonutWithLegend data={incomeDonutData} height={280} />

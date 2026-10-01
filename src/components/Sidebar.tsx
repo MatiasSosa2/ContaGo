@@ -69,6 +69,22 @@ type SidebarProps = {
   }
 }
 
+/** Ícono redondo del pie del panel con su nombre flotante al pasar el mouse */
+function SidebarIcon({ label, collapsed, children }: { label: string; collapsed: boolean; children: React.ReactNode }) {
+  return (
+    <div className="group relative flex">
+      {children}
+      <span
+        className={`pointer-events-none absolute z-50 whitespace-nowrap rounded-md bg-[#1C1C1E]/90 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg backdrop-blur transition-opacity duration-150 group-hover:opacity-100 ${
+          collapsed ? 'left-full top-1/2 ml-3 -translate-y-1/2' : 'bottom-full left-1/2 mb-2 -translate-x-1/2'
+        }`}
+      >
+        {label}
+      </span>
+    </div>
+  )
+}
+
 export default function Sidebar({ sessionContext }: SidebarProps) {
   const pathname = usePathname()
   const [isSigningOut, startSignOut] = useTransition()
@@ -89,7 +105,12 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
     })
   }
 
+  // Cerrar sesión pide confirmación (cartel estilo iOS)
+  const [confirmSignOut, setConfirmSignOut] = useState(false)
   function handleSignOut() {
+    setConfirmSignOut(true)
+  }
+  function doSignOut() {
     startSignOut(async () => {
       await signOut({ callbackUrl: '/auth/login' })
     })
@@ -172,39 +193,67 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
         })}
       </nav>
 
-      <div className={`px-2 py-3 flex flex-col gap-2 ${collapsed ? 'items-center' : ''}`} style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        <button
-          onClick={toggleCollapse}
-          title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
-          className={`flex items-center gap-2 py-2 text-xs font-semibold transition-all duration-150 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
-          style={{ color: 'rgba(255,255,255,0.72)', background: 'rgba(255,255,255,0.08)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.14)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)' }}
-        >
-          <svg className={`shrink-0 w-4 h-4 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          {!collapsed && <span>Colapsar</span>}
-        </button>
-        {!collapsed && <ThemeToggle />}
-        {/* Botón cerrar sesión desktop */}
-        <button
-          onClick={handleSignOut}
-          disabled={isSigningOut}
-          title="Cerrar sesión"
-          className={`flex items-center gap-2 py-2 text-sm font-semibold transition-all duration-150 disabled:opacity-50 ${collapsed ? 'justify-center px-2 w-full' : 'px-3 w-full'}`}
-          style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.12)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.22)' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.12)' }}
-        >
-          <svg className="shrink-0 w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
-          </svg>
-          {!collapsed && <span>{isSigningOut ? 'Cerrando...' : 'Cerrar sesión'}</span>}
-        </button>
+      {/* Contraer · Modo oscuro · Cerrar sesión: tres íconos redondos, el nombre aparece al pasar el mouse */}
+      <div
+        className={`flex px-3 py-4 ${collapsed ? 'flex-col items-center gap-2.5' : 'items-center justify-around'}`}
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        <SidebarIcon label={collapsed ? 'Expandir' : 'Contraer'} collapsed={collapsed}>
+          <button
+            type="button"
+            onClick={toggleCollapse}
+            aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff]/[0.08] text-[#fff]/75 transition hover:bg-[#fff]/[0.14] hover:text-[#fff] active:scale-95"
+          >
+            <svg className={`h-[18px] w-[18px] transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+              <rect x="3.75" y="4.5" width="16.5" height="15" rx="2.5" />
+              <path strokeLinecap="round" d="M9 4.5v15M15 10l-2 2 2 2" />
+            </svg>
+          </button>
+        </SidebarIcon>
+        <SidebarIcon label="Modo oscuro" collapsed={collapsed}>
+          <ThemeToggle circle />
+        </SidebarIcon>
+        <SidebarIcon label="Cerrar sesión" collapsed={collapsed}>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            aria-label="Cerrar sesión"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FF453A]/[0.14] text-[#FF6961] transition hover:bg-[#FF453A]/[0.24] active:scale-95 disabled:opacity-50"
+          >
+            <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
+            </svg>
+          </button>
+        </SidebarIcon>
       </div>
     </aside>
+
+    {/* Confirmación de cierre de sesión, estilo alerta de iOS */}
+    {confirmSignOut && (
+      <div
+        className="fixed inset-0 z-[90] flex items-center justify-center"
+        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif' }}
+      >
+        <button type="button" aria-label="Cancelar" className="absolute inset-0 bg-black/35" onClick={() => setConfirmSignOut(false)} />
+        <div role="alertdialog" aria-labelledby="signout-title" className="relative z-10 w-[270px] overflow-hidden rounded-[14px] bg-[#F2F2F2]/95 text-center shadow-[0_20px_60px_rgba(0,0,0,0.3)] backdrop-blur-xl dark:bg-[#2C2C2E]/95">
+          <div className="px-4 pb-4 pt-5">
+            <p id="signout-title" className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">¿Cerrar sesión?</p>
+            <p className="mt-1 text-[13px] leading-snug text-[#3C3C43]/80 dark:text-[#EBEBF5]/70">Vas a tener que volver a ingresar para usar ContaGo.</p>
+          </div>
+          <div className="grid grid-cols-2 border-t border-black/10 dark:border-white/10">
+            <button type="button" autoFocus onClick={() => setConfirmSignOut(false)} className="border-r border-black/10 py-3 text-[17px] text-[#007AFF] transition hover:bg-black/[0.04] dark:border-white/10 dark:text-[#0A84FF] dark:hover:bg-white/[0.06]">
+              Cancelar
+            </button>
+            <button type="button" onClick={doSignOut} disabled={isSigningOut} className="py-3 text-[17px] font-semibold text-[#FF3B30] transition hover:bg-black/[0.04] disabled:opacity-50 dark:text-[#FF453A] dark:hover:bg-white/[0.06]">
+              {isSigningOut ? 'Cerrando…' : 'Cerrar sesión'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* ── Barra de navegación inferior — solo mobile ── */}
     <nav

@@ -117,7 +117,7 @@ async function DashboardContent({
     getCashFlowKpis(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])
 
-  const { chartData, categoryBreakdown, incomeCategoryBreakdown, periodLabel } = stats
+  const { chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown, periodLabel } = stats
   // Ingresos y egresos = totales del Estado de flujo de efectivo (pesos); resultado = la diferencia
   const toKpis = (f: { ingresos: number; egresos: number }) => {
     const gain = f.ingresos - f.egresos
@@ -239,13 +239,8 @@ async function DashboardContent({
                 {periodLabel}
               </p>
             </div>
-            <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="flex items-center gap-1.5 text-xs text-[#9CA3AF] dark:text-stone-500"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#2D6A4F]" />Ingresos</span>
-              <span className="flex items-center gap-1.5 text-xs text-[#9CA3AF] dark:text-stone-500"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#B91C1C]" />Egresos</span>
-              <span className="flex items-center gap-1.5 text-xs text-[#9CA3AF] dark:text-stone-500"><span className="inline-block h-1 w-2.5 rounded-full bg-[#38BDF8]" />Ganancia</span>
-            </div>
           </div>
-          <EvolutionTabs chartData={chartData} categoryBreakdown={categoryBreakdown} incomeCategoryBreakdown={incomeCategoryBreakdown} />
+          <EvolutionTabs chartData={chartData} chartTx={chartTx} categoryBreakdown={categoryBreakdown} incomeCategoryBreakdown={incomeCategoryBreakdown} />
         </div>
       </div>
 

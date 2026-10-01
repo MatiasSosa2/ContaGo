@@ -24,6 +24,9 @@ import { CASH_ACCOUNT_TYPES, getCashBalanceOf, getCashBalancesAt, getCashFlowSum
 import { getIncomeStatementData } from '@/server/results/income-statement'
 import { getYearlySeriesData } from '@/server/reports/yearly-series'
 import { getCreditAccountsData } from '@/server/credits/credit-balances'
+import { getCashStatementData } from '@/server/cash/cash-statement'
+import { getBalanceSheetData } from '@/server/balance/balance-sheet'
+import { getReportInsightsData } from '@/server/reports/insights'
 
 async function getBusinessId() {
   const sessionContext = await requireBusinessContext()
@@ -1318,6 +1321,85 @@ export async function getCashFlowKpis(
   return { current, prev, usdSaldoFinal: usd.saldoFinal }
 }
 
+/** Top clientes y productos que más ganan del período (pestaña Informes). Ver src/server/reports/insights.ts */
+export async function getReportInsights(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
+  const businessId = await getBusinessId()
+  const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  return getReportInsightsData(businessId, from, to)
+}
+
+/**
+ * Estado patrimonial al cierre del período y al cierre anterior (para comparar).
+ * Ver src/server/balance/balance-sheet.ts
+ */
+export async function getBalanceSheet(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+) {
+  const businessId = await getBusinessId()
+  const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  const [current, previous] = await Promise.all([
+    getBalanceSheetData(businessId, to),
+    getBalanceSheetData(businessId, new Date(from.getTime() - 1)),
+  ])
+  return { current, previous }
+}
+
+/** Detalle del Flujo de efectivo (todas las cajas de la moneda o una sola). Ver src/server/cash/cash-statement.ts */
+export async function getCashStatement(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+  currency = 'ARS',
+  accountId?: string | null,
+) {
+  const businessId = await getBusinessId()
+  const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  return getCashStatementData(businessId, from, to, currency, accountId)
+}
+
+/** Saldo de cada caja de una moneda al inicio y al cierre del período (Flujo de efectivo › por caja). */
+export async function getCashAccountsSnapshot(
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+  currency = 'ARS',
+) {
+  const businessId = await getBusinessId()
+  const { from, to } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  const [accounts, inicio, cierre] = await Promise.all([
+    prisma.account.findMany({
+      where: { businessId, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] }, currency },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+    }),
+    getCashBalancesAt(businessId, new Date(from.getTime() - 1)),
+    getCashBalancesAt(businessId, to),
+  ])
+  return accounts.map((a) => ({ name: a.name, type: a.type, inicio: inicio[a.id] ?? 0, cierre: cierre[a.id] ?? 0 }))
+}
+
 /** Datos del Estado de resultados del período (ver src/server/results/income-statement.ts). */
 export async function getIncomeStatement(
   period: DashboardPeriodKey,
@@ -1335,9 +1417,9 @@ export async function getIncomeStatement(
 }
 
 /** Series mes a mes (enero → diciembre) para los gráficos de los estados. */
-export async function getYearlySeries(year: number, cashCurrency = 'ARS') {
+export async function getYearlySeries(year: number, cashCurrency = 'ARS', accountId?: string) {
   const businessId = await getBusinessId()
-  return getYearlySeriesData(businessId, year, cashCurrency)
+  return getYearlySeriesData(businessId, year, cashCurrency, accountId)
 }
 
 /** Cambios de caja del período (sin período: todos), con las cajas de origen y destino. */
@@ -2530,7 +2612,11 @@ export async function getReportDataExtended(range?: DateRange) {
     .slice(0, 5)
     .map(p => ({ nombre: p.nombre, marca: p.marca, stockActual: p.stockActual, precioCosto: p.precioCosto, valorTotal: p.stockActual * p.precioCosto }))
 
-  return { ...base, activosPorMoneda, pasivosPorMoneda, cxcPorMoneda, flujo, anualMap, cmvTotal, valorInventario, valorInventarioVenta, margenBrutoInventario, topProductosPorStock }
+  // Bienes de uso en el activo: valor de compra menos amortización, de los que siguen en uso
+  const bienesActivos = await prisma.bienDeUso.findMany({ where: { businessId, activo: true }, select: { valorAdquisicion: true, depreciacionAcumulada: true } })
+  const valorBienesUso = bienesActivos.reduce((acc, b) => acc + Math.max(0, b.valorAdquisicion - b.depreciacionAcumulada), 0)
+
+  return { ...base, activosPorMoneda, pasivosPorMoneda, cxcPorMoneda, flujo, anualMap, cmvTotal, valorInventario, valorInventarioVenta, margenBrutoInventario, topProductosPorStock, valorBienesUso }
 }
 
 // ---- Dashboard: datos del día ----
@@ -2563,10 +2649,24 @@ export async function getDailyStats() {
 
 export type DashboardPeriodKey = 'diario' | 'semanal' | 'mensual' | 'anual' | 'custom'
 
+/** Movimiento de caja del período, para filtrar el gráfico por categoría y ver el detalle de cada barra */
+export interface DashboardChartTx {
+  id: string
+  type: string
+  amount: number
+  date: Date
+  description: string
+  /** Categoría legible (tipo del sistema o categoría propia) */
+  category: string
+  account: string | null
+}
+
 export interface DashboardStatsResult {
   kpis: { income: number; expense: number; gain: number; marginPct: number }
   prevKpis: { income: number; expense: number; gain: number; marginPct: number }
-  chartData: { label: string; income: number; expense: number; net: number }[]
+  /** txIdx: posiciones en chartTx de los movimientos de cada barra */
+  chartData: { label: string; income: number; expense: number; net: number; txIdx: number[] }[]
+  chartTx: DashboardChartTx[]
   categoryBreakdown: { name: string; value: number; color: string }[]
   incomeCategoryBreakdown: { name: string; value: number; color: string }[]
   recentTx: {
@@ -2711,7 +2811,7 @@ function groupTransactions(
   period: DashboardPeriodKey,
   from: Date,
   to: Date
-): { label: string; income: number; expense: number; net: number }[] {
+): { label: string; income: number; expense: number; net: number; txIdx: number[] }[] {
   const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
   const DAY_LABELS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
@@ -2729,17 +2829,19 @@ function groupTransactions(
     else mode = 'month'
   }
 
-  const buckets: Record<string, { label: string; income: number; expense: number; order: number }> = {}
+  // txIdx: posiciones de los movimientos de cada barra (para filtrar por categoría y ver el detalle)
+  const buckets: Record<string, { label: string; income: number; expense: number; order: number; txIdx: number[] }> = {}
 
   if (mode === 'hour') {
     for (let h = 0; h < 24; h++) {
       const key = String(h)
-      buckets[key] = { label: `${h}:00`, income: 0, expense: 0, order: h }
+      buckets[key] = { label: `${h}:00`, income: 0, expense: 0, order: h, txIdx: [] }
     }
-    for (const tx of txs) {
+    for (const [i, tx] of txs.entries()) {
       const d = new Date(tx.date)
       const key = String(d.getHours())
       if (buckets[key]) {
+        buckets[key].txIdx.push(i)
         if (tx.type === 'INCOME') buckets[key].income += tx.amount
         else buckets[key].expense += tx.amount
       }
@@ -2753,13 +2855,14 @@ function groupTransactions(
       const lbl = period === 'semanal'
         ? DAY_LABELS[cursor.getDay()]
         : `${cursor.getDate()}/${cursor.getMonth() + 1}`
-      buckets[key] = { label: lbl, income: 0, expense: 0, order: order++ }
+      buckets[key] = { label: lbl, income: 0, expense: 0, order: order++, txIdx: [] }
       cursor.setDate(cursor.getDate() + 1)
     }
-    for (const tx of txs) {
+    for (const [i, tx] of txs.entries()) {
       const d = new Date(tx.date)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       if (buckets[key]) {
+        buckets[key].txIdx.push(i)
         if (tx.type === 'INCOME') buckets[key].income += tx.amount
         else buckets[key].expense += tx.amount
       }
@@ -2771,13 +2874,14 @@ function groupTransactions(
     let order = 0
     while (cursor <= endMonth) {
       const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
-      buckets[key] = { label: MONTH_LABELS[cursor.getMonth()], income: 0, expense: 0, order: order++ }
+      buckets[key] = { label: MONTH_LABELS[cursor.getMonth()], income: 0, expense: 0, order: order++, txIdx: [] }
       cursor.setMonth(cursor.getMonth() + 1)
     }
-    for (const tx of txs) {
+    for (const [i, tx] of txs.entries()) {
       const d = new Date(tx.date)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       if (buckets[key]) {
+        buckets[key].txIdx.push(i)
         if (tx.type === 'INCOME') buckets[key].income += tx.amount
         else buckets[key].expense += tx.amount
       }
@@ -2786,7 +2890,7 @@ function groupTransactions(
 
   return Object.values(buckets)
     .sort((a, b) => a.order - b.order)
-    .map(b => ({ label: b.label, income: b.income, expense: b.expense, net: b.income - b.expense }))
+    .map(b => ({ label: b.label, income: b.income, expense: b.expense, net: b.income - b.expense, txIdx: b.txIdx }))
 }
 
 function computeSparklines(
@@ -2952,6 +3056,19 @@ export async function getDashboardPresetSummaries(
   return entries
 }
 
+// Nombres de las categorías del sistema en el gráfico del Balance general
+const CHART_CATEGORY_BY_SUBTYPE: Record<string, string> = {
+  SALE_PRODUCT: 'Venta de productos',
+  SALE: 'Venta de productos',
+  COBRO_CREDITO: 'Cobro de créditos',
+  SALE_BIEN_USO: 'Venta de bienes de uso',
+  PURCHASE_PRODUCT: 'Compra de productos',
+  PURCHASE: 'Compra de productos',
+  PAGO_DEUDA: 'Pago de deudas',
+  PURCHASE_BIEN_USO: 'Compra de bienes de uso',
+  DIFERENCIA_CAJA: 'Diferencia de caja',
+}
+
 async function _fetchDashboardStats(
   businessId: string,
   period: DashboardPeriodKey,
@@ -2980,7 +3097,7 @@ async function _fetchDashboardStats(
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       select: {
         id: true, description: true, amount: true, currency: true,
-        type: true, date: true, createdAt: true,
+        type: true, date: true, createdAt: true, subType: true,
         category: { select: { name: true } },
         account: { select: { name: true } },
       },
@@ -3019,6 +3136,15 @@ async function _fetchDashboardStats(
 
   // ── Chart data (grouped dynamically) ──
   const chartData = groupTransactions(currentTxs, period, from, to)
+  const chartTx: DashboardChartTx[] = currentTxs.map((tx) => ({
+    id: tx.id,
+    type: tx.type,
+    amount: tx.amount,
+    date: tx.date,
+    description: tx.description,
+    category: CHART_CATEGORY_BY_SUBTYPE[tx.subType ?? ''] ?? tx.category?.name ?? (tx.type === 'INCOME' ? 'Otros ingresos' : 'Otros egresos'),
+    account: tx.account?.name ?? null,
+  }))
 
   // ── Sparklines ──
   const sparklines = computeSparklines(currentTxs, period, from, to)
@@ -3089,6 +3215,7 @@ async function _fetchDashboardStats(
     kpis: { income: curIncome, expense: curExpense, gain: curGain, marginPct: curMargin },
     prevKpis: { income: prevIncome, expense: prevExpense, gain: prevGain, marginPct: prevMargin },
     chartData,
+    chartTx,
     categoryBreakdown,
     incomeCategoryBreakdown,
     recentTx,

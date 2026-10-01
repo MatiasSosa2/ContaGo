@@ -629,3 +629,17 @@ input[type=number] {
     size: A4 landscape;
   }
 }
+
+/* Desplegables del cuadro (Flujo de efectivo): se abren y cierran suave, estilo iOS.
+   Navegadores sin ::details-content simplemente los abren sin animación. */
+.ios-disclosure {
+  interpolate-size: allow-keywords;
+}
+.ios-disclosure::details-content {
+  block-size: 0;
+  overflow-y: clip;
+  transition: block-size 320ms cubic-bezier(0.32, 0.72, 0, 1), content-visibility 320ms allow-discrete;
+}
+.ios-disclosure[open]::details-content {
+  block-size: auto;
+}

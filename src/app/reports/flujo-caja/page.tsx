@@ -2,9 +2,10 @@ import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import PrintButton from '@/components/PrintButton'
-import FlujoDetail from '@/components/financial-statements/FlujoDetail'
+import FlujoDetail, { type CashTrends } from '@/components/financial-statements/FlujoDetail'
 import { FlujoCharts } from '@/components/financial-statements/StatementCharts'
-import { getYearlySeries } from '@/app/actions'
+import { SF_FONT, StatementHeader } from '@/components/financial-statements/modern'
+import { getCashStatement, getYearlySeries } from '@/app/actions'
 import { getReportsViewData, type ReportsSearchParams } from '../reportsData'
 import { Suspense } from 'react'
 
@@ -25,23 +26,30 @@ export default async function FlujoCajaPage({
     selectedWeekStart,
     periodLabel,
     queryString,
-    cashFlow,
     cashCurrency,
     seriesYear,
     seriesActiveMonth,
   } = await getReportsViewData(searchParams)
-  const series = await getYearlySeries(seriesYear, cashCurrency)
+  // Detalle del flujo (todas las cajas de la moneda o la elegida en "Todas ▾")
+  const statement = await getCashStatement(periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart, cashCurrency, params?.caja ?? null)
+  const series = await getYearlySeries(seriesYear, cashCurrency, statement.accountId ?? undefined)
+
+  // Tendencia de la tarjeta de saldo: los meses del año con datos (hasta el mes elegido)
+  const upTo = seriesActiveMonth ?? 11
+  const meses = series.flujo.slice(0, upTo + 1).filter((m): m is NonNullable<typeof m> => m !== null)
+  const trends: CashTrends = { saldo: meses.map((m) => m.saldoFinal) }
 
   const monedaHref = (moneda: 'ARS' | 'USD') => {
     const sp = new URLSearchParams(queryString)
     if (moneda === 'USD') sp.set('moneda', 'USD')
     else sp.delete('moneda')
+    sp.delete('caja')
     const qs = sp.toString()
     return `/reports/flujo-caja${qs ? `?${qs}` : ''}`
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F2F2F7] dark:bg-black">
       <AppHeader
         title="Estado de Flujo de Efectivo"
         showRoleBadge={false}
@@ -66,32 +74,24 @@ export default async function FlujoCajaPage({
         }
       />
 
-      <section className="executive-panel overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-[#E5E7EB] bg-[#FCFDFC] px-5 py-4 dark:border-white/10 dark:bg-[#141414] sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={`/reports${queryString ? `?${queryString}` : ''}`}
-              className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#D1D5DB] text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB] dark:hover:border-white/30 dark:hover:text-white"
-              aria-label="Volver a estados"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-            <div>
-              <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Estado de flujo de efectivo</h2>
-              <p className="text-xs text-[#9CA3AF]">{periodLabel}</p>
-            </div>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-3">
-            <div className="flex overflow-hidden border border-[#E5E7EB] text-xs font-semibold dark:border-white/10" role="group" aria-label="Moneda">
+      <StatementHeader
+        title="Flujo de efectivo"
+        period={periodLabel}
+        backHref={`/reports${queryString ? `?${queryString}` : ''}`}
+        actions={
+          <div className="flex items-center gap-2">
+            {/* Selector de moneda: control segmentado estilo iOS */}
+            <div className="flex rounded-[9px] bg-black/[0.06] p-0.5 dark:bg-white/[0.1]" role="group" aria-label="Moneda" style={{ fontFamily: SF_FONT }}>
               {(['ARS', 'USD'] as const).map((moneda) => (
                 <Link
                   key={moneda}
                   href={monedaHref(moneda)}
                   aria-current={cashCurrency === moneda ? 'true' : undefined}
-                  className={`px-3 py-1.5 transition ${cashCurrency === moneda ? 'bg-brand-military text-white' : 'text-[#6B7280] hover:text-[#1F2937] dark:text-[#A3A3A3] dark:hover:text-white'}`}
+                  className={`rounded-[7px] px-3 py-1 text-[13px] font-medium transition ${
+                    cashCurrency === moneda
+                      ? 'bg-white text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white'
+                      : 'text-[#3C3C43] hover:opacity-70 dark:text-[#EBEBF5]/80'
+                  }`}
                 >
                   {moneda === 'ARS' ? 'Pesos' : 'Dólares'}
                 </Link>
@@ -99,18 +99,18 @@ export default async function FlujoCajaPage({
             </div>
             <PrintButton />
           </div>
-        </div>
+        }
+      />
 
-        {/* Cuadro con números a la izquierda; los dos gráficos a la derecha, del mismo alto */}
-        <div className="grid grid-cols-1 gap-5 bg-[#F9FAFB] px-6 py-6 dark:bg-[#0F0F0F] lg:grid-cols-2">
-          <div className="min-w-0">
-            <FlujoDetail data={cashFlow} />
-          </div>
-          <div className="flex min-w-0 flex-col gap-4">
-            <FlujoCharts series={series} currency={cashCurrency} activeMonth={seriesActiveMonth} />
-          </div>
+      {/* Cuadro con números a la izquierda (60%); los dos gráficos a la derecha (40%) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+        <div className="min-w-0">
+          <FlujoDetail data={statement} trends={trends} />
         </div>
-      </section>
+        <div className="flex min-w-0 flex-col gap-4">
+          <FlujoCharts series={series} currency={cashCurrency} activeMonth={seriesActiveMonth} />
+        </div>
+      </div>
     </div>
   )
 }

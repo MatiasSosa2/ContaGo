@@ -1,11 +1,11 @@
-import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import PrintButton from '@/components/PrintButton'
-import ResultadosDetail from '@/components/financial-statements/ResultadosDetail'
+import ResultadosDetail, { type ResultsPrevious, type ResultsTrends } from '@/components/financial-statements/ResultadosDetail'
 import { ResultadosCharts } from '@/components/financial-statements/StatementCharts'
-import { getYearlySeries } from '@/app/actions'
-import { getReportsViewData, type ReportsSearchParams } from '../reportsData'
+import { StatementHeader } from '@/components/financial-statements/modern'
+import { getIncomeStatement, getYearlySeries } from '@/app/actions'
+import { getReportsViewData, previousPeriodArgs, type ReportsSearchParams } from '../reportsData'
 import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
@@ -31,8 +31,27 @@ export default async function ResultadosPage({
   } = await getReportsViewData(searchParams)
   const series = await getYearlySeries(seriesYear, 'ARS')
 
+  // Tendencia de las tarjetas: los meses del año con datos (hasta el mes elegido)
+  const upTo = seriesActiveMonth ?? 11
+  const meses = series.resultados.slice(0, upTo + 1).filter((m): m is NonNullable<typeof m> => m !== null)
+  const trends: ResultsTrends = {
+    ventas: meses.map((m) => m.ventas),
+    cmv: meses.map((m) => m.ventas - m.gananciaBruta),
+    bruta: meses.map((m) => m.gananciaBruta),
+    neta: meses.map((m) => m.gananciaNeta),
+  }
+
+  // Comparación de las tarjetas: mes anterior (vista mensual) o año anterior (vista anual)
+  let previous: ResultsPrevious = null
+  const prev = previousPeriodArgs(periodo, selectedYear, selectedMonth)
+  if (prev) {
+    const er = await getIncomeStatement(prev.period, prev.from, prev.to, prev.year, prev.month, undefined, undefined, 'ARS')
+    const suma = (items: { amount: number }[]) => items.reduce((acc, i) => acc + i.amount, 0)
+    previous = { ventas: er.ventas, neta: er.ventas - er.cmv + suma(er.otherIncomeItems) - suma(er.expenseItems), label: prev.label }
+  }
+
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F2F2F7] dark:bg-black">
       <AppHeader
         title="Estado de Resultados"
         showRoleBadge={false}
@@ -57,37 +76,22 @@ export default async function ResultadosPage({
         }
       />
 
-      <section className="executive-panel overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-[#E5E7EB] bg-[#FCFDFC] px-5 py-4 dark:border-white/10 dark:bg-[#141414] sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={`/reports${queryString ? `?${queryString}` : ''}`}
-              className="flex h-9 w-9 shrink-0 items-center justify-center border border-[#D1D5DB] text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB] dark:hover:border-white/30 dark:hover:text-white"
-              aria-label="Volver a estados"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-            <div>
-              <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Estado de resultados</h2>
-              <p className="text-xs text-[#9CA3AF]">{periodLabel}</p>
-            </div>
-          </div>
+      <StatementHeader
+        title="Estado de resultados"
+        period={periodLabel}
+        backHref={`/reports${queryString ? `?${queryString}` : ''}`}
+        actions={<PrintButton />}
+      />
 
-          <div className="shrink-0"><PrintButton /></div>
+      {/* Cuadro con números a la izquierda (60%); los dos gráficos a la derecha (40%) */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+        <div className="min-w-0">
+          <ResultadosDetail data={results} trends={trends} previous={previous} />
         </div>
-
-        {/* Cuadro con números a la izquierda; los dos gráficos a la derecha, del mismo alto */}
-        <div className="grid grid-cols-1 gap-5 bg-[#F9FAFB] px-6 py-6 dark:bg-[#0F0F0F] lg:grid-cols-2">
-          <div className="min-w-0">
-            <ResultadosDetail data={results} />
-          </div>
-          <div className="flex min-w-0 flex-col gap-4">
-            <ResultadosCharts series={series} activeMonth={seriesActiveMonth} />
-          </div>
+        <div className="flex min-w-0 flex-col gap-4">
+          <ResultadosCharts series={series} results={results} activeMonth={seriesActiveMonth} />
         </div>
-      </section>
+      </div>
     </div>
   )
 }
