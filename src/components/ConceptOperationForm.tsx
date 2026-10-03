@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createConceptOperation, getClientesConCreditoPendiente, getProveedoresConDeudaPendiente } from '@/app/actions'
 import type { Account, BienDeUso } from './TransactionForm'
+import type { Registrado } from '@/lib/registro'
 import { MoneyField, PaymentSection, fmt, num, round2, usePayments } from './registro/payment'
 import { Caption, Group, IOS_FONT, MenuSelect, PrimaryButton, Row } from './ui/ios'
 
@@ -29,7 +30,7 @@ const fmtFecha = (d: Date | string | null) =>
  */
 export default function ConceptOperationForm({
   kind, accounts, bienesDeUso, date, categoryId, subcategoryId, preset,
-  onDone, onClienteSaldado, onProveedorSaldado, footerSlot,
+  onDone, footerSlot,
 }: {
   kind: ConceptKind
   accounts: Account[]
@@ -40,9 +41,7 @@ export default function ConceptOperationForm({
   subcategoryId?: string
   /** Cobro/pago abierto desde Créditos: cliente/proveedor y cuota ya elegidos */
   preset?: { linkedCreditoId: string; contactId: string } | null
-  onDone: () => void
-  onClienteSaldado?: (nombre: string) => void
-  onProveedorSaldado?: (nombre: string) => void
+  onDone: (registrado?: Registrado) => void
   /** Lugar debajo de la pestaña para la tarjeta del botón */
   footerSlot?: HTMLElement | null
 }) {
@@ -135,9 +134,14 @@ export default function ConceptOperationForm({
     const result = await createConceptOperation(fd)
     setSubmitting(false)
     if (!result.success) { setError(result.error || 'No se pudo registrar la operación'); return }
-    if (result.data?.clienteSaldado && result.data.clienteNombre) onClienteSaldado?.(result.data.clienteNombre)
-    if (result.data?.proveedorSaldado && result.data.proveedorNombre) onProveedorSaldado?.(result.data.proveedorNombre)
-    onDone()
+    const alDia = result.data?.clienteSaldado ? result.data.clienteNombre : result.data?.proveedorSaldado ? result.data.proveedorNombre : undefined
+    const titulo = verbo.charAt(0).toUpperCase() + verbo.slice(1)
+    onDone({
+      titulo: `${titulo} registrad${verbo === 'venta' || verbo === 'compra' ? 'a' : 'o'}`,
+      monto,
+      detalle: alDia ? `${alDia} quedó al día` : undefined,
+      undo: result.data?.undo,
+    })
   }
 
   const verbo =
@@ -250,7 +254,7 @@ export default function ConceptOperationForm({
                       aria-pressed={on}
                       className="flex min-h-[44px] w-full items-center gap-3 px-4 py-2 text-left transition-colors active:bg-black/[0.04] dark:active:bg-white/[0.06]"
                     >
-                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-brand-military bg-brand-military text-white' : 'border-[#C7C7CC]'}`}>
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-[var(--reg-accent,#34C759)] bg-[var(--reg-accent,#34C759)] text-white' : 'border-[#C7C7CC]'}`}>
                         {on && <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                       </span>
                       <span className="min-w-0 flex-1">

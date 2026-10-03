@@ -1,36 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { CreditAccount } from '@/server/credits/credit-balances'
 
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
 
 function fmt(v: number, cur = 'ARS') {
-  return `${CURRENCY_SYMBOL[cur] || '$'}${Math.abs(v).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  return `${CURRENCY_SYMBOL[cur] || '$'}${Math.round(Math.abs(v)).toLocaleString('es-AR')}`
 }
 
 function fmtDate(d: Date | string | null) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  return new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }).replace('.', '')
 }
 
-const isPast = (d: Date | string | null) => Boolean(d && new Date(d) < new Date())
-
-// ── Íconos ──
-function CxCIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-    </svg>
-  )
+// Colores (los mismos que Cajas): créditos índigo, deudas ámbar
+const COLOR = {
+  cxc: { text: 'text-[#5E5CE6] dark:text-[#7D7AFF]', soft: 'bg-[#5E5CE6]/12 text-[#4B49C8] dark:bg-[#7D7AFF]/20 dark:text-[#A5A3FF]', btn: 'bg-[#5E5CE6] hover:bg-[#4B49C8]' },
+  cxp: { text: 'text-[#C77700] dark:text-[#FFB340]', soft: 'bg-[#FF9F0A]/15 text-[#B86E00] dark:bg-[#FF9F0A]/20 dark:text-[#FFB340]', btn: 'bg-[#FF9F0A] hover:bg-[#E58E00]' },
 }
 
-function CxPIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-    </svg>
-  )
+/** "Arq. Paula Martínez" → "AP" */
+function iniciales(nombre: string) {
+  const partes = nombre.replace(/[^\p{L}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean)
+  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase() || '·'
 }
 
 /** Más urgentes primero: por próximo vencimiento; sin vencimiento, al final */
@@ -40,172 +34,59 @@ function sortByVencimiento(items: CreditAccount[]) {
     (b.proximoVencimiento ? new Date(b.proximoVencimiento).getTime() : Infinity))
 }
 
-function SummarySplitCard({
-  porCobrar,
-  porPagar,
-  diferencia,
-}: {
-  porCobrar: number
-  porPagar: number
-  diferencia: number
-}) {
+/** Tarjeta de resumen arriba: Te deben / Debés / Balance neto */
+function ResumenCard({ titulo, monto, detalle, tono }: { titulo: string; monto: number; detalle?: string; tono: string }) {
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_240px] xl:items-center">
-      <div
-        className="relative w-full min-h-[92px] overflow-hidden border border-[#E7E5E4] px-4 py-3 shadow-[0_8px_20px_rgba(0,0,0,0.05)] backdrop-blur-[6px] dark:border-[#3A3A3A]"
-      >
-        <svg className="pointer-events-none absolute inset-0 h-full w-full dark:hidden" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="balance-left-fill-light" x1="0" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#D7EEE4" />
-              <stop offset="100%" stopColor="#C6E3D6" />
-            </linearGradient>
-            <linearGradient id="balance-right-fill-light" x1="34" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#F0D8B7" />
-              <stop offset="100%" stopColor="#E3C08F" />
-            </linearGradient>
-            <linearGradient id="balance-line-light" x1="34" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#C6E3D6" />
-              <stop offset="48%" stopColor="#C6E3D6" />
-              <stop offset="52%" stopColor="#EACCA3" />
-              <stop offset="100%" stopColor="#EACCA3" />
-            </linearGradient>
-          </defs>
-
-          <path d="M0 0 H66 L52 42 L48 58 L34 100 H0 Z" fill="url(#balance-left-fill-light)" />
-          <path d="M66 0 H100 V100 H34 L48 58 L52 42 Z" fill="url(#balance-right-fill-light)" />
-          <path
-            d="M66 0 L52 42 L48 58 L34 100"
-            fill="none"
-            stroke="url(#balance-line-light)"
-            strokeWidth="4.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-
-        <svg className="pointer-events-none absolute inset-0 hidden h-full w-full dark:block" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="balance-left-fill-dark" x1="0" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#26483B" />
-              <stop offset="100%" stopColor="#1F3A31" />
-            </linearGradient>
-            <linearGradient id="balance-right-fill-dark" x1="34" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#6B4D2D" />
-              <stop offset="100%" stopColor="#533A20" />
-            </linearGradient>
-            <linearGradient id="balance-line-dark" x1="34" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#1F3A31" />
-              <stop offset="48%" stopColor="#1F3A31" />
-              <stop offset="52%" stopColor="#6B4D2D" />
-              <stop offset="100%" stopColor="#6B4D2D" />
-            </linearGradient>
-          </defs>
-
-          <path d="M0 0 H66 L52 42 L48 58 L34 100 H0 Z" fill="url(#balance-left-fill-dark)" />
-          <path d="M66 0 H100 V100 H34 L48 58 L52 42 Z" fill="url(#balance-right-fill-dark)" />
-          <path
-            d="M66 0 L52 42 L48 58 L34 100"
-            fill="none"
-            stroke="url(#balance-line-dark)"
-            strokeWidth="4.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-
-        <div
-          className="pointer-events-none absolute inset-0 opacity-80 dark:opacity-40"
-          style={{
-            background: 'linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.08) 100%)',
-          }}
-        />
-
-        <div className="relative flex items-center justify-between gap-4">
-          <div className="z-[2] flex min-w-0 flex-col items-start">
-            <span className="text-[24px] font-mono font-bold leading-none text-[#1A1A1A] num-tabular dark:text-[#F4FFF8]">
-              {fmt(porCobrar)}
-            </span>
-            <span className="mt-0.5 text-[11px] text-[#666666] dark:text-[#D6D3D1]">Por cobrar</span>
-          </div>
-
-          <div className="z-[2] flex min-w-0 flex-col items-end">
-            <span className="text-[24px] font-mono font-bold leading-none text-[#1A1A1A] num-tabular dark:text-[#FFF7EA]">
-              {fmt(porPagar)}
-            </span>
-            <span className="mt-0.5 text-[11px] text-[#666666] dark:text-[#D6D3D1]">Por pagar</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex min-h-[92px] flex-col justify-center border border-[#E7E5E4] bg-white px-5 py-4 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:border-[#3A3A3A] dark:bg-[#181818]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400 dark:text-[#9F9F9F]">Balance neto</p>
-        <p className={`mt-2 text-[30px] font-mono font-bold leading-none num-tabular ${diferencia >= 0 ? 'text-brand-military-dark dark:text-[#6EBC8A]' : 'text-[#9A3412] dark:text-[#F59E0B]'}`}>
-          {diferencia >= 0 ? '' : '-'}{fmt(Math.abs(diferencia))}
-        </p>
-      </div>
+    <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] dark:bg-[#1C1C1E] dark:shadow-none">
+      <p className="text-[13px] font-medium text-[#8E8E93]">{titulo}</p>
+      <p className={`mt-1 text-[30px] font-semibold leading-tight tracking-tight tabular-nums ${tono}`}>
+        {monto < 0 ? '−' : ''}{fmt(monto)}
+      </p>
+      {detalle && <p className="mt-0.5 text-[13px] text-[#8E8E93]">{detalle}</p>}
     </div>
   )
 }
 
-// ── Fila: próximo vencimiento, cliente/proveedor y saldo. Toda la fila abre la ficha ──
+// ── Fila iOS: iniciales, nombre y saldo. Toda la fila abre la ficha ──
 function CreditAccountRow({ account, onOpen }: { account: CreditAccount; onOpen: () => void }) {
   const isCxC = account.type === 'INCOME'
+  const c = isCxC ? COLOR.cxc : COLOR.cxp
   const saldado = account.saldo <= 0
-  const vencido = isPast(account.proximoVencimiento) && !saldado
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`flex w-full items-center border-b border-l-[3px] border-[#ECE7E1] bg-white text-left transition hover:bg-[#FAFBFA] dark:border-white/5 dark:bg-transparent dark:hover:bg-white/[0.03] ${
-        isCxC ? 'border-l-[#3A4D39]' : 'border-l-[#A65D57]'
-      }`}
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03] active:bg-black/[0.05] dark:hover:bg-white/[0.04] ${saldado ? 'opacity-55' : ''}`}
     >
-      <span className={`w-[110px] shrink-0 px-4 py-4 text-sm font-medium tabular-nums ${vencido ? 'font-semibold text-red-500' : 'text-[#4B5563] dark:text-stone-300'}`}>
-        {saldado ? '—' : fmtDate(account.proximoVencimiento)}
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${saldado ? 'bg-black/[0.06] text-[#8E8E93] dark:bg-white/10' : c.soft}`}>
+        {iniciales(account.name)}
       </span>
-      <span className="min-w-0 flex-1 truncate px-4 py-4 text-sm font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{account.name}</span>
-      <span className="shrink-0 px-4 py-4 text-right">
-        {saldado ? (
-          <span className="rounded-full border border-stone-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-stone-400 dark:border-white/10">Saldado</span>
-        ) : (
-          <span className={`font-mono text-sm font-bold num-tabular ${isCxC ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'}`}>
-            {isCxC ? '+' : '−'}{fmt(account.saldo, account.currency)}
-          </span>
-        )}
-      </span>
-      <svg className="mr-3 h-4 w-4 shrink-0 text-stone-300 dark:text-stone-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <span className="min-w-0 flex-1 truncate text-[15px] text-[#1C1C1E] dark:text-white">{account.name}</span>
+      {!saldado && (
+        <span className="shrink-0 text-[15px] font-medium tabular-nums text-[#1C1C1E] dark:text-white">{fmt(account.saldo, account.currency)}</span>
+      )}
+      <svg className="h-3.5 w-3.5 shrink-0 text-[#C7C7CC] dark:text-[#48484A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
       </svg>
     </button>
   )
 }
 
-function Modal({ onClose, children, maxWidth = 'max-w-[920px]' }: { onClose: () => void; children: React.ReactNode; maxWidth?: string }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-5 sm:p-6">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative my-4 flex max-h-[calc(100vh-56px)] w-full ${maxWidth} flex-col overflow-hidden border border-stone-200 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.18)] sm:max-h-[calc(100vh-72px)] dark:border-white/10 dark:bg-[#141414]`}>
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center border border-stone-200 bg-white/95 text-stone-500 shadow-sm transition-colors hover:text-stone-700 dark:border-white/10 dark:bg-[#1B1B1B] dark:text-stone-300"
-          aria-label="Cerrar"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        {children}
-      </div>
-    </div>
-  )
-}
-
-// ── Ficha: saldo, cuotas pendientes y movimientos (crédito inicial y cobros/pagos) ──
+// ── Ficha: hoja iOS mínima. Saldo, progreso, cuotas pendientes, movimientos (plegado) y Cobrar/Pagar ──
 function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onClose: () => void }) {
   const isCxC = account.type === 'INCOME'
+  const c = isCxC ? COLOR.cxc : COLOR.cxp
   const cur = account.currency
+  const progreso = account.total > 0 ? Math.min(100, Math.round((account.aplicado / account.total) * 100)) : 0
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
+  }, [onClose])
 
   // Abre el "+" en Cobro / Pago con este cliente y su cuota más vieja ya elegidos
   const cobrarOPagar = () => {
@@ -222,149 +103,134 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
     onClose()
   }
 
-  return (
-    <Modal onClose={onClose} maxWidth="max-w-[640px]">
-      <div className="border-b border-stone-100 px-5 py-4 pr-14 dark:border-white/10">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">{isCxC ? 'Cliente' : 'Proveedor'}</p>
-        <h3 className="mt-0.5 truncate text-base font-semibold text-stone-900 dark:text-[#E8E8E8]">{account.name}</h3>
-      </div>
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-end justify-center md:items-center" role="dialog" aria-modal="true" aria-label={account.name}>
+      <div className="reg-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="reg-sheet relative flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-[#F2F2F7] shadow-2xl dark:bg-black md:rounded-3xl">
+        <div className="flex justify-center pt-2 md:hidden" aria-hidden>
+          <span className="h-[5px] w-9 rounded-full bg-black/15 dark:bg-white/20" />
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.06] text-[#8E8E93] transition active:scale-90 dark:bg-white/10"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
 
-      <div className="overflow-y-auto">
-        {/* Saldo restante */}
-        <div className="px-5 py-5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-400">Saldo {isCxC ? 'a cobrar' : 'a pagar'}</p>
-          <p className={`mt-1 font-mono text-[32px] font-bold leading-none num-tabular ${isCxC ? 'text-brand-military-dark dark:text-[#6EBC8A]' : 'text-brand-gold-dark dark:text-[#C5A065]'}`}>
-            {fmt(account.saldo, cur)}
-          </p>
-          <p className="mt-2 text-xs text-stone-500 dark:text-stone-400">
-            {isCxC ? 'Vendido' : 'Comprado'} a crédito {fmt(account.total, cur)} · {isCxC ? 'Cobrado' : 'Pagado'} {fmt(account.aplicado, cur)}
-          </p>
+        <div className="overflow-y-auto px-4 pb-4">
+          {/* Encabezado: iniciales, nombre, saldo y progreso */}
+          <div className="flex flex-col items-center pt-5 text-center">
+            <span className={`flex h-14 w-14 items-center justify-center rounded-full text-[18px] font-semibold ${c.soft}`}>{iniciales(account.name)}</span>
+            <p className="mt-2 text-[17px] font-semibold text-[#1C1C1E] dark:text-white">{account.name}</p>
+            <p className={`mt-1 text-[34px] font-semibold tracking-tight tabular-nums ${c.text}`}>{fmt(account.saldo, cur)}</p>
+            <p className="text-[13px] text-[#8E8E93]">{account.saldo > 0 ? (isCxC ? 'te debe' : 'le debés') : 'Saldado'}</p>
+            {account.total > 0 && (
+              <div className="mt-4 w-full max-w-[260px]">
+                <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
+                  <div className={`h-full rounded-full ${isCxC ? 'bg-[#5E5CE6]' : 'bg-[#FF9F0A]'}`} style={{ width: `${progreso}%` }} />
+                </div>
+                <p className="mt-1.5 text-[12px] text-[#8E8E93]">
+                  {isCxC ? 'Cobrado' : 'Pagado'} {progreso}% · {fmt(account.aplicado, cur)} de {fmt(account.total, cur)}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Operaciones: venta/compra a crédito; al tocar se despliegan sus cuotas */}
+          {account.operaciones.length > 0 && (
+            <section className="mt-6">
+              <p className="mb-1.5 px-4 text-[13px] text-[#8E8E93]">Operaciones</p>
+              <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[#1C1C1E]">
+                {account.operaciones.map((op) => {
+                  const saldada = op.resta <= 0.009
+                  const n = op.cuotas.length
+                  return (
+                    <details key={op.id} className="ios-disclosure group">
+                      <summary className={`flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden ${saldada ? 'opacity-60' : ''}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[15px] text-[#1C1C1E] dark:text-white">
+                            {fmtDate(op.date)} · {isCxC ? 'Venta' : 'Compra'}
+                          </p>
+                          <p className="truncate text-[12px] text-[#8E8E93]">
+                            {n} {n === 1 ? 'cuota' : 'cuotas'} · {saldada ? (isCxC ? 'Cobrada' : 'Pagada') : `resta ${fmt(op.resta, cur)}`}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[15px] tabular-nums text-[#1C1C1E] dark:text-white">{fmt(op.total, cur)}</span>
+                        <svg className="h-3.5 w-3.5 shrink-0 text-[#C7C7CC] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </summary>
+                      {/* Cuotas, sutiles: suman el total de la operación */}
+                      <ul className="pb-2 pl-4 pr-10">
+                        {op.cuotas.map((q) => {
+                          const pagada = q.estado === 'PAGADA'
+                          return (
+                            <li key={q.id} className="flex items-center gap-2 py-1 text-[12px] tabular-nums">
+                              <span className="flex w-3 shrink-0 justify-center" aria-hidden>
+                                {pagada ? (
+                                  <svg className="h-3 w-3 text-[#AEAEB2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+                                ) : q.vencida ? (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-[#FF9F0A]" />
+                                ) : null}
+                              </span>
+                              <span className={`min-w-0 flex-1 truncate ${pagada ? 'text-[#AEAEB2] line-through decoration-black/15 dark:text-[#636366] dark:decoration-white/15' : 'text-[#3C3C43] dark:text-[#EBEBF5]/80'}`}>
+                                {q.cuotasTotal ? `Cuota ${q.cuotaNumero}/${q.cuotasTotal}` : 'Cuota única'} · {fmtDate(q.fechaVencimiento)}
+                                {q.estado === 'PARCIAL' && <span className="text-[#8E8E93] no-underline"> · resta {fmt(q.resta, cur)}</span>}
+                              </span>
+                              <span className={`shrink-0 ${pagada ? 'text-[#AEAEB2] line-through decoration-black/15 dark:text-[#636366] dark:decoration-white/15' : 'text-[#3C3C43] dark:text-[#EBEBF5]/80'}`}>
+                                {fmt(q.monto, cur)}
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </details>
+                  )
+                })}
+              </div>
+            </section>
+          )}
         </div>
 
-        {/* Cuotas pendientes */}
-        {account.cuotasPendientes.length > 0 && (
-          <div className="border-t border-[#ECE7E1] dark:border-white/10">
-            <p className="px-5 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Cuotas pendientes</p>
-            {account.cuotasPendientes.map((q) => (
-              <div key={q.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
-                <span className={`w-[76px] shrink-0 tabular-nums ${q.vencida ? 'font-semibold text-red-500' : 'text-stone-500 dark:text-stone-400'}`}>{fmtDate(q.fechaVencimiento)}</span>
-                <span className="min-w-0 flex-1 truncate text-[#374151] dark:text-stone-300">
-                  {q.description}
-                  {q.cuotasTotal && q.cuotasTotal > 1 ? <span className="text-stone-400"> · cuota {q.cuotaNumero}/{q.cuotasTotal}</span> : null}
-                </span>
-                <span className="shrink-0 font-mono font-semibold num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{fmt(q.saldo, cur)}</span>
-              </div>
-            ))}
+        {/* Botón fijo abajo */}
+        {account.saldo > 0 && account.primeraPendienteId && (
+          <div className="border-t border-black/[0.06] px-4 py-3 dark:border-white/10">
+            <button type="button" onClick={cobrarOPagar} className={`w-full rounded-xl py-3.5 text-[16px] font-semibold text-white transition active:scale-[0.99] ${c.btn}`}>
+              {isCxC ? 'Cobrar' : 'Pagar'}
+            </button>
           </div>
         )}
-
-        {/* Movimientos: + crédito inicial / − cobros y pagos, con la fecha en que impactaron en caja */}
-        <div className="border-t border-[#ECE7E1] pb-3 dark:border-white/10">
-          <p className="px-5 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-stone-400">Movimientos</p>
-          {account.movimientos.map((m) => {
-            const esCredito = m.kind === 'CREDITO'
-            return (
-              <div key={m.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
-                <span className="w-[76px] shrink-0 tabular-nums text-stone-500 dark:text-stone-400">{fmtDate(m.date)}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[#374151] dark:text-stone-300">
-                    {esCredito ? (isCxC ? 'Venta a crédito' : 'Compra a crédito') : (isCxC ? 'Cobro' : 'Pago')}
-                  </span>
-                  <span className="block truncate text-[11px] text-stone-400">{esCredito ? m.description : m.account ?? m.description}</span>
-                </span>
-                <span className={`shrink-0 font-mono font-semibold num-tabular ${esCredito ? 'text-[#1F2937] dark:text-[#E8E8E8]' : isCxC ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'}`}>
-                  {esCredito ? '+' : '−'}{fmt(m.amount, cur)}
-                </span>
-              </div>
-            )
-          })}
-        </div>
       </div>
-
-      {account.saldo > 0 && account.primeraPendienteId && (
-        <div className="border-t border-[#ECE7E1] px-5 py-4 dark:border-white/10">
-          <button
-            type="button"
-            onClick={cobrarOPagar}
-            className={`w-full py-3 text-sm font-semibold text-white shadow-sm transition ${isCxC ? 'bg-brand-military hover:bg-brand-military-dark' : 'bg-brand-oxide hover:opacity-90'}`}
-          >
-            {isCxC ? 'Cobrar' : 'Pagar'}
-          </button>
-        </div>
-      )}
-    </Modal>
+    </div>,
+    document.body,
   )
 }
 
-// ── Panel CxC (cobrar) o CxP (pagar) ──
-function CreditGroupPanel({ label, icon, isCxC, accounts, total }: {
+// ── Lista CxC (te deben) o CxP (debés): todos, los abiertos por vencimiento y los saldados al final ──
+function CreditGroupPanel({ label, isCxC, accounts }: {
   label: string
-  icon: React.ReactNode
   isCxC: boolean
   accounts: CreditAccount[]
-  total: number
 }) {
-  const [showAll, setShowAll] = useState(false)
   const [openKey, setOpenKey] = useState<string | null>(null)
-
   const abiertos = sortByVencimiento(accounts.filter((a) => a.saldo > 0))
-  // En "Ver todos" también los saldados, al final, para poder ver su historial
-  const todos = [...abiertos, ...accounts.filter((a) => a.saldo <= 0).sort((a, b) => a.name.localeCompare(b.name))]
+  const saldados = accounts.filter((a) => a.saldo <= 0).sort((a, b) => a.name.localeCompare(b.name, 'es'))
   const abierta = accounts.find((a) => a.key === openKey) ?? null
 
   return (
-    <div
-      className="bg-white dark:bg-[#141414] border border-[#E5E7EB] dark:border-white/10 overflow-hidden"
-      style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.05)' }}
-    >
-      <div className="px-5 pt-5 pb-4 bg-gradient-to-b from-[#FAFBFC] to-white dark:from-[#141414] dark:to-[#141414]">
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-9 h-9 flex items-center justify-center ${isCxC ? 'bg-brand-military-light text-brand-military' : 'bg-brand-gold-light text-brand-gold-dark'}`}>
-              {icon}
-            </div>
-            <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">{label}</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowAll(true)}
-            className="border border-[#D6D3D1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#57534E] transition-colors hover:border-[#A8A29E] hover:text-[#1F2937] dark:border-white/10 dark:bg-white/5 dark:text-[#D6D3D1]"
-          >
-            Ver todos
-          </button>
-        </div>
-        <p className={`text-3xl md:text-[32px] font-mono font-bold num-tabular leading-none ${isCxC ? 'text-brand-military-dark dark:text-[#6EBC8A]' : 'text-brand-gold-dark dark:text-[#C5A065]'}`}>
-          {fmt(total)}
-        </p>
-        <p className="text-xs text-[#9CA3AF] mt-1">pendiente de {isCxC ? 'cobro' : 'pago'}</p>
-      </div>
-
-      <div className="border-t border-[#ECE7E1] dark:border-white/10">
-        {abiertos.length === 0 ? (
-          <p className="py-8 text-center text-sm text-[#9CA3AF]">{isCxC ? 'Nadie te debe' : 'No debés nada'} por ahora</p>
+    <section>
+      <h2 className="mb-2 px-1 text-[13px] font-medium text-[#8E8E93]">{label}</h2>
+      <div className="divide-y divide-black/[0.06] overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:divide-white/[0.08] dark:bg-[#1C1C1E] dark:shadow-none">
+        {abiertos.length === 0 && saldados.length === 0 ? (
+          <p className="py-8 text-center text-[14px] text-[#8E8E93]">{isCxC ? 'Nadie te debe' : 'No debés nada'} por ahora</p>
         ) : (
-          abiertos.slice(0, 3).map((a) => <CreditAccountRow key={a.key} account={a} onOpen={() => setOpenKey(a.key)} />)
+          [...abiertos, ...saldados].map((a) => <CreditAccountRow key={a.key} account={a} onOpen={() => setOpenKey(a.key)} />)
         )}
       </div>
-
-      {showAll && (
-        <Modal onClose={() => setShowAll(false)}>
-          <div className="border-b border-stone-100 px-5 py-4 pr-14 dark:border-white/10">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">{isCxC ? 'Clientes' : 'Proveedores'}</p>
-            <h3 className="mt-0.5 text-base font-semibold text-stone-900 dark:text-[#E8E8E8]">{label}</h3>
-          </div>
-          <div className="overflow-y-auto">
-            {todos.length === 0 ? (
-              <p className="py-10 text-center text-sm text-[#9CA3AF]">No hay registros para mostrar.</p>
-            ) : (
-              todos.map((a) => <CreditAccountRow key={a.key} account={a} onOpen={() => setOpenKey(a.key)} />)
-            )}
-          </div>
-        </Modal>
-      )}
-
       {abierta && <CreditAccountSheet account={abierta} onClose={() => setOpenKey(null)} />}
-    </div>
+    </section>
   )
 }
 
@@ -377,14 +243,22 @@ export default function CreditosClient({ accounts }: { accounts: CreditAccount[]
   const totalPorCobrar = sumArs(cxc)
   const totalPorPagar = sumArs(cxp)
 
+  const abiertos = (list: CreditAccount[]) => list.filter((a) => a.saldo > 0).length
+  const nCxc = abiertos(cxc)
+  const nCxp = abiertos(cxp)
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <CreditGroupPanel label="Cuentas por Cobrar" icon={<CxCIcon />} isCxC accounts={cxc} total={totalPorCobrar} />
-        <CreditGroupPanel label="Cuentas por Pagar" icon={<CxPIcon />} isCxC={false} accounts={cxp} total={totalPorPagar} />
+      {/* Resumen: créditos (te deben) y deudas (debés) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <ResumenCard titulo="Créditos" monto={totalPorCobrar} detalle={`${nCxc} ${nCxc === 1 ? 'cliente' : 'clientes'}`} tono={COLOR.cxc.text} />
+        <ResumenCard titulo="Deudas" monto={totalPorPagar} detalle={`${nCxp} ${nCxp === 1 ? 'proveedor' : 'proveedores'}`} tono={COLOR.cxp.text} />
       </div>
 
-      <SummarySplitCard porCobrar={totalPorCobrar} porPagar={totalPorPagar} diferencia={totalPorCobrar - totalPorPagar} />
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <CreditGroupPanel label="Créditos" isCxC accounts={cxc} />
+        <CreditGroupPanel label="Deudas" isCxC={false} accounts={cxp} />
+      </div>
     </div>
   )
 }

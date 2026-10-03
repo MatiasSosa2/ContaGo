@@ -1,4 +1,4 @@
-import { getProductos } from '@/app/actions'
+import { getIncomeStatement, getProductos } from '@/app/actions'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
@@ -32,10 +32,14 @@ export default async function StockPage({
   const selectedDay = sp?.day
   const selectedWeekStart = sp?.weekStart
 
-  const productos = await getProductos(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
+  const [productos, er] = await Promise.all([
+    getProductos(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    // Ventas del período (Estado de resultados): para "Ventas − Costo vendido = Ganancia"
+    getIncomeStatement(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart, 'ARS'),
+  ])
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F7F9FB] p-4 font-sans text-[#1F2937] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
+    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F2F2F7] p-4 font-sans text-[#1F2937] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
 
       <AppHeader
         title="Inventario"
@@ -60,7 +64,8 @@ export default async function StockPage({
         }
       />
 
-      <StockClient initialProductos={productos as StockClientProductos} />
+      {/* key: al cambiar el período se monta de nuevo con los datos nuevos */}
+      <StockClient key={`${periodo}-${selectedYear ?? ''}-${selectedMonth ?? ''}-${selectedDay ?? ''}-${selectedWeekStart ?? ''}-${customFrom ?? ''}-${customTo ?? ''}`} initialProductos={productos as StockClientProductos} ventasPeriodo={er.ventas} />
     </div>
   )
 }

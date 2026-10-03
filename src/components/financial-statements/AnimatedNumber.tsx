@@ -6,9 +6,15 @@ import { useEffect, useRef, useState } from 'react'
  * Número que "cuenta" hasta su nuevo valor cuando cambia (como la app Salud del iPhone).
  * Recibe el formato para mostrar cada cuadro de la animación.
  */
-export default function AnimatedNumber({ value, format, duration = 600 }: { value: number; format: (v: number) => string; duration?: number }) {
-  const [shown, setShown] = useState(value)
-  const fromRef = useRef(value)
+export default function AnimatedNumber({ value, format, duration = 600, desde }: {
+  value: number
+  format: (v: number) => string
+  duration?: number
+  /** Si está, al montar cuenta desde este valor (ej. 0) hasta value */
+  desde?: number
+}) {
+  const [shown, setShown] = useState(desde ?? value)
+  const fromRef = useRef(desde ?? value)
 
   useEffect(() => {
     const from = fromRef.current

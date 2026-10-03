@@ -21,7 +21,7 @@ function buildPrismaClient() {
   // ejecutar queries reales (el mock data se inyecta en las actions).
   if (isMock && url && authToken) {
     const adapter = new PrismaLibSql({ url, authToken })
-    return new PrismaClient({ adapter } as any)
+    return new PrismaClient({ adapter })
   }
 
   if (!url) {
@@ -42,17 +42,16 @@ function buildPrismaClient() {
 
     // API Prisma 7: PrismaLibSql({ url, authToken }) — es un AdapterFactory
     const adapter = new PrismaLibSql({ url, authToken })
-    return new PrismaClient({ adapter } as any)
+    return new PrismaClient({ adapter })
   }
 
   // ── SQLite local embebido (file:./...) ─────────────────────────────────────
   // Usa libsql con archivo local para compatibilidad con Prisma 7 adapter-only
   const adapter = new PrismaLibSql({ url })
-  return new PrismaClient({ adapter } as any)
+  return new PrismaClient({ adapter })
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var prisma: undefined | ReturnType<typeof buildPrismaClient>
 }
 

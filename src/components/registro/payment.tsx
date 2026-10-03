@@ -83,7 +83,7 @@ export function MoneyField({ value, onChange, onEnter, label, align = 'left', si
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => { if (e.key === 'Enter') { setEditing(false); onEnter?.() } }}
-        className={`ios-bare w-full border-b border-brand-military bg-transparent text-[#1C1C1E] outline-none dark:text-white tabular-nums ${cls}`}
+        className={`ios-bare w-full border-b border-[var(--reg-accent,#34C759)] bg-transparent text-[#1C1C1E] outline-none dark:text-white tabular-nums ${cls}`}
         aria-label={label}
       />
     )
@@ -364,7 +364,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
             </div>
           </Group>
           <div className="mt-2 flex items-center justify-between px-4 text-[13px]">
-            <span className={Math.abs(falta) <= 0.01 ? 'text-brand-military dark:text-[#9AC7A8]' : 'text-[#FF3B30]'}>
+            <span className={Math.abs(falta) <= 0.01 ? 'text-[#34C759] dark:text-[#30D158]' : 'text-[#FF3B30] dark:text-[#FF453A]'}>
               {Math.abs(falta) <= 0.01 ? 'Pago completo' : falta > 0 ? `Falta asignar ${fmt(falta)}` : `Te pasaste ${fmt(-falta)}`}
             </span>
             <button type="button" onClick={noCombinar} className="text-[12px] text-[#8E8E93] transition-opacity active:opacity-60">No combinar</button>

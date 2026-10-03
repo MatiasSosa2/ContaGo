@@ -8,14 +8,16 @@ import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
 
+type PeriodParams = { periodo?: string; from?: string; to?: string; year?: string; month?: string; day?: string; weekStart?: string }
+
 export default async function CreditosPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ periodo?: string; from?: string; to?: string; year?: string; month?: string; day?: string; weekStart?: string }>
+  searchParams?: Promise<PeriodParams>
 }) {
   const [sessionContext, sp] = await Promise.all([
     requireBusinessContext(),
-    searchParams ?? Promise.resolve({} as any),
+    searchParams ?? Promise.resolve<PeriodParams>({}),
   ])
 
   const periodo = (sp?.periodo ?? 'mensual') as PeriodKey
@@ -33,7 +35,7 @@ export default async function CreditosPage({
   const accounts = await getCreditAccounts(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F7F9FB] dark:bg-black">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F2F2F7] dark:bg-black">
 
       {/* ══ HEADER ═══════════════════════════════════════════════════════════ */}
       <AppHeader

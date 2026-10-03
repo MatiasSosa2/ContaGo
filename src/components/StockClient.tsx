@@ -1,30 +1,32 @@
 'use client'
 
 import React, { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import {
-  getProductos, createProducto, updateProducto, deleteProducto, getMovimientosStock,
+  deleteProducto, deleteArticulo, getMovimientosStock,
 } from '@/app/actions'
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts'
-import {
-  FiPackage,
-  FiDollarSign,
-  FiTag,
-  FiTrendingUp,
-} from 'react-icons/fi'
+import ProductoSheet, { type MovimientoFicha } from './stock/ProductoSheet'
+import ProductoForm, { type ArticuloEditable } from './stock/ProductoForm'
+import PreciosMasivoSheet from './stock/PreciosMasivoSheet'
+import StockGrid from './stock/StockGrid'
+import Foto, { fotoUrl } from './stock/Foto'
+import type { ArticuloVista } from './stock/tipos'
+import { claveVariante, etiquetaVariante, parseAtributos, parseValores, resumenAtributos } from '@/lib/variantes'
+import AnimatedNumber from './financial-statements/AnimatedNumber'
+import SubtotalesSheet from './stock/SubtotalesSheet'
+import { unidadDe } from '@/lib/unidades'
 
 type Producto = {
   id: string; nombre: string; descripcion: string | null; categoria: string | null
   marca: string | null; unidad: string; metodoCosteo: string; enTransito: number
   precioVenta: number; precioCosto: number; stockActual: number
-  tipo?: 'MERCADERIA' | 'SERVICIO'
+  tipo?: 'MERCADERIA' | 'SERVICIO' | string
+  alertaStock?: number | null
+  /** Variante de un artículo (null = producto suelto) */
+  articuloId?: string | null
+  atributos?: string | null
+  precioPropio?: boolean
+  articulo?: { id: string; nombre: string; subcategoria: string | null; atributos: string | null; precioVenta: number; fotoAt: Date | string | null } | null
   stockInicialPeriodo?: number
   entradasPeriodo?: number
   salidasPeriodo?: number
@@ -34,15 +36,6 @@ type Producto = {
   valorInicialPeriodo?: number
   valorCompradoPeriodo?: number
   valorFinalPeriodo?: number
-}
-
-type Movimiento = {
-  id: string
-  fecha: Date | string
-  tipo: 'ENTRADA' | 'SALIDA' | 'AJUSTE'
-  cantidad: number
-  precio: number
-  motivo: string | null
 }
 
 // Formateadores deterministas (evitan mismatch de hidratación entre Node ICU y el navegador).
@@ -59,432 +52,142 @@ function formatNumberAR(value: number, minFrac: number, maxFrac: number): string
   while (decPart.length > minFrac && decPart.endsWith('0')) decPart = decPart.slice(0, -1)
   return decPart ? `${sign}${intWithSep},${decPart}` : `${sign}${intWithSep}`
 }
-function fmt(v: number | null | undefined) { return formatNumberAR(v ?? 0, 2, 2) }
 function fmtUnits(v: number | null | undefined) { return formatNumberAR(v ?? 0, 0, 2) }
-function fmtDate(d: Date | string) {
-  const date = d instanceof Date ? d : new Date(d)
-  if (Number.isNaN(date.getTime())) return ''
-  const dd = String(date.getDate()).padStart(2, '0')
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const yyyy = date.getFullYear()
-  return `${dd}/${mm}/${yyyy}`
-}
+function fmtEntero(v: number | null | undefined) { return formatNumberAR(Math.round(v ?? 0), 0, 0) }
 
-function tipoLabel(tipo?: 'MERCADERIA' | 'SERVICIO') {
-  return tipo === 'SERVICIO' ? 'Servicio' : 'Producto'
-}
 
-function metodoCosteoLabel(metodo: string | null | undefined) {
-  if (metodo === 'FIFO') return 'FIFO'
-  if (metodo === 'LIFO') return 'LIFO'
-  return 'Promedio'
-}
-
-const LABEL_CLS = 'text-[11px] font-semibold uppercase tracking-[0.2em] text-[#374151] dark:text-[#E7F0E5]'
-const FIELD_CLS = 'h-9 rounded-md border border-[#D1D5DB] bg-white px-3 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#1B1B1B] dark:text-[#F8FAFC] dark:placeholder:text-[#8B938B]'
-const SELECT_CLS = FIELD_CLS
-const TEXTAREA_CLS = 'rounded-md border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand-military/25 focus:border-brand-military transition dark:border-white/15 dark:bg-[#1B1B1B] dark:text-[#F8FAFC] dark:placeholder:text-[#8B938B] resize-none'
-const SECTION_HEADING_CLS = 'mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#6B7280] dark:text-[#D9E7D7]'
-const META_LABEL_CLS = 'text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#C7D2C1]'
-const META_VALUE_CLS = 'text-[11px] text-[#6B7280] dark:text-[#C7D2C1]'
-
-const TIPO_COLORS = {
-  ENTRADA: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900',
-  SALIDA: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-900',
-  AJUSTE: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900',
-} as const
-
-const STOCK_CHART_COLORS = {
-  unidades: '#0F766E',
-  grid: '#E5E7EB',
-  axis: '#9CA3AF',
-} as const
-
-type MovimientoChartPoint = {
-  id: string
-  label: string
-  idx: number
-  tipo: Movimiento['tipo']
-  unidades: number
-}
-
-function InputField({
-  label,
-  name,
-  type = 'text',
-  step,
-  defaultValue,
-  required,
-  helperText,
-  helperPosition = 'above',
-  singleLineLabel = false,
-  containerClassName = '',
-  inputClassName = '',
-}: {
-  label: string
-  name: string
-  type?: string
-  step?: string
-  defaultValue?: string | number
-  required?: boolean
-  helperText?: string
-  helperPosition?: 'above' | 'below'
-  singleLineLabel?: boolean
-  containerClassName?: string
-  inputClassName?: string
-}) {
-  const isNumeric = type === 'number'
-  const labelClass = `${LABEL_CLS} ${singleLineLabel ? 'whitespace-nowrap' : ''}`
-
-  return (
-    <div className={`flex flex-col gap-1 ${containerClassName}`}>
-      {helperPosition === 'above' && (
-        helperText ? (
-          <div className="flex items-center justify-between gap-2">
-            <label className={labelClass}>{label}</label>
-            <span className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#6B7280] dark:text-[#B7C3B0]">
-              {helperText}
-            </span>
-          </div>
-        ) : (
-          <label className={labelClass}>{label}</label>
-        )
-      )}
-
-      {helperPosition === 'below' && <label className={labelClass}>{label}</label>}
-
-      <input
-        name={name}
-        type={type}
-        step={step}
-        defaultValue={defaultValue}
-        required={required}
-        className={`${FIELD_CLS} ${isNumeric ? 'font-sans tabular-nums' : ''} ${inputClassName}`}
-      />
-
-      {helperPosition === 'below' && helperText && (
-        <span className="text-[9px] font-medium uppercase tracking-[0.12em] text-[#6B7280] dark:text-[#B7C3B0] leading-none">
-          {helperText}
-        </span>
-      )}
-    </div>
-  )
-}
-
-// ── Ícono inventario ──
-function BoxIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
-  )
-}
-
-function ProductoFormBody({
-  editingProd,
-  editingId,
-  categoriasExistentes,
-  isPending,
-  formError,
-  onSubmit,
-  onCancel,
-}: {
-  editingProd: Producto | null
-  editingId: string | null
-  categoriasExistentes: string[]
-  isPending: boolean
-  formError: string
-  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void
-  onCancel: () => void
-}) {
-  const initialCat = editingProd?.categoria?.trim() || ''
-  const initialCatExists = !!initialCat && categoriasExistentes.includes(initialCat)
-  const [catMode, setCatMode] = useState<'pick' | 'new'>(initialCat && !initialCatExists ? 'new' : 'pick')
-  const [catPick, setCatPick] = useState(initialCatExists ? initialCat : '')
-  const [catNew, setCatNew] = useState(initialCatExists ? '' : initialCat)
-  const categoriaValue = (catMode === 'pick' ? catPick : catNew).trim()
-
-  const unidadOptions = ['unidad', 'kg', 'gr', 'lt', 'ml', 'm', 'cm', 'caja', 'pack', 'bulto', 'rollo', 'docena']
-  const unidadInicial = (editingProd?.unidad || 'unidad').trim()
-  const unidadInicialEsLista = unidadOptions.includes(unidadInicial.toLowerCase())
-  const [unidadMode, setUnidadMode] = useState<'pick' | 'custom'>(unidadInicialEsLista ? 'pick' : 'custom')
-  const [unidadPick, setUnidadPick] = useState(unidadInicialEsLista ? unidadInicial.toLowerCase() : 'unidad')
-  const [unidadCustom, setUnidadCustom] = useState(unidadInicialEsLista ? '' : unidadInicial)
-  const unidadValue = (unidadMode === 'pick' ? unidadPick : unidadCustom).trim() || 'unidad'
-
-  const costoUnitarioHelper = (() => {
-    const base = unidadValue.toLowerCase()
-    if (base === 'kg' || base === 'gr') return 'por kg'
-    if (base === 'lt' || base === 'ml' || base === 'l') return 'por litro'
-    if (base === 'm' || base === 'cm') return 'por metro'
-    if (base === 'unidad' || base === 'u') return 'por unidad'
-    return `por ${base || 'unidad'}`
-  })()
-
-  return (
-    <form onSubmit={onSubmit} className="bg-white dark:bg-[#0F0F0F]">
-      {editingProd && (
-        <section className="border-b border-[#E5E7EB] bg-[#F8FAFC] px-5 py-4 dark:border-white/10 dark:bg-[#111827]">
-          <h4 className={SECTION_HEADING_CLS}>Información actual del producto</h4>
-          <div className="grid grid-cols-2 gap-2 text-[11px] text-[#374151] dark:text-[#D1D5DB] sm:grid-cols-3">
-            <p>Tipo: <span className="font-semibold">{tipoLabel(editingProd.tipo)}</span></p>
-            <p>Categoría: <span className="font-semibold">{editingProd.categoria?.trim() || 'Sin categoría'}</span></p>
-            <p>Marca: <span className="font-semibold">{editingProd.marca?.trim() || 'Sin marca'}</span></p>
-            <p>Unidad: <span className="font-semibold">{editingProd.unidad || 'unidad'}</span></p>
-            <p>Costeo: <span className="font-semibold">{metodoCosteoLabel(editingProd.metodoCosteo)}</span></p>
-            <p>Stock actual: <span className="font-mono font-semibold">{fmtUnits(editingProd.stockActual)}</span></p>
-            <p>Precio costo: <span className="font-mono font-semibold">${fmt(editingProd.precioCosto)}</span></p>
-            <p>Precio venta: <span className="font-mono font-semibold">${fmt(editingProd.precioVenta)}</span></p>
-          </div>
-        </section>
-      )}
-
-      <section className="px-5 py-4">
-        <h4 className={SECTION_HEADING_CLS}>Datos generales</h4>
-        <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-8">
-            <InputField label="Nombre del producto *" name="nombre" required defaultValue={editingProd?.nombre} />
-          </div>
-          <div className="col-span-4 flex flex-col gap-1">
-            <label className={LABEL_CLS}>Tipo</label>
-            <select name="tipo" defaultValue={editingProd?.tipo || 'MERCADERIA'} className={SELECT_CLS}>
-              <option value="MERCADERIA">Producto</option>
-              <option value="SERVICIO">Servicio</option>
-            </select>
-          </div>
-
-          <div className="col-span-4 flex flex-col gap-1">
-            <label className={LABEL_CLS}>Categoría</label>
-            <select
-              value={catMode === 'pick' ? catPick : '__new__'}
-              onChange={(e) => {
-                if (e.target.value === '__new__') {
-                  setCatMode('new')
-                } else {
-                  setCatMode('pick')
-                  setCatPick(e.target.value)
-                }
-              }}
-              className={SELECT_CLS}
-            >
-              <option value="">— Sin categoría —</option>
-              {categoriasExistentes.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-              <option value="__new__">+ Nueva categoría…</option>
-            </select>
-            {catMode === 'new' && (
-              <input
-                type="text"
-                value={catNew}
-                onChange={(e) => setCatNew(e.target.value)}
-                placeholder="Escribí la nueva categoría"
-                className={FIELD_CLS}
-              />
-            )}
-            <input type="hidden" name="categoria" value={categoriaValue} />
-          </div>
-          <div className="col-span-4">
-            <InputField label="Marca" name="marca" defaultValue={editingProd?.marca || ''} />
-          </div>
-          <div className="col-span-4 flex flex-col gap-1">
-            <label className={LABEL_CLS}>Unidad</label>
-            <select
-              value={unidadMode === 'pick' ? unidadPick : '__custom__'}
-              onChange={(e) => {
-                if (e.target.value === '__custom__') {
-                  setUnidadMode('custom')
-                } else {
-                  setUnidadMode('pick')
-                  setUnidadPick(e.target.value)
-                }
-              }}
-              className={SELECT_CLS}
-            >
-              {unidadOptions.map((u) => (
-                <option key={u} value={u}>{u}</option>
-              ))}
-              <option value="__custom__">Otro +</option>
-            </select>
-            {unidadMode === 'custom' && (
-              <input
-                type="text"
-                value={unidadCustom}
-                onChange={(e) => setUnidadCustom(e.target.value)}
-                placeholder="Ingresá la unidad"
-                className={FIELD_CLS}
-              />
-            )}
-            <input type="hidden" name="unidad" value={unidadValue} />
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-[#E5E7EB] px-5 py-4 dark:border-white/10">
-        <h4 className={SECTION_HEADING_CLS}>Inventario y precios</h4>
-
-        <div className="mb-4 flex flex-col gap-1">
-          <label className={LABEL_CLS}>Método de costeo</label>
-          <div className="flex h-12 items-center rounded-md border border-[#D1D5DB] bg-[#F3F4F6] px-3 text-sm text-[#111827] dark:border-white/10 dark:bg-[#161616] dark:text-[#F3F4F6]">
-            Promedio ponderado
-          </div>
-          <input type="hidden" name="metodoCosteo" value="PROMEDIO" />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <InputField
-            label="Stock inicial"
-            name="stockActual"
-            type="number"
-            step="0.01"
-            defaultValue={editingProd?.stockActual ?? 0}
-            containerClassName="min-w-0"
-            inputClassName="h-12 text-base px-4"
-          />
-          <InputField
-            label="Costo unitario"
-            name="precioCosto"
-            type="number"
-            step="0.01"
-            defaultValue={editingProd?.precioCosto ?? 0}
-            helperText={costoUnitarioHelper}
-            helperPosition="below"
-            singleLineLabel
-            containerClassName="min-w-0"
-            inputClassName="h-12 text-base px-4"
-          />
-          <InputField
-            label="Precio venta"
-            name="precioVenta"
-            type="number"
-            step="0.01"
-            defaultValue={editingProd?.precioVenta ?? 0}
-            containerClassName="min-w-0"
-            inputClassName="h-12 text-base px-4"
-          />
-        </div>
-      </section>
-
-      <section className="border-t border-[#E5E7EB] px-5 py-4 dark:border-white/10">
-        <div className="flex flex-col gap-1">
-          <label className={LABEL_CLS}>Descripción</label>
-          <textarea
-            name="descripcion"
-            rows={2}
-            defaultValue={editingProd?.descripcion || ''}
-            placeholder="Opcional"
-            className={TEXTAREA_CLS}
-          />
-        </div>
-      </section>
-
-      {formError && (
-        <div className="mx-5 mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-          {formError}
-        </div>
-      )}
-
-      <div className="flex justify-end gap-3 border-t border-[#E5E7EB] bg-[#FAFAF9] px-5 py-3 dark:border-white/10 dark:bg-[#0B0B0B]">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md border border-[#D1D5DB] px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-[#4B5563] transition hover:border-gray-400 hover:text-[#1F2937] dark:border-white/10 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
-        >
-          Cancelar
-        </button>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-md bg-brand-military px-5 py-2 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-brand-military-dark disabled:opacity-50"
-        >
-          {editingId ? 'Guardar cambios' : 'Crear producto'}
-        </button>
-      </div>
-    </form>
-  )
-}
-
-export default function StockClient({ initialProductos }: { initialProductos: Producto[] }) {
-  const [productos, setProductos] = useState<Producto[]>(initialProductos)
+export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { initialProductos: Producto[]; ventasPeriodo?: number }) {
+  // Vienen del servidor con el flujo del período; después de un cambio se piden de nuevo (router.refresh)
+  const productos = initialProductos
+  const router = useRouter()
   const [showForm, setShowForm] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [showSubtotales, setShowSubtotales] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [selectedProductoId, setSelectedProductoId] = useState<string | null>(null)
-  const [movimientos, setMovimientos] = useState<Movimiento[]>([])
+  const [movimientos, setMovimientos] = useState<MovimientoFicha[]>([])
+  const [varianteInicial, setVarianteInicial] = useState<string | null>(null)
+  const [showPrecios, setShowPrecios] = useState(false)
+  // Artículos con variantes abiertos en la tabla
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
+  const [aviso, setAviso] = useState<string | null>(null)
   const [showMovimientosModal, setShowMovimientosModal] = useState(false)
   const [busqueda, setBusqueda] = useState('')
   const [vistaInventario, setVistaInventario] = useState<'UNIDADES' | 'PESOS'>('PESOS')
-  const [isPending, startTransition] = useTransition()
-  const [formError, setFormError] = useState('')
+  const [, startTransition] = useTransition()
 
   async function reload() {
-    const data = await getProductos()
-    setProductos(data as Producto[])
+    // Vuelve a pedir la página: así las tarjetas del período no se pierden
+    router.refresh()
   }
 
-  function handleCreateOrUpdate(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const fd = new FormData(e.currentTarget)
-    fd.set('metodoCosteo', 'PROMEDIO')
-    fd.set('unidad', (fd.get('unidad') as string | null)?.trim() || 'unidad')
+  function handleDelete(a: ArticuloVista) {
+    const variantes = a.variantes.length > 1 ? ` y sus ${a.variantes.length} variantes` : ''
+    if (!confirm(`¿Eliminar «${a.nombre}»${variantes}? Las ventas y movimientos se conservan.`)) return
     startTransition(async () => {
-      const res = editingId ? await updateProducto(editingId, fd) : await createProducto(fd)
-      if (!res.success) { setFormError(res.error); return }
-      setFormError(''); setShowForm(false); setEditingId(null); await reload()
+      if (a.articuloId) await deleteArticulo(a.articuloId)
+      else await deleteProducto(a.variantes[0].id)
+      setShowMovimientosModal(false)
+      await reload()
     })
   }
 
-  function handleDelete(id: string) {
-    if (!confirm('¿Desactivar este producto?')) return
-    startTransition(async () => { await deleteProducto(id); await reload() })
+  function mostrarAviso(txt: string) {
+    setAviso(txt)
+    setTimeout(() => setAviso(null), 2600)
   }
 
-  async function loadMovimientos(productId: string) {
-    const data = await getMovimientosStock(productId)
-    setMovimientos((data || []) as Movimiento[])
+  // Categorías plegadas y orden de la tabla (tocar un encabezado)
+  const [plegadas, setPlegadas] = useState<Set<string>>(new Set())
+  const togglePlegada = (cat: string) => setPlegadas((prev) => {
+    const next = new Set(prev)
+    if (next.has(cat)) next.delete(cat)
+    else next.add(cat)
+    return next
+  })
+  type OrdenCol = 'nombre' | 'unidades' | 'valorizado' | 'proyeccion'
+  const [orden, setOrden] = useState<OrdenCol>('nombre')
+  const ordenarPor = (col: OrdenCol) => setOrden((prev) => (prev === col ? 'nombre' : col))
+
+  async function loadMovimientos(ids: string[]) {
+    const data = await getMovimientosStock(ids)
+    setMovimientos((data || []) as MovimientoFicha[])
   }
 
-  function handleSelectProducto(id: string) {
-    if (selectedProductoId === id) {
-      setSelectedProductoId(null)
-      return
-    }
-    setSelectedProductoId(id)
-    void loadMovimientos(id)
-  }
-
-  function handleOpenMovimientos(id: string) {
-    setSelectedProductoId(id)
+  function abrirFicha(a: ArticuloVista, varianteId: string | null = null) {
+    setSelectedProductoId(a.key)
+    setVarianteInicial(varianteId)
+    setMovimientos([])
     setShowMovimientosModal(true)
-    void loadMovimientos(id)
+    void loadMovimientos(a.variantes.map((v) => v.id))
   }
 
-  const filtrados = productos.filter(prod =>
-    [prod.nombre, prod.marca || '', prod.categoria || ''].some(x => x.toLowerCase().includes(busqueda.toLowerCase())),
-  )
-
-  const resumenGeneral = productos.reduce((acc, producto) => {
-    const valorCosto = producto.stockActual * producto.precioCosto
-    const valorVenta = producto.stockActual * producto.precioVenta
-    const gananciaPotencialProducto = producto.stockActual * (producto.precioVenta - producto.precioCosto)
-
-    acc.unidades += producto.stockActual
-    acc.valorCosto += valorCosto
-    acc.valorVenta += valorVenta
-    acc.gananciaPotencial += gananciaPotencialProducto
-
-    return acc
-  }, {
-    unidades: 0,
-    valorCosto: 0,
-    valorVenta: 0,
-    gananciaPotencial: 0,
+  const toggleAbierto = (key: string) => setAbiertos((prev) => {
+    const next = new Set(prev)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    return next
   })
 
-  const totalUnidades = resumenGeneral.unidades
-  const totalStockValue = resumenGeneral.valorCosto
-  const valorVentaTotal = resumenGeneral.valorVenta
-  const gananciaPotencial = resumenGeneral.gananciaPotencial
+  // ── Artículos: agrupa las variantes (productos con el mismo artículo) ──
+  const articulos: ArticuloVista[] = (() => {
+    const map = new Map<string, ArticuloVista>()
+    for (const p of productos) {
+      const art = p.articuloId ? p.articulo : null
+      const key = art?.id ?? p.id
+      let a = map.get(key)
+      const defs = parseAtributos(art?.atributos)
+      if (!a) {
+        a = {
+          key,
+          articuloId: art?.id ?? null,
+          nombre: art?.nombre ?? p.nombre,
+          marca: p.marca,
+          categoria: p.categoria,
+          subcategoria: art?.subcategoria ?? null,
+          unidad: p.unidad,
+          tipo: p.tipo === 'SERVICIO' ? 'SERVICIO' : 'MERCADERIA',
+          precioBase: art?.precioVenta ?? p.precioVenta,
+          atributos: defs,
+          fotoSrc: fotoUrl(art?.id, art?.fotoAt),
+          variantes: [],
+        }
+        map.set(key, a)
+      }
+      const valores = parseValores(p.atributos)
+      a.variantes.push({
+        id: p.id,
+        nombre: p.nombre,
+        etiqueta: etiquetaVariante(valores, defs),
+        valores,
+        stockActual: p.stockActual,
+        precioVenta: p.precioVenta,
+        precioCosto: p.precioCosto,
+        precioPropio: !!p.precioPropio,
+        alertaStock: p.alertaStock ?? null,
+      })
+    }
+    // Variantes en el orden de los atributos (S, M, L…)
+    for (const a of map.values()) {
+      const rango = (v: ArticuloVista['variantes'][number]) =>
+        a.atributos.reduce((acc, d) => acc * 100 + Math.max(0, d.valores.indexOf(v.valores?.[d.nombre] ?? '')), 0)
+      a.variantes.sort((x, y) => rango(x) - rango(y))
+    }
+    return Array.from(map.values())
+  })()
+  const sumaDe = (a: ArticuloVista) => a.variantes.reduce((acc, v) => ({
+    unidades: acc.unidades + v.stockActual,
+    valorizado: acc.valorizado + v.stockActual * v.precioCosto,
+    ingresos: acc.ingresos + v.stockActual * v.precioVenta,
+  }), { unidades: 0, valorizado: 0, ingresos: 0 })
+
+  const q = busqueda.toLowerCase().trim()
+  const articulosFiltrados = articulos.filter((a) =>
+    !q || [a.nombre, a.marca || '', a.categoria || '', a.subcategoria || '', ...a.variantes.map((v) => v.etiqueta)].some((x) => x.toLowerCase().includes(q)),
+  )
+  const idsFiltrados = new Set(articulosFiltrados.flatMap((a) => a.variantes.map((v) => v.id)))
+  const filtrados = productos.filter((p) => idsFiltrados.has(p.id))
+
 
   // Flujo de inventario del período, valorizado a lo que costó cada unidad
   // (el servidor reproduce los movimientos: Inicial + Comprado − Vendido = Final)
@@ -510,61 +213,40 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   const compradoUnidades = flujoPeriodo.compradoUnidades
   const stockFinalUnidades = inicialUnidades - vendidoUnidades + compradoUnidades
   const enUnidades = vistaInventario === 'UNIDADES'
-  const formatCard = (valor: number) => enUnidades ? `${fmtUnits(valor)} u` : `$${fmt(valor)}`
+  const formatCard = (valor: number) => enUnidades ? `${fmtUnits(valor)} u.` : `$${fmtEntero(valor)}`
   const sinStock = productos.filter(p => p.stockActual <= 0).length
-  const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual < 5).length
-  const editingProd = editingId ? productos.find(p => p.id === editingId) : null
-  const selectedProducto = selectedProductoId ? productos.find(p => p.id === selectedProductoId) : null
-  const stockInsights = (() => {
-    if (!selectedProducto) {
-      return {
-        points: [] as MovimientoChartPoint[],
-      }
+  const bajoStock = productos.filter(p => p.stockActual > 0 && p.stockActual <= (p.alertaStock ?? 2)).length
+  const editingArt = editingId ? articulos.find((a) => a.key === editingId) ?? null : null
+  const selectedArticulo = selectedProductoId ? articulos.find((a) => a.key === selectedProductoId) ?? null : null
+  // Para el formulario: subcategorías por categoría, marcas y valores de atributos ya usados
+  const subcategoriasPorCat: Record<string, string[]> = {}
+  const valoresUsados: Record<string, string[]> = {}
+  for (const a of articulos) {
+    const cat = a.categoria?.trim() ?? ''
+    if (a.subcategoria?.trim()) subcategoriasPorCat[cat] = Array.from(new Set([...(subcategoriasPorCat[cat] ?? []), a.subcategoria.trim()])).sort((x, y) => x.localeCompare(y, 'es'))
+    for (const d of a.atributos) {
+      const k = d.nombre.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+      valoresUsados[k] = Array.from(new Set([...(valoresUsados[k] ?? []), ...d.valores]))
     }
-
-    const orderedAsc = [...movimientos].sort((a, b) => {
-      const da = new Date(a.fecha).getTime()
-      const db = new Date(b.fecha).getTime()
-      return da - db
-    })
-
-    let stockAfter = selectedProducto.stockActual
-    const pointsReverse: MovimientoChartPoint[] = []
-    for (let i = orderedAsc.length - 1; i >= 0; i -= 1) {
-      const mov = orderedAsc[i]
-      const unidades = mov.tipo === 'AJUSTE' ? mov.cantidad : stockAfter
-      pointsReverse.push({
-        id: mov.id,
-        label: fmtDate(mov.fecha),
-        idx: i + 1,
-        tipo: mov.tipo,
-        unidades,
-      })
-      stockAfter = mov.tipo === 'ENTRADA'
-        ? unidades - mov.cantidad
-        : mov.tipo === 'SALIDA'
-          ? unidades + mov.cantidad
-          : mov.cantidad
-    }
-    let points: MovimientoChartPoint[] = pointsReverse.reverse().map((point, i) => ({
-      ...point,
-      idx: i + 1,
-    }))
-
-    if (points.length === 0) {
-      points = [
-        { id: 'unidades-base-1', label: 'Inicio', idx: 1, tipo: 'AJUSTE', unidades: selectedProducto.stockActual },
-        { id: 'unidades-base-2', label: 'Actual', idx: 2, tipo: 'AJUSTE', unidades: selectedProducto.stockActual },
-      ]
-    } else if (points.length === 1) {
-      points = [
-        points[0],
-        { ...points[0], id: `${points[0].id}-actual`, label: 'Actual', idx: 2, unidades: selectedProducto.stockActual },
-      ]
-    }
-
-    return { points }
-  })()
+  }
+  const marcasExistentes = Array.from(new Set(productos.map((p) => p.marca?.trim()).filter((m): m is string => !!m))).sort((a, b) => a.localeCompare(b, 'es'))
+  const aEditable = (a: ArticuloVista): ArticuloEditable => ({
+    articuloId: a.articuloId,
+    productoId: a.articuloId ? null : a.variantes[0]?.id ?? null,
+    nombre: a.nombre,
+    tipo: a.tipo,
+    categoria: a.categoria,
+    subcategoria: a.subcategoria,
+    marca: a.marca,
+    unidad: a.unidad,
+    precioVenta: a.precioBase,
+    atributos: a.atributos,
+    variantes: a.variantes.map((v) => ({
+      clave: claveVariante(v.valores), etiqueta: v.etiqueta, precioPropio: v.precioPropio,
+      precioVenta: v.precioVenta, stock: v.stockActual, costo: v.precioCosto,
+    })),
+    fotoSrc: a.fotoSrc,
+  })
   const categoriasExistentes = Array.from(
     new Set(
       productos
@@ -577,6 +259,7 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
   type GrupoInventario = {
     categoria: string
     productos: Producto[]
+    articulos: ArticuloVista[]
     unidades: number
     valorizado: number
     ingresos: number
@@ -586,13 +269,17 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
     const map = new Map<string, GrupoInventario>()
     for (const p of filtrados) {
       const key = (p.categoria?.trim() || 'Sin categoría')
-      const g = map.get(key) ?? { categoria: key, productos: [], unidades: 0, valorizado: 0, ingresos: 0, ganancia: 0 }
+      const g = map.get(key) ?? { categoria: key, productos: [], articulos: [], unidades: 0, valorizado: 0, ingresos: 0, ganancia: 0 }
       g.productos.push(p)
       g.unidades += p.stockActual
       g.valorizado += p.stockActual * p.precioCosto
       g.ingresos += p.stockActual * p.precioVenta
       g.ganancia += p.stockActual * (p.precioVenta - p.precioCosto)
       map.set(key, g)
+    }
+    for (const a of articulosFiltrados) {
+      const g = map.get(a.categoria?.trim() || 'Sin categoría')
+      if (g) g.articulos.push(a)
     }
     return Array.from(map.values()).sort((a, b) => a.categoria.localeCompare(b.categoria, 'es'))
   })()
@@ -672,613 +359,380 @@ export default function StockClient({ initialProductos }: { initialProductos: Pr
     URL.revokeObjectURL(url)
   }
 
-  // ── Diagnóstico inteligente del inventario ──
-  const diagnostico = (() => {
-    const totalMovido = vendidoUnidades + compradoUnidades
-    if (totalMovido === 0 && inicialUnidades === 0) {
-      return { tono: 'neutral' as const, titulo: 'Sin actividad', mensaje: 'No hay movimientos ni stock en el período seleccionado.' }
-    }
-    if (stockFinalUnidades <= 0 && vendidoUnidades > 0) {
-      return { tono: 'critico' as const, titulo: 'Stock agotado', mensaje: 'Vendiste todo el stock disponible. Reponé urgente para no perder ventas.' }
-    }
-    if (vendidoUnidades > 0 && compradoUnidades === 0 && stockFinalUnidades < inicialUnidades * 0.3) {
-      return { tono: 'alerta' as const, titulo: 'Sobrevendido', mensaje: 'Tus ventas redujeron el stock más del 70% y no hubo reposición. Conviene comprar pronto.' }
-    }
-    if (vendidoUnidades > compradoUnidades * 1.8 && compradoUnidades > 0) {
-      return { tono: 'alerta' as const, titulo: 'Rotación alta', mensaje: 'Vendiste casi el doble de lo que compraste. Aumentá las compras para sostener el ritmo.' }
-    }
-    if (compradoUnidades > vendidoUnidades * 2.5 && vendidoUnidades > 0) {
-      return { tono: 'alerta' as const, titulo: 'Sobrecomprado', mensaje: 'Compraste mucho más de lo que vendiste. Revisá si hay capital inmovilizado innecesario.' }
-    }
-    if (vendidoUnidades === 0 && inicialUnidades > 0) {
-      return { tono: 'alerta' as const, titulo: 'Sin ventas', mensaje: 'No hubo salidas en el período. Evaluá estrategia comercial o estacionalidad.' }
-    }
-    if (compradoUnidades > 0 && vendidoUnidades === 0) {
-      return { tono: 'neutral' as const, titulo: 'Stock en reposición', mensaje: 'Compraste sin vender. Esperable si recién arrancás el período.' }
-    }
-    if (stockFinalUnidades > inicialUnidades * 2 && compradoUnidades > vendidoUnidades) {
-      return { tono: 'alerta' as const, titulo: 'Stock excesivo', mensaje: 'Tu stock final duplica el inicial. Hay capital inmovilizado.' }
-    }
-    return { tono: 'ok' as const, titulo: 'Inventario equilibrado', mensaje: 'Compras y ventas mantienen un flujo saludable en el período.' }
-  })()
-
-  const diagnosticoStyles = {
-    ok:       { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#16A34A] dark:text-[#6EE7B7]', dot: 'bg-[#22C55E]' },
-    neutral:  { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#6B7280] dark:text-[#9CA3AF]', dot: 'bg-[#9CA3AF]' },
-    alerta:   { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#4B5563] dark:text-[#E5E7EB]', dot: 'bg-[#6B7280]' },
-    critico:  { border: 'border-[#E5E7EB] dark:border-white/10', bg: 'bg-white dark:bg-[#141414]', text: 'text-[#374151] dark:text-[#D1D5DB]', accent: 'text-[#B91C1C] dark:text-[#FCA5A5]', dot: 'bg-[#EF4444]' },
-  }[diagnostico.tono]
-
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-stretch">
-        <div className="executive-panel inline-flex items-stretch overflow-hidden">
+      {/* Segmentado iOS: unidades o valorizado */}
+      <div className="inline-flex rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/[0.1]" role="tablist" aria-label="Ver inventario en">
+        {([['UNIDADES', 'Unidades'], ['PESOS', 'Valorizado']] as const).map(([valor, label]) => (
           <button
+            key={valor}
             type="button"
             role="tab"
-            aria-selected={enUnidades}
-            onClick={() => setVistaInventario('UNIDADES')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${enUnidades ? 'bg-brand-military text-white' : 'text-[#6B7280] hover:text-brand-military dark:text-[#9CA3AF] dark:hover:text-white'}`}
+            aria-selected={vistaInventario === valor}
+            onClick={() => setVistaInventario(valor)}
+            className={`rounded-md px-3.5 py-1 text-[13px] transition ${vistaInventario === valor ? 'bg-white font-medium text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white' : 'text-[#3C3C43] dark:text-[#EBEBF5]/70'}`}
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-            Unidades
+            {label}
           </button>
-          <div className="w-px bg-[#E5E7EB] dark:bg-white/10" aria-hidden />
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!enUnidades}
-            onClick={() => setVistaInventario('PESOS')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${!enUnidades ? 'bg-brand-military text-white' : 'text-[#6B7280] hover:text-brand-military dark:text-[#9CA3AF] dark:hover:text-white'}`}
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Valorizado
-          </button>
-        </div>
-
-        {/* Sin stock al inicio del período no hay contra qué comparar: sin diagnóstico */}
-        {inicialUnidades > 0 && (
-          <div className={`executive-panel flex items-center gap-2.5 px-3.5 py-1.5 ${diagnosticoStyles.border} ${diagnosticoStyles.bg}`}>
-            <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${diagnosticoStyles.dot}`} aria-hidden />
-            <div className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
-              <p className={`text-[11px] font-semibold tracking-wide whitespace-nowrap ${diagnosticoStyles.accent}`}>{diagnostico.titulo}</p>
-              <p className={`truncate text-xs ${diagnosticoStyles.text}`}>{diagnostico.mensaje}</p>
-            </div>
-          </div>
-        )}
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-        <div className="executive-metric px-5 py-4">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Inventario inicial</p>
-          <p className="text-[28px] font-mono font-bold text-[#111827] dark:text-white num-tabular">{formatCard(enUnidades ? inicialUnidades : inventarioInicial)}</p>
-        </div>
-        <div className="executive-metric px-5 py-4">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Inventario vendido</p>
-          <p className="text-[28px] font-mono font-bold num-tabular text-brand-military-dark dark:text-[#6EBC8A]">{formatCard(enUnidades ? vendidoUnidades : inventarioVendido)}</p>
-        </div>
-        <div className="executive-metric px-5 py-4">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Inventario comprado</p>
-          <p className="text-[28px] font-mono font-bold num-tabular text-red-600 dark:text-red-400">{formatCard(enUnidades ? compradoUnidades : inventarioComprado)}</p>
-        </div>
-        <div className="executive-metric px-5 py-4">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-[#9CA3AF]">Stock final</p>
-          <p className="text-[28px] font-mono font-bold text-[#111827] dark:text-white num-tabular">{formatCard(enUnidades ? stockFinalUnidades : stockFinalPeriodo)}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {([
+          ['Inventario inicial', enUnidades ? inicialUnidades : inventarioInicial, 'text-[#1C1C1E] dark:text-white', null],
+          ['Inventario vendido', enUnidades ? vendidoUnidades : inventarioVendido, 'text-[#B8664F] dark:text-[#E3A592]', '↓'],
+          ['Inventario comprado', enUnidades ? compradoUnidades : inventarioComprado, 'text-[#4F8A6B] dark:text-[#8FC0A4]', '↑'],
+          ['Stock final', enUnidades ? stockFinalUnidades : stockFinalPeriodo, 'text-[#1C1C1E] dark:text-white', null],
+        ] as const).map(([titulo, valor, tono, flecha]) => (
+          <div key={titulo} className="rounded-2xl bg-white px-4 py-3.5 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:bg-[#1C1C1E] dark:shadow-none">
+            <p className="text-[12px] text-[#8E8E93]">
+              {titulo}
+              {/* Sale stock / entra stock */}
+              {flecha && <span className={`ml-1 text-[11px] ${tono}`} aria-hidden>{flecha}</span>}
+            </p>
+            <p className={`mt-0.5 text-[22px] font-semibold tracking-tight tabular-nums ${tono}`}>
+              <AnimatedNumber key={vistaInventario} value={valor} desde={0} format={(v) => formatCard(v === valor ? v : Math.round(v))} />
+            </p>
+          </div>
+        ))}
       </div>
 
-      <div className="executive-panel overflow-hidden">
-        <div className="border-b border-[#E5E7EB] bg-[#FCFDFC] px-5 py-4 dark:border-white/10 dark:bg-[#141414]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military">
-                <BoxIcon />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Productos en inventario</h2>
-                <p className="text-xs text-[#9CA3AF]">Gestioná y controlá tu stock</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => { setShowForm(true); setEditingId(null); setFormError('') }}
-                className="flex items-center gap-1.5 rounded-xl bg-brand-military px-3.5 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-military-dark"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Nuevo producto
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowExportMenu(v => !v)}
-                  className="flex items-center gap-1.5 rounded-xl border border-[#D1D5DB] px-3 py-2.5 text-xs font-semibold text-[#4B5563] transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:text-[#D1D5DB]"
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l4-4m-4 4l-4-4M4 17v1a2 2 0 002 2h12a2 2 0 002-2v-1" />
-                  </svg>
-                  Exportar
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showExportMenu && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} aria-hidden />
-                    <div className="absolute right-0 top-full z-20 mt-1 min-w-[160px] border border-[#D1D5DB] bg-white shadow-lg dark:border-white/10 dark:bg-[#1A1A1A]">
-                      <button
-                        onClick={() => { setShowExportMenu(false); handleExportar() }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#374151] hover:bg-[#F3F4F6] dark:text-[#D1D5DB] dark:hover:bg-white/5"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-6 4h6M9 9h1M5 21h14a2 2 0 002-2V7l-5-5H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        Descargar Excel
-                      </button>
-                      <button
-                        onClick={() => { setShowExportMenu(false); handleImprimir() }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#374151] hover:bg-[#F3F4F6] dark:text-[#D1D5DB] dark:hover:bg-white/5"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                        </svg>
-                        Imprimir
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+      {/* Lo vendido a precio de venta (Estado de resultados) contra su costo: la ganancia bruta del período */}
+      {ventasPeriodo > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-white px-5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:bg-[#1C1C1E] dark:shadow-none">
+          <div className="text-center">
+            <p className="text-[11px] text-[#8E8E93]">Ventas</p>
+            <p className="text-[15px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white">${fmtEntero(ventasPeriodo)}</p>
           </div>
+          <span className="text-[15px] text-[#C7C7CC]" aria-hidden>−</span>
+          <div className="text-center">
+            <p className="text-[11px] text-[#8E8E93]">Costo vendido</p>
+            <p className="text-[15px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white">${fmtEntero(inventarioVendido)}</p>
+          </div>
+          <span className="text-[15px] text-[#C7C7CC]" aria-hidden>=</span>
+          <div className="text-center">
+            <p className="text-[11px] text-[#8E8E93]">Ganancia bruta</p>
+            <p className="text-[15px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white">
+              ${fmtEntero(ventasPeriodo - inventarioVendido)}
+              <span className="ml-1 text-[10px] font-normal text-[#AEAEB2] dark:text-[#636366]">{Math.round(pctMargen(ventasPeriodo - inventarioVendido, ventasPeriodo))}%</span>
+            </p>
+          </div>
+        </div>
+      )}
 
-          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative w-full lg:max-w-xl">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
+      <div className="executive-panel overflow-clip">
+        <div className="px-5 pb-1 pt-4">
+          <div className="flex items-center gap-2">
+            {/* Buscador estilo iOS */}
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-black/[0.05] px-3 py-2 dark:bg-white/[0.08]">
+              <svg className="h-4 w-4 shrink-0 text-[#8E8E93]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
               </svg>
               <input
                 value={busqueda}
                 onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar producto, categoría o marca"
-                className="w-full rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] py-2.5 pl-10 pr-3 text-sm text-[#374151] placeholder:text-[#9CA3AF] focus:border-brand-military focus:outline-none dark:border-white/10 dark:bg-[#1F1F1F] dark:text-[#D1D5DB]"
+                aria-label="Buscar producto"
+                className="ios-bare w-full bg-transparent text-[14px] text-[#1C1C1E] outline-none placeholder:text-[#8E8E93] dark:text-white"
               />
+              {busqueda && (
+                <button type="button" onClick={() => setBusqueda('')} aria-label="Borrar búsqueda" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#AEAEB2] text-white dark:bg-[#636366]">
+                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+              )}
             </div>
-
-            <div className="text-xs text-[#9CA3AF]">
-              {selectedProducto
-                ? `Producto seleccionado: ${selectedProducto.nombre}`
-                : `${filtrados.length} producto${filtrados.length !== 1 ? 's' : ''} en pantalla`}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowExportMenu(v => !v)}
+                aria-label="Más opciones"
+                title="Precios, subtotales, exportar o imprimir"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] text-[#3C3C43] transition active:scale-95 dark:bg-white/10 dark:text-white"
+              >
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+              </button>
+              {showExportMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} aria-hidden />
+                  <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[210px] overflow-hidden rounded-xl bg-white/95 py-1 shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] backdrop-blur-xl dark:bg-[#2C2C2E]/95 dark:ring-white/10">
+                    <button type="button" onClick={() => { setShowExportMenu(false); setShowPrecios(true) }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Actualizar precios</button>
+                    <button type="button" onClick={() => { setShowExportMenu(false); setShowSubtotales(true) }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Subtotales por categoría</button>
+                    <div className="mx-3.5 my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" aria-hidden />
+                    <button type="button" onClick={() => { setShowExportMenu(false); handleExportar() }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Descargar Excel</button>
+                    <button type="button" onClick={() => { setShowExportMenu(false); handleImprimir() }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Imprimir</button>
+                  </div>
+                </>
+              )}
             </div>
+            <button
+              type="button"
+              onClick={() => { setShowForm(true); setEditingId(null) }}
+              aria-label="Nuevo producto"
+              title="Nuevo producto"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#007AFF] text-white transition active:scale-95 dark:bg-[#0A84FF]"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m7-7H5" /></svg>
+            </button>
           </div>
-
         </div>
 
         {filtrados.length === 0 ? (
-          <div className="px-4 py-14 text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center border border-[#E5E7EB] text-[#9CA3AF] dark:border-white/10">
-              <BoxIcon />
-            </div>
-            <p className="text-sm text-[#9CA3AF]">Sin productos{busqueda ? ' para esa búsqueda' : ''}</p>
-            <p className="mt-1 text-xs text-[#C1C7D0] dark:text-[#666]">Usá Nuevo producto para cargar inventario.</p>
+          // Vacío: sin productos todavía, o la búsqueda no encontró nada
+          <div className="flex flex-col items-center px-4 py-16 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/[0.04] text-[#AEAEB2] dark:bg-white/[0.06]">
+              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.4} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </span>
+            {busqueda ? (
+              <>
+                <p className="mt-3 text-[15px] font-medium text-[#1C1C1E] dark:text-white">Sin resultados para “{busqueda}”</p>
+                <button type="button" onClick={() => setBusqueda('')} className="mt-1 text-[14px] text-[#007AFF] dark:text-[#0A84FF]">Ver todos los productos</button>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-[15px] font-medium text-[#1C1C1E] dark:text-white">Cargá tu primer producto</p>
+                <p className="mt-0.5 text-[13px] text-[#8E8E93]">Vas a ver acá su stock, lo que vale y lo que ganarías.</p>
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(true); setEditingId(null) }}
+                  className="mt-4 rounded-full bg-[#007AFF] px-4 py-2 text-[14px] font-medium text-white transition active:scale-95 dark:bg-[#0A84FF]"
+                >
+                  Nuevo producto
+                </button>
+              </>
+            )}
           </div>
         ) : (
-          <div id="inventario-tabla" className="overflow-x-auto">
-            <table className="w-full min-w-[820px] text-xs">
+          <div id="inventario-tabla" className="overflow-x-auto lg:overflow-x-visible">
+            <table className="w-full min-w-[640px] text-[13px]">
               <thead>
-                <tr className="border-b border-white/10 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9CA3AF]">
-                  <th className="px-5 py-3 text-left w-[38%]">Producto</th>
-                  <th className="px-4 py-3 text-right">Unidades</th>
-                  <th className="px-4 py-3 text-right">Valorizado</th>
-                  <th className="px-4 py-3 text-right">Ingresos</th>
-                  <th className="px-4 py-3 text-right">Ganancias</th>
-                  <th className="px-4 py-3 text-right w-[80px] print-hide" aria-label="Acciones"></th>
+                <tr className="text-[12px] text-[#8E8E93]">
+                  {([
+                    ['nombre', 'Producto', 'text-left w-[44%] px-5'],
+                    ['unidades', 'Unidades', 'text-right px-4'],
+                    ['valorizado', 'Valorizado', 'text-right px-4'],
+                    ['proyeccion', 'Proyección del inventario', 'text-right pl-4 pr-10'],
+                  ] as const).map(([col, label, cls]) => (
+                    // Encabezado fijo al scrollear
+                    <th key={col} className={`sticky top-0 z-10 border-b border-black/[0.06] bg-[var(--card)] py-2.5 font-medium dark:border-white/[0.08] dark:bg-[#111315] ${cls}`}>
+                      <button
+                        type="button"
+                        onClick={() => ordenarPor(col)}
+                        className={`inline-flex items-center gap-1 transition-colors hover:text-[#1C1C1E] dark:hover:text-white ${orden === col ? 'text-[#1C1C1E] dark:text-white' : ''}`}
+                      >
+                        {label}
+                        {orden === col && col !== 'nombre' && <span aria-hidden>↓</span>}
+                      </button>
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody>
-                {gruposInventario.map((grupo, gIdx) => {
-                  const marginGrupo = pctMargen(grupo.ganancia, grupo.ingresos)
+              {/* key={orden}: al reordenar, las filas aparecen de nuevo con una transición suave */}
+              <tbody key={orden}>
+                {gruposInventario.map((grupo) => {
+                  const cerrada = plegadas.has(grupo.categoria)
+                  const valorDe = (a: ArticuloVista) => {
+                    const t = sumaDe(a)
+                    return orden === 'unidades' ? t.unidades : orden === 'valorizado' ? t.valorizado : orden === 'proyeccion' ? t.ingresos : 0
+                  }
+                  // Por nombre: agrupados por subcategoría; por valor: de mayor a menor
+                  const articulosOrden = orden === 'nombre'
+                    ? [...grupo.articulos].sort((a, b) => (a.subcategoria ?? '').localeCompare(b.subcategoria ?? '', 'es') || a.nombre.localeCompare(b.nombre, 'es'))
+                    : [...grupo.articulos].sort((a, b) => valorDe(b) - valorDe(a))
                   return (
                     <React.Fragment key={grupo.categoria}>
-                      {/* Header de grupo */}
-                      <tr className="bg-[#F4F2EB] group-header dark:bg-[#17191C]">
-                        <td className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#111827] dark:text-[#F8FAFC]">
-                          {grupo.categoria}
+                      {/* Categoría como título de sección (estilo Ajustes de iOS): se pliega al tocarla */}
+                      <tr className="group-header cursor-pointer" onClick={() => togglePlegada(grupo.categoria)}>
+                        <td className="px-5 pb-1.5 pt-5 text-[12px] font-medium text-[#8E8E93]">
+                          <span className="inline-flex items-center gap-1.5">
+                            <svg className={`h-3 w-3 transition-transform ${cerrada ? '' : 'rotate-90'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                            {grupo.categoria}
+                          </span>
                         </td>
-                        <td colSpan={5} className="px-4 py-2.5 text-right text-[11px] font-medium text-[#4B5563] dark:text-[#C7D2C1]">
-                          {grupo.productos.length} producto{grupo.productos.length !== 1 ? 's' : ''} · {fmtUnits(grupo.unidades)} unidades
-                        </td>
+                        <td colSpan={3} />
                       </tr>
 
-                      {/* Filas de producto */}
-                      {grupo.productos.map(prod => {
-                        const valorizado = prod.stockActual * prod.precioCosto
-                        const ingresos = prod.stockActual * prod.precioVenta
-                        const ganancia = prod.stockActual * (prod.precioVenta - prod.precioCosto)
-                        const margen = pctMargen(ganancia, ingresos)
+                      {!cerrada && articulosOrden.map((art, idx) => {
+                        const t = sumaDe(art)
+                        const ganancia = t.ingresos - t.valorizado
+                        const multi = art.variantes.length > 1
+                        const abierto = multi && abiertos.has(art.key)
+                        // Subcategoría: subtítulo chico cuando cambia (solo ordenando por nombre)
+                        const sub = orden === 'nombre' && art.subcategoria && art.subcategoria !== articulosOrden[idx - 1]?.subcategoria ? art.subcategoria : null
+                        // Separador fino que no llega al borde izquierdo (no va en el último de la sección)
+                        const sep = idx < articulosOrden.length - 1 && !abierto
+                        const borde = sep ? 'border-b border-black/[0.05] dark:border-white/[0.06]' : ''
                         return (
-                          <tr
-                            key={prod.id}
-                            onClick={() => handleOpenMovimientos(prod.id)}
-                            className="border-b border-white/5 transition-colors hover:bg-white/[0.03] cursor-pointer"
-                          >
-                            <td className="px-5 py-3">
-                              <div className="text-sm font-semibold text-[#111827] dark:text-[#F8FAFC]">{prod.nombre}</div>
-                              {prod.descripcion && (
-                                <div className="mt-0.5 max-w-[280px] truncate text-[11px] text-[#6B7280] dark:text-[#C7D2C1]">{prod.descripcion}</div>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono font-bold text-[#111827] dark:text-[#F8FAFC] num-tabular">
-                              {fmtUnits(prod.stockActual)}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono text-[#374151] dark:text-[#E7F0E5] num-tabular">
-                              ${fmt(valorizado)}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-400 num-tabular">
-                              ${fmt(ingresos)}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono num-tabular">
-                              <span className="font-semibold text-sky-400">${fmt(ganancia)}</span>
-                              <span className="ml-1.5 text-[11px] font-medium text-[#6B7280]">{margen.toFixed(1).replace('.', ',')}%</span>
-                            </td>
-                            <td className="px-4 py-3 text-right print-hide" onClick={e => e.stopPropagation()}>
-                              <div className="flex justify-end gap-1.5">
-                                <button
-                                  onClick={() => { setEditingId(prod.id); setShowForm(true); setFormError('') }}
-                                  aria-label="Editar producto"
-                                  title="Editar"
-                                  className="p-1 text-[#9CA3AF] transition hover:text-white"
-                                >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5m-1.5-9.5a2.121 2.121 0 1 1 3 3L12 21l-4 1 1-4 10.5-10.5Z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(prod.id)}
-                                  aria-label="Eliminar producto"
-                                  title="Eliminar"
-                                  className="p-1 text-red-400 transition hover:text-red-300"
-                                >
-                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                          <React.Fragment key={art.key}>
+                            {sub && (
+                              <tr>
+                                <td colSpan={4} className="px-5 pb-0.5 pt-2 text-[11px] text-[#AEAEB2] dark:text-[#636366]">{sub}</td>
+                              </tr>
+                            )}
+                            <tr
+                              onClick={() => (multi ? toggleAbierto(art.key) : abrirFicha(art))}
+                              aria-expanded={multi ? abierto : undefined}
+                              className="group animate-[reg-fade-in_240ms_ease-out] cursor-pointer transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.035]"
+                            >
+                              <td className="relative py-1.5 pl-5 pr-4">
+                                <div className="flex items-center gap-2.5">
+                                  <Foto src={art.fotoSrc} alt="" className="h-7 w-7 rounded-[7px]" />
+                                  <div className="min-w-0">
+                                    <div className="truncate text-[13px] text-[#1C1C1E] dark:text-white">
+                                      {art.nombre}
+                                      {art.marca?.trim() && <span className="ml-1.5 text-[11px] text-[#AEAEB2] dark:text-[#636366]">{art.marca.trim()}</span>}
+                                    </div>
+                                    {multi && <div className="truncate text-[11px] leading-tight text-[#AEAEB2] dark:text-[#636366]">{resumenAtributos(art.atributos)}</div>}
+                                  </div>
+                                </div>
+                                {sep && <span aria-hidden className="absolute bottom-0 left-[60px] right-0 h-px bg-black/[0.05] dark:bg-white/[0.06]" />}
+                              </td>
+                              <td className={`px-4 py-1.5 text-right text-[13px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white ${borde}`}>
+                                {fmtUnits(t.unidades)} <span className="text-[12px] font-normal text-[#8E8E93]">{unidadDe(art.unidad, t.unidades)}</span>
+                              </td>
+                              <td className={`px-4 py-1.5 text-right text-[13px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white ${borde}`}>
+                                ${fmtEntero(t.valorizado)}
+                              </td>
+                              <td className={`relative py-1.5 pl-4 pr-10 text-right ${borde}`}>
+                                <span title={`Ganarías $${fmtEntero(ganancia)} si vendés todo`} className="text-[12px] tabular-nums"><span className="text-[#8E8E93]">${fmtEntero(t.ingresos)}</span><span className="text-[#AEAEB2] dark:text-[#636366]"> · {pctMargen(ganancia, t.ingresos).toLocaleString('es-AR', { maximumFractionDigits: 0 })}%</span></span>
+                                {/* Con variantes: se abre en la tabla; sin variantes: abre la ficha */}
+                                <svg className={`absolute right-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#C7C7CC] transition ${multi ? (abierto ? 'rotate-90' : '') : 'opacity-0 group-hover:opacity-100'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                </svg>
+                              </td>
+                            </tr>
+
+                            {/* Variantes abiertas: cuadrícula talle × color, o una fila por variante */}
+                            {abierto && art.atributos.length === 2 && (
+                              <tr className="animate-[reg-fade-in_200ms_ease-out]">
+                                <td colSpan={4} className={`pb-3 pl-[60px] pr-10 pt-1 ${idx < articulosOrden.length - 1 ? 'border-b border-black/[0.05] dark:border-white/[0.06]' : ''}`}>
+                                  <div className="flex flex-wrap items-end gap-4">
+                                    <div className="w-full max-w-[460px]">
+                                      <StockGrid articulo={art} compacta onElegir={(v) => abrirFicha(art, v.id)} />
+                                    </div>
+                                    <button type="button" onClick={() => abrirFicha(art)} className="pb-1 text-[12px] text-[#007AFF] dark:text-[#0A84FF]">Ver ficha ›</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            {abierto && art.atributos.length !== 2 && art.variantes.map((v, vi) => {
+                              const ultima = vi === art.variantes.length - 1
+                              const bordeV = ultima && idx < articulosOrden.length - 1 ? 'border-b border-black/[0.05] dark:border-white/[0.06]' : ''
+                              return (
+                                <tr key={v.id} onClick={() => abrirFicha(art, v.id)} className="group/v animate-[reg-fade-in_200ms_ease-out] cursor-pointer transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.035]">
+                                  <td className={`py-1 pl-[60px] pr-4 text-[12px] text-[#3C3C43] dark:text-[#EBEBF5]/80 ${bordeV}`}>
+                                    {v.etiqueta}
+                                    {v.precioPropio && <span className="ml-1.5 text-[11px] tabular-nums text-[#007AFF] dark:text-[#0A84FF]">${fmtEntero(v.precioVenta)}</span>}
+                                  </td>
+                                  <td className={`px-4 py-1 text-right text-[12px] tabular-nums ${v.stockActual <= 0 ? 'text-[#AEAEB2]' : v.stockActual <= (v.alertaStock ?? 2) ? 'text-[#C93400] dark:text-[#FFB340]' : 'text-[#3C3C43] dark:text-[#EBEBF5]/80'} ${bordeV}`}>{fmtUnits(v.stockActual)}</td>
+                                  <td className={`px-4 py-1 text-right text-[12px] tabular-nums text-[#8E8E93] ${bordeV}`}>${fmtEntero(v.stockActual * v.precioCosto)}</td>
+                                  <td className={`py-1 pl-4 pr-10 text-right text-[12px] tabular-nums text-[#AEAEB2] dark:text-[#636366] ${bordeV}`}>${fmtEntero(v.stockActual * v.precioVenta)}</td>
+                                </tr>
+                              )
+                            })}
+                          </React.Fragment>
                         )
                       })}
 
-                      {/* Subtotal del grupo */}
-                      <tr className="border-b border-white/10 subtotal-row">
-                        <td className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280]">Subtotal</td>
-                        <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">{fmtUnits(grupo.unidades)}</td>
-                        <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">${fmt(grupo.valorizado)}</td>
-                        <td className="px-4 py-2.5 text-right font-mono text-[#9CA3AF] num-tabular">${fmt(grupo.ingresos)}</td>
-                        <td className="px-4 py-2.5 text-right font-mono num-tabular">
-                          <span className="text-[#9CA3AF]">${fmt(grupo.ganancia)}</span>
-                          <span className="ml-1.5 text-[11px] text-[#6B7280]">{marginGrupo.toFixed(1).replace('.', ',')}%</span>
-                        </td>
-                        <td className="px-4 py-2.5 print-hide"></td>
-                      </tr>
-
-                      {/* Separador entre grupos */}
-                      {gIdx < gruposInventario.length - 1 && (
-                        <tr aria-hidden><td colSpan={6} className="h-2"></td></tr>
-                      )}
                     </React.Fragment>
                   )
                 })}
-
               </tbody>
+              {/* Total liviano: línea arriba y semibold, sin franja */}
+              <tfoot>
+                <tr className="total-general-row">
+                  <td className="border-t border-black/[0.08] px-5 py-3 text-[13px] font-semibold text-[#1C1C1E] dark:border-white/[0.1] dark:text-white">Total</td>
+                  <td className="border-t border-black/[0.08] px-4 py-3 text-right text-[14px] font-semibold tabular-nums text-[#1C1C1E] dark:border-white/[0.1] dark:text-white">{fmtUnits(totalGeneral.unidades)}</td>
+                  <td className="border-t border-black/[0.08] px-4 py-3 text-right text-[14px] font-semibold tabular-nums text-[#1C1C1E] dark:border-white/[0.1] dark:text-white">${fmtEntero(totalGeneral.valorizado)}</td>
+                  <td className="border-t border-black/[0.08] py-3 pl-4 pr-10 text-right dark:border-white/[0.1]"><span title={`Ganarías $${fmtEntero(totalGeneral.ganancia)} si vendés todo`} className="text-[13px] tabular-nums"><span className="text-[#8E8E93]">${fmtEntero(totalGeneral.ingresos)}</span><span className="text-[#AEAEB2] dark:text-[#636366]"> · {pctMargen(totalGeneral.ganancia, totalGeneral.ingresos).toLocaleString('es-AR', { maximumFractionDigits: 0 })}%</span></span></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-[#E5E7EB] bg-[#FCFCFB] px-5 py-3 text-xs text-[#9CA3AF] dark:border-white/10 dark:bg-[#101010]">
-          <span>Mostrando {filtrados.length} producto{filtrados.length !== 1 ? 's' : ''}</span>
+        <div className="flex items-center justify-between border-t border-black/[0.06] px-5 py-2.5 text-[12px] text-[#8E8E93] dark:border-white/[0.08]">
+          <span>
+            {articulosFiltrados.length} producto{articulosFiltrados.length !== 1 ? 's' : ''}
+            {filtrados.length > articulosFiltrados.length && <span className="text-[#AEAEB2]"> · {filtrados.length} variantes</span>}
+          </span>
           <span>{sinStock} sin stock · {bajoStock} con stock bajo</span>
         </div>
       </div>
 
-      <section className="executive-panel overflow-hidden" aria-label="Totales de inventario">
-        <div className="overflow-x-auto">
-          <div className="min-w-[820px] border-t border-[#D1D5DB] bg-gradient-to-r from-[#F8F7F2] via-[#FCFCFA] to-[#F8F7F2] dark:border-white/10 dark:from-[#121212] dark:via-[#151515] dark:to-[#121212]">
-            <div className="grid grid-cols-[38%_repeat(4,minmax(0,1fr))_80px] items-center">
-              <p className="px-5 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-[#111827] dark:text-[#F8FAFC]">Total general</p>
-              <p className="px-4 py-3 text-right font-mono text-sm font-bold text-[#111827] dark:text-[#F8FAFC] num-tabular">{fmtUnits(totalGeneral.unidades)}</p>
-              <p className="px-4 py-3 text-right font-mono text-sm font-bold text-[#111827] dark:text-[#F8FAFC] num-tabular">${fmt(totalGeneral.valorizado)}</p>
-              <p className="px-4 py-3 text-right font-mono text-sm font-bold text-emerald-700 dark:text-emerald-300 num-tabular">${fmt(totalGeneral.ingresos)}</p>
-              <p className="px-4 py-3 text-right font-mono text-sm font-bold num-tabular">
-                <span className="text-sky-700 dark:text-sky-300">${fmt(totalGeneral.ganancia)}</span>
-                <span className="ml-1.5 text-[11px] font-semibold text-[#6B7280] dark:text-[#B8C3B1]">{pctMargen(totalGeneral.ganancia, totalGeneral.ingresos).toFixed(1).replace('.', ',')}%</span>
-              </p>
-              <span className="px-4 py-3 print-hide" aria-hidden></span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Modal crear/editar producto ── */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl max-h-[92vh] overflow-hidden border border-[#D1D5DB] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[#0B0F14]">
-            <div className="flex items-start justify-between border-b border-[#E5E7EB] bg-[#111827] px-5 py-4 dark:border-white/10 dark:bg-[#0B0F14]">
-              <h3 className="flex items-center gap-2.5 text-base font-semibold text-slate-100">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-white/20 bg-white/10 text-sm leading-none" aria-hidden>📦</span>
-                {editingId ? 'Editar producto' : 'Nuevo producto'}
-              </h3>
-              <button
-                onClick={() => { setShowForm(false); setEditingId(null); setFormError('') }}
-                className="border border-white/20 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-slate-200 transition hover:bg-white/20 hover:text-white"
-                aria-label="Cerrar"
-              >✕</button>
-            </div>
-            <div className="max-h-[calc(92vh-74px)] overflow-y-auto">
-              <ProductoFormBody
-                key={editingId ?? 'new'}
-                editingProd={editingProd ?? null}
-                editingId={editingId}
-                categoriasExistentes={categoriasExistentes}
-                isPending={isPending}
-                formError={formError}
-                onSubmit={handleCreateOrUpdate}
-                onCancel={() => { setShowForm(false); setEditingId(null); setFormError('') }}
-              />
-            </div>
-          </div>
-        </div>
+      {showSubtotales && (
+        <SubtotalesSheet
+          // Todas las categorías (sin el filtro del buscador)
+          grupos={Array.from(productos.reduce((map, p) => {
+            const key = p.categoria?.trim() || 'Sin categoría'
+            const g = map.get(key) ?? { categoria: key, productos: 0, unidades: 0, valorizado: 0, ingresos: 0, ganancia: 0 }
+            g.productos += 1
+            g.unidades += p.stockActual
+            g.valorizado += p.stockActual * p.precioCosto
+            g.ingresos += p.stockActual * p.precioVenta
+            g.ganancia += p.stockActual * (p.precioVenta - p.precioCosto)
+            return map.set(key, g)
+          }, new Map<string, { categoria: string; productos: number; unidades: number; valorizado: number; ingresos: number; ganancia: number }>()).values())}
+          onClose={() => setShowSubtotales(false)}
+          onElegir={(cat) => {
+            setShowSubtotales(false)
+            setBusqueda(cat)
+            document.getElementById('inventario-tabla')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }}
+        />
       )}
 
-      {showMovimientosModal && selectedProducto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-4xl max-h-[92vh] overflow-hidden border border-[#D1D5DB] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-[#0B0F14]">
-            <div className="flex items-center justify-between border-b border-[#E5E7EB] bg-[#111827] px-5 py-4 dark:border-white/10 dark:bg-[#0B0F14]">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-white/20 bg-white/10 text-sm leading-none" aria-hidden>📦</span>
-                <div>
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-white">Movimientos de stock</h3>
-                  <p className="mt-1 text-xs text-white/70">{selectedProducto.nombre}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => { setShowMovimientosModal(false) }}
-                className="border border-white/20 bg-white/10 px-2.5 py-1.5 text-lg leading-none text-slate-200 transition hover:bg-white/20 hover:text-white"
-              >✕</button>
-            </div>
+      {/* ── Nuevo / editar artículo (hoja iOS) ── */}
+      {showForm && (
+        <ProductoForm
+          key={editingId ?? 'nuevo'}
+          articulo={editingArt ? aEditable(editingArt) : null}
+          categorias={categoriasExistentes}
+          subcategorias={subcategoriasPorCat}
+          marcas={marcasExistentes}
+          valoresUsados={valoresUsados}
+          onClose={() => { setShowForm(false); setEditingId(null) }}
+          onSaved={() => {
+            const editando = !!editingId
+            setShowForm(false); setEditingId(null)
+            void reload()
+            mostrarAviso(editando ? 'Cambios guardados' : 'Producto creado')
+          }}
+        />
+      )}
 
-            <div className="grid max-h-[calc(92vh-74px)] gap-0 overflow-y-auto lg:grid-cols-[1fr_1fr]">
-              <div className="border-b border-[#E5E7EB] p-5 dark:border-white/10 lg:border-b-0 lg:border-r lg:p-6">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#C7D2C1]">Historial de unidades (tiempo/stock)</p>
-                  <p className="text-[11px] text-[#9CA3AF]">Últimos {movimientos.length} registros</p>
-                </div>
+      {showMovimientosModal && selectedArticulo && (
+        <ProductoSheet
+          key={selectedArticulo.key}
+          articulo={selectedArticulo}
+          movimientos={movimientos}
+          varianteInicial={varianteInicial}
+          onClose={() => setShowMovimientosModal(false)}
+          onEdit={() => { setShowMovimientosModal(false); setEditingId(selectedArticulo.key); setShowForm(true) }}
+          onDelete={() => handleDelete(selectedArticulo)}
+          onChanged={() => { void reload(); void loadMovimientos(selectedArticulo.variantes.map((v) => v.id)) }}
+        />
+      )}
 
-                <div className="rounded-xl border border-[#E5E7EB] bg-gradient-to-b from-[#FFFFFF] to-[#FAFAF8] p-4 shadow-sm dark:border-white/10 dark:from-[#141414] dark:to-[#101010]">
-                  {stockInsights.points.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-[#D1D5DB] px-4 py-12 text-center text-xs text-[#9CA3AF] dark:border-white/10">
-                      Cargá movimientos para visualizar la serie de unidades.
-                    </div>
-                  ) : (
-                    <div className="h-[420px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={stockInsights.points} margin={{ top: 8, right: 12, left: -8, bottom: 8 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" opacity={0.7} vertical={false} />
-                          <XAxis
-                            dataKey="label"
-                            stroke="#94A3B8"
-                            tick={{ fontSize: 10, fill: '#64748B' }}
-                            tickLine={false}
-                            axisLine={false}
-                          />
-                          <YAxis
-                            yAxisId="unidades"
-                            stroke="#94A3B8"
-                            tick={{ fontSize: 10, fill: '#64748B' }}
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(value) => fmtUnits(Number(value))}
-                          />
-                          <Tooltip
-                            cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
-                            contentStyle={{
-                              border: '1px solid #E2E8F0',
-                              borderRadius: 10,
-                              background: '#0F172A',
-                              color: '#E2E8F0',
-                              boxShadow: '0 8px 18px rgba(15, 23, 42, 0.12)',
-                            }}
-                            labelFormatter={(value) => {
-                              const point = stockInsights.points.find(p => p.label === String(value))
-                              return point ? `${point.label} · ${point.tipo}` : String(value)
-                            }}
-                            formatter={(value, name) => {
-                              if (name === 'Unidades') return [`${fmtUnits(Number(value))} ${selectedProducto.unidad}`, 'Unidades']
-                              return [String(value), String(name)]
-                            }}
-                          />
-                          <Line
-                            yAxisId="unidades"
-                            type="monotone"
-                            dataKey="unidades"
-                            name="Unidades"
-                            stroke={STOCK_CHART_COLORS.unidades}
-                            strokeWidth={3}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            dot={(props: { cx?: number; cy?: number; payload?: { id?: string } }) => {
-                              const { cx, cy, payload } = props
-                              if (typeof cx !== 'number' || typeof cy !== 'number') return null
-                              return (
-                                <circle
-                                  key={payload?.id ?? `${cx}-${cy}`}
-                                  cx={cx}
-                                  cy={cy}
-                                  r={4.5}
-                                  fill="#F8FAFC"
-                                  stroke={STOCK_CHART_COLORS.unidades}
-                                  strokeWidth={2.5}
-                                />
-                              )
-                            }}
-                            activeDot={{ r: 6, fill: STOCK_CHART_COLORS.unidades, stroke: '#FFF', strokeWidth: 2 }}
-                            connectNulls
-                          />
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-              </div>
+      {showPrecios && (
+        <PreciosMasivoSheet
+          productos={productos}
+          onClose={() => setShowPrecios(false)}
+          onDone={(n) => { setShowPrecios(false); void reload(); mostrarAviso(`Precios actualizados (${n})`) }}
+        />
+      )}
 
-              <div className="p-5 lg:p-6">
-                <div className="mb-5 border border-[#E5E7EB] bg-[#F9FAFB] p-3 dark:border-white/10 dark:bg-[#111111]">
-                  <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#E5E7EB] pb-2 dark:border-white/10">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7280] dark:text-[#CBD5E1]">Resumen de Producto</p>
-                    <span className="text-[10px] text-[#9CA3AF] dark:text-[#94A3B8]">{selectedProducto.unidad}</span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <div className="flex items-start gap-3 border border-[#E5E7EB] bg-white p-3 dark:border-[#1E293B] dark:bg-[#111827]">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center bg-[#F3F4F6] text-[#374151] dark:bg-[#1E293B] dark:text-[#E2E8F0]">
-                        <FiPackage className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280] dark:text-[#CBD5E1]">Nombre</p>
-                        <h4 className="mt-1 text-base font-semibold leading-tight text-[#111827] dark:text-[#F8FAFC]">{selectedProducto.nombre}</h4>
-                        <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-[#6B7280] dark:text-[#C7D2C1]">
-                          {selectedProducto.categoria && (
-                            <span className="border border-[#E5E7EB] bg-[#F9FAFB] px-2 py-0.5 dark:border-[#334155] dark:bg-[#0B1220]">{selectedProducto.categoria}</span>
-                          )}
-                          {selectedProducto.marca && (
-                            <span className="border border-[#E5E7EB] bg-[#F9FAFB] px-2 py-0.5 dark:border-[#334155] dark:bg-[#0B1220]">{selectedProducto.marca}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 border border-[#E5E7EB] bg-white p-3 dark:border-[#1E293B] dark:bg-[#111827]">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#F3F4F6] text-[#374151] dark:bg-[#1E293B] dark:text-[#E2E8F0]">
-                          <FiDollarSign className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280] dark:text-[#CBD5E1]">Precio unitario</p>
-                          <p className="mt-1 font-sans text-base font-semibold text-[#111827] dark:text-[#F8FAFC]">${fmt(selectedProducto.precioVenta)}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 border border-[#E5E7EB] bg-white p-3 dark:border-[#1E293B] dark:bg-[#111827]">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#F3F4F6] text-[#374151] dark:bg-[#1E293B] dark:text-[#E2E8F0]">
-                          <FiTag className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280] dark:text-[#CBD5E1]">Costo unitario</p>
-                          <p className="mt-1 font-sans text-base font-semibold text-[#111827] dark:text-[#F8FAFC]">${fmt(selectedProducto.precioCosto)}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 border border-[#E5E7EB] bg-white p-3 dark:border-[#1E293B] dark:bg-[#111827]">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#F3F4F6] text-[#374151] dark:bg-[#1E293B] dark:text-[#E2E8F0]">
-                          <FiTrendingUp className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6B7280] dark:text-[#CBD5E1]">Ganancia unitaria</p>
-                          <p className={`mt-1 font-sans text-base font-semibold ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
-                            ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? '+' : ''}{fmt(selectedProducto.precioVenta - selectedProducto.precioCosto)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className={`flex h-8 min-w-[64px] items-center justify-center border px-2 text-[10px] font-bold uppercase tracking-[0.18em] ${(selectedProducto.precioVenta - selectedProducto.precioCosto) >= 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200' : 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200'}`}>
-                        {selectedProducto.precioCosto > 0
-                          ? `${(((selectedProducto.precioVenta - selectedProducto.precioCosto) / selectedProducto.precioCosto) * 100) >= 0 ? '+' : ''}${fmt(((((selectedProducto.precioVenta - selectedProducto.precioCosto) / selectedProducto.precioCosto) * 100)))}%`
-                          : '0%'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Aviso breve abajo */}
+      {aviso && (
+        <div className="reg-toast fixed bottom-6 left-1/2 z-[80] rounded-full bg-[#1C1C1E]/90 px-4 py-2 text-[13px] text-white shadow-lg backdrop-blur dark:bg-white/90 dark:text-[#1C1C1E]" role="status">
+          {aviso}
         </div>
       )}
 
       {/* ── Estilos print-friendly para inventario ── */}
-      <style jsx global>{`
-        @media print {
-          @page { size: A4; margin: 14mm; }
-          body.printing-inventario {
-            background: #ffffff !important;
-            color: #111111 !important;
-          }
-          /* Ocultar todo menos la tabla del inventario */
-          body.printing-inventario * { visibility: hidden !important; }
-          body.printing-inventario #inventario-tabla,
-          body.printing-inventario #inventario-tabla * { visibility: visible !important; }
-          body.printing-inventario #inventario-tabla {
-            position: absolute !important;
-            top: 0; left: 0; right: 0;
-            width: 100% !important;
-          }
-          body.printing-inventario .print-hide { display: none !important; }
-
-          /* Reset colores para papel */
-          body.printing-inventario #inventario-tabla,
-          body.printing-inventario #inventario-tabla table,
-          body.printing-inventario #inventario-tabla thead,
-          body.printing-inventario #inventario-tabla tbody,
-          body.printing-inventario #inventario-tabla tr,
-          body.printing-inventario #inventario-tabla td,
-          body.printing-inventario #inventario-tabla th {
-            background: #ffffff !important;
-            color: #111111 !important;
-            border-color: #d1d5db !important;
-            box-shadow: none !important;
-          }
-          body.printing-inventario #inventario-tabla table {
-            min-width: 0 !important;
-            width: 100% !important;
-            font-size: 11px !important;
-          }
-          body.printing-inventario #inventario-tabla thead tr {
-            border-bottom: 2px solid #111 !important;
-          }
-          body.printing-inventario #inventario-tabla thead th {
-            color: #111 !important;
-            font-weight: 700 !important;
-          }
-          body.printing-inventario #inventario-tabla .group-header td {
-            background: #f3f4f6 !important;
-            font-weight: 700 !important;
-            border-top: 1px solid #111 !important;
-          }
-          body.printing-inventario #inventario-tabla .subtotal-row td {
-            background: #fafafa !important;
-            font-style: italic !important;
-            border-top: 1px dashed #9ca3af !important;
-          }
-          body.printing-inventario #inventario-tabla .total-general-row td {
-            background: #ffffff !important;
-            font-weight: 800 !important;
-            border-top: 2px solid #111 !important;
-            border-bottom: 2px solid #111 !important;
-          }
-          body.printing-inventario #inventario-tabla .text-emerald-400,
-          body.printing-inventario #inventario-tabla .text-sky-400 {
-            color: #111 !important;
-          }
-          body.printing-inventario tr { page-break-inside: avoid !important; }
-        }
-      `}</style>
     </div>
   )
 }

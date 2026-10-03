@@ -116,13 +116,14 @@ export function PrimaryButton({ children, onClick, disabled, color = 'green', sl
   color?: 'green' | 'red' | 'gray'
   slot?: HTMLElement | null
 }) {
-  const bg = color === 'green' ? 'bg-brand-military hover:bg-brand-military-dark' : color === 'red' ? 'bg-brand-oxide hover:bg-[#8B4A3F]' : 'bg-zinc-700 hover:bg-zinc-800'
+  // Color del tipo de registro (verde ingreso, rojo egreso, azul cajas); el prop queda de respaldo
+  const bg = color === 'green' ? 'bg-[var(--reg-accent,#34C759)]' : color === 'red' ? 'bg-[var(--reg-accent,#FF3B30)]' : 'bg-[var(--reg-accent,#007AFF)]'
   const button = (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full rounded-xl py-3.5 text-[16px] font-medium text-white transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${IOS_FONT} ${bg}`}
+      className={`w-full rounded-xl py-3.5 text-[16px] font-semibold text-white transition-all hover:brightness-95 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 ${IOS_FONT} ${bg}`}
     >
       {children}
     </button>
@@ -139,7 +140,7 @@ export function PrimaryButton({ children, onClick, disabled, color = 'green', sl
 
 /** Texto-botón discreto en el color de acento */
 export function LinkButton({ children, onClick, tone = 'accent' }: { children: ReactNode; onClick: () => void; tone?: 'accent' | 'muted' | 'danger' }) {
-  const color = tone === 'accent' ? 'text-brand-military dark:text-[#9AC7A8]' : tone === 'danger' ? 'text-[#FF3B30]' : 'text-[#8E8E93]'
+  const color = tone === 'accent' ? 'text-[var(--reg-accent,#34C759)]' : tone === 'danger' ? 'text-[#FF3B30]' : 'text-[#8E8E93]'
   return (
     <button type="button" onClick={onClick} className={`text-[15px] ${color} transition-opacity active:opacity-60`}>
       {children}
@@ -148,7 +149,7 @@ export function LinkButton({ children, onClick, tone = 'accent' }: { children: R
 }
 
 /** Cierra un menú flotante al tocar afuera o con Esc */
-function useDismiss(open: boolean, close: () => void) {
+export function useDismiss(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
@@ -164,7 +165,7 @@ function useDismiss(open: boolean, close: () => void) {
   return ref
 }
 
-const POPOVER_CLS =
+export const POPOVER_CLS =
   'absolute top-full z-40 mt-1 overflow-hidden rounded-xl bg-[#fff]/95 shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] backdrop-blur-xl dark:bg-[#2C2C2E]/95 dark:ring-white/10'
 
 /** Menú desplegable estilo iOS (reemplaza al <select> nativo) */
@@ -205,7 +206,7 @@ export function MenuSelect<T extends string>({ value, options, onChange, align =
               onClick={() => { onChange(o.value); setOpen(false) }}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[#1C1C1E] transition-colors hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]"
             >
-              <span className="w-4 text-brand-military dark:text-[#9AC7A8]">{o.value === value ? '✓' : ''}</span>
+              <span className="w-4 text-[var(--reg-accent,#34C759)]">{o.value === value ? '✓' : ''}</span>
               <span className="truncate">{o.label}</span>
             </button>
           ))}
@@ -258,15 +259,15 @@ export function DateChip({ value, onChange, label, align = 'left' }: {
               months: 'relative',
               month_caption: 'flex h-8 items-center px-1 text-[14px] font-semibold capitalize',
               nav: 'absolute right-0 top-0 flex h-8 items-center gap-1',
-              button_previous: 'flex h-7 w-7 items-center justify-center rounded-full text-brand-military hover:bg-black/[0.05] dark:text-[#9AC7A8] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
-              button_next: 'flex h-7 w-7 items-center justify-center rounded-full text-brand-military hover:bg-black/[0.05] dark:text-[#9AC7A8] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
+              button_previous: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#34C759)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
+              button_next: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#34C759)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
               weekdays: 'flex',
               weekday: 'w-8 pb-1 text-center text-[11px] font-medium uppercase text-[#8E8E93]',
               week: 'flex',
               day: 'h-8 w-8 p-0 text-center',
               day_button: 'h-8 w-8 rounded-full text-[13px] transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.08]',
-              selected: '[&>button]:bg-brand-military [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-brand-military',
-              today: 'font-semibold text-brand-military dark:text-[#9AC7A8]',
+              selected: '[&>button]:bg-[var(--reg-accent,#34C759)] [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-[var(--reg-accent,#34C759)]',
+              today: 'font-semibold text-[var(--reg-accent,#34C759)]',
               outside: 'text-[#C7C7CC] dark:text-[#48484A]',
             }}
           />

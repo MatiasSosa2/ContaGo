@@ -53,6 +53,7 @@ function UserInfoCard({
       title={`${displayName} · ${business.name} · ${ROLE_LABELS[business.role]}`}
     >
       {user.image ? (
+        // eslint-disable-next-line @next/next/no-img-element -- foto de Google/Microsoft: dominio variable, no pasa por next/image
         <img
           src={user.image}
           alt={`Avatar de ${displayName}`}

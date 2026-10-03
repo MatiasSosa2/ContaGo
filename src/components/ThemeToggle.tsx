@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useStoredValue } from '@/lib/useStoredValue'
 
 export default function ThemeToggle({ compact = false, circle = false, className = '' }: {
   compact?: boolean
@@ -8,22 +9,15 @@ export default function ThemeToggle({ compact = false, circle = false, className
   circle?: boolean
   className?: string
 }) {
-  const [dark, setDark] = useState(false)
+  // Preferencia guardada (por defecto: claro); el layout ya la aplica antes de pintar
+  const [theme, setTheme] = useStoredValue('theme')
+  const dark = theme === 'dark'
 
-  // Al montar, leer preferencia guardada (por defecto: claro)
   useEffect(() => {
-    const saved = localStorage.getItem('theme')
-    const isDark = saved === 'dark'
-    setDark(isDark)
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
-  }, [])
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+  }, [dark])
 
-  const toggle = () => {
-    const next = !dark
-    setDark(next)
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light')
-    localStorage.setItem('theme', next ? 'dark' : 'light')
-  }
+  const toggle = () => setTheme(dark ? 'light' : 'dark')
 
   // Círculo con ícono: luna para pasar a oscuro, sol para volver a claro
   if (circle) {
@@ -35,10 +29,10 @@ export default function ThemeToggle({ compact = false, circle = false, className
         role="switch"
         aria-checked={dark}
         aria-label={dark ? 'Modo claro' : 'Modo oscuro'}
-        className={`print:hidden flex h-9 w-9 items-center justify-center rounded-full bg-[#fff]/[0.08] text-[#fff]/75 transition hover:bg-[#fff]/[0.14] hover:text-[#fff] active:scale-95 ${className}`}
+        className={`print:hidden flex h-8 w-8 items-center justify-center rounded-full bg-[#fff]/[0.08] text-[#fff]/75 transition hover:bg-[#fff]/[0.14] hover:text-[#fff] active:scale-95 ${className}`}
       >
         {dark ? (
-          <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
           </svg>
         ) : (

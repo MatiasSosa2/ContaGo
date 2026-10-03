@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { createPortal } from 'react-dom'
 import { createProductOperation, createProducto } from '@/app/actions'
 import type { Account, Contact, Empleado, Producto } from './TransactionForm'
+import type { Registrado } from '@/lib/registro'
+import ContactPicker from './registro/ContactPicker'
 import { MoneyField, PaymentSection, fmt, nextKey, num, round2, usePayments } from './registro/payment'
 import { Caption, Chevron, Group, IOS_FONT, MenuSelect, MiniCard, PrimaryButton } from './ui/ios'
 
@@ -17,7 +19,7 @@ const ENTRY_GRID = 'grid grid-cols-[minmax(0,1fr)_44px_88px_88px] items-center g
 
 // Campo chico del carrito: sin caja, con línea al enfocar
 const CART_INPUT_CLS =
-  'ios-bare w-full border-b border-transparent bg-transparent text-right text-[13px] text-[#1C1C1E] outline-none focus:border-brand-military dark:text-white tabular-nums'
+  'ios-bare w-full border-b border-transparent bg-transparent text-right text-[13px] text-[#1C1C1E] outline-none focus:border-[var(--reg-accent,#34C759)] dark:text-white tabular-nums'
 
 // Pestaña flotante de la columna derecha (carrito, pago)
 const SIDE_CARD_CLS = 'shrink-0 rounded-3xl bg-[#F2F2F7] p-4 shadow-2xl dark:bg-black'
@@ -58,7 +60,7 @@ function CartNumber({ value, onChange, money, label }: { value: string; onChange
   )
 }
 
-export default function ProductOperationForm({ tipo, accounts, contacts, empleados, productos, date, onDone, cartSlot, footerSlot }: {
+export default function ProductOperationForm({ tipo, accounts, contacts, empleados, productos, date, onDone, onContactCreated, cartSlot, footerSlot }: {
   /** VENTA: sale stock, precio de venta, cliente. COMPRA: entra stock, precio de costo, proveedor */
   tipo: 'VENTA' | 'COMPRA'
   accounts: Account[]
@@ -66,7 +68,9 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
   empleados: Empleado[]
   productos: Producto[]
   date: string
-  onDone: () => void
+  onDone: (registrado?: Registrado) => void
+  /** Cliente/proveedor agregado desde el selector: el modal lo suma a su catálogo */
+  onContactCreated?: (contact: Contact) => void
   /** Lugar al costado de la pestaña donde se dibuja el carrito (pantallas anchas) */
   cartSlot?: HTMLElement | null
   /** Lugar debajo de la pestaña para la tarjeta del botón */
@@ -74,8 +78,15 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
 }) {
   const isWide = useSyncExternalStore(subscribeWide, getWide, () => false)
   const esVenta = tipo === 'VENTA'
-  // Venta: clientes. Compra: proveedores
-  const contraparte = useMemo(() => contacts.filter((c) => c.type === (esVenta ? 'CLIENT' : 'SUPPLIER')), [contacts, esVenta])
+  // Venta: clientes. Compra: proveedores (más los agregados recién desde el selector)
+  const [contactosNuevos, setContactosNuevos] = useState<Contact[]>([])
+  const contraparte = useMemo(
+    () => [...contacts, ...contactosNuevos.filter((n) => !contacts.some((c) => c.id === n.id))]
+      .filter((c) => c.type === (esVenta ? 'CLIENT' : 'SUPPLIER')),
+    [contacts, contactosNuevos, esVenta],
+  )
+  // Venta/compra a crédito sin cliente/proveedor: se marca el campo
+  const [faltaContacto, setFaltaContacto] = useState(false)
   // Productos creados desde la compra (alta rápida), además de los del catálogo
   const [creados, setCreados] = useState<Producto[]>([])
   const todos = useMemo(() => [...productos, ...creados], [productos, creados])
@@ -230,6 +241,12 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
     if (total <= 0) { setError('El total debe ser mayor a 0'); return }
     const pagosRes = pay.buildPayload()
     if (!pagosRes.ok) { setError(pagosRes.error); return }
+    // A crédito tiene que haber a quién cobrarle / pagarle (si no, en Créditos queda de "nadie")
+    if (!contactId && pagosRes.pagos.some((p) => p.metodo === 'CREDITO')) {
+      setFaltaContacto(true)
+      setError(esVenta ? 'Elegí el cliente para vender a crédito' : 'Elegí el proveedor para comprar a crédito')
+      return
+    }
 
     const fd = new FormData()
     fd.set('payload', JSON.stringify({
@@ -246,7 +263,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
     const result = await createProductOperation(fd)
     setSubmitting(false)
     if (!result.success) { setError(result.error || `No se pudo registrar la ${esVenta ? 'venta' : 'compra'}`); return }
-    onDone()
+    onDone({ titulo: `${esVenta ? 'Venta' : 'Compra'} registrada`, monto: total, undo: result.data?.undo })
   }
 
   // ── Carrito: lista fija editable + subtotal, descuento y total ──
@@ -315,7 +332,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
         </div>
         <div className="flex min-h-[52px] items-center justify-between px-4">
           <span className="text-[15px] font-medium text-[#1C1C1E] dark:text-white">Total</span>
-          <span className="text-[20px] font-semibold text-[#1C1C1E] dark:text-white">{fmt(total)}</span>
+          <span className="text-[20px] font-semibold text-[var(--reg-accent,#34C759)]">{fmt(total)}</span>
         </div>
       </Group>
     </div>
@@ -361,7 +378,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                 type="number" min="0.01" step="0.01" value={draft.cantidad}
                 onChange={(e) => setDraft((d) => ({ ...d, cantidad: e.target.value }))}
                 onKeyDown={(e) => { if (e.key === 'Enter') agregarAlCarrito() }}
-                className="ios-bare w-full border-b border-transparent bg-transparent text-right text-[13px] text-[#1C1C1E] outline-none focus:border-brand-military dark:text-white tabular-nums"
+                className="ios-bare w-full border-b border-transparent bg-transparent text-right text-[13px] text-[#1C1C1E] outline-none focus:border-[var(--reg-accent,#34C759)] dark:text-white tabular-nums"
                 aria-label="Cantidad"
               />
               <MoneyField
@@ -378,7 +395,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
             <button
               type="button"
               onClick={agregarAlCarrito}
-              className="text-[13px] font-medium text-[#2F7D4A] transition-opacity active:opacity-60 dark:text-[#7BC896]"
+              className="text-[13px] font-medium text-[var(--reg-accent,#34C759)] transition-opacity active:opacity-60"
             >
               Agregar al carrito
             </button>
@@ -434,23 +451,23 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                 <input
                   autoFocus value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
                   placeholder="Nombre" maxLength={100}
-                  className="ios-bare w-full border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-brand-military dark:border-white/10 dark:text-white"
+                  className="ios-bare w-full border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#34C759)] dark:border-white/10 dark:text-white"
                 />
                 <div className="mt-1 flex gap-3">
                   <input
                     type="number" min="0" step="0.01" value={nuevo.precioVenta} onChange={(e) => setNuevo({ ...nuevo, precioVenta: e.target.value })}
                     placeholder="Precio de venta"
-                    className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-brand-military dark:border-white/10 dark:text-white"
+                    className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#34C759)] dark:border-white/10 dark:text-white"
                   />
                   <input
                     value={nuevo.categoria} onChange={(e) => setNuevo({ ...nuevo, categoria: e.target.value })}
                     placeholder="Categoría (opcional)" maxLength={80}
-                    className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-brand-military dark:border-white/10 dark:text-white"
+                    className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#34C759)] dark:border-white/10 dark:text-white"
                   />
                 </div>
                 <div className="mt-2 flex justify-end gap-4 text-[12px]">
                   <button type="button" onClick={() => setNuevo(null)} className="text-[#8E8E93]">Cancelar</button>
-                  <button type="button" onClick={crearProducto} disabled={creando} className="font-medium text-[#2F7D4A] disabled:opacity-50 dark:text-[#7BC896]">
+                  <button type="button" onClick={crearProducto} disabled={creando} className="font-medium text-[var(--reg-accent,#34C759)] disabled:opacity-50">
                     {creando ? 'Guardando…' : 'Crear'}
                   </button>
                 </div>
@@ -476,12 +493,13 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
       {/* ── Más datos: dos tarjetitas en una fila ── */}
       <div className="mt-5 grid grid-cols-2 gap-3">
         <MiniCard label={esVenta ? 'Cliente' : 'Proveedor'}>
-          <MenuSelect
-            label={esVenta ? 'Cliente' : 'Proveedor'}
-            tone="strong" align="left" size="sm"
+          <ContactPicker
+            type={esVenta ? 'CLIENT' : 'SUPPLIER'}
+            contacts={contraparte}
             value={contactId}
-            options={[{ value: '', label: 'Ninguno' }, ...contraparte.map((c) => ({ value: c.id, label: c.name }))]}
-            onChange={setContactId}
+            onChange={(id) => { setContactId(id); if (id) { setFaltaContacto(false); setError(null) } }}
+            onCreated={(c) => { setContactosNuevos((prev) => [...prev, c]); onContactCreated?.(c) }}
+            invalid={faltaContacto && !contactId}
           />
         </MiniCard>
         <MiniCard label="Empleado">

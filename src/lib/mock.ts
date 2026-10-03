@@ -55,7 +55,7 @@ const MOCK_WEEK: [string, number, number][] = [
   ['Vie', 100000, 70000], ['Sáb', 50000, 40000], ['Dom', 25000, 30000],
 ]
 
-export function getMockDashboardStats(_period?: string, _customFrom?: string, _customTo?: string) {
+export function getMockDashboardStats() {
   const catColors = ['#3A4D39', '#C5A065', '#5A7A57', '#d4ae84', '#6b8f65', '#c49a6c']
 
   return {
@@ -64,8 +64,8 @@ export function getMockDashboardStats(_period?: string, _customFrom?: string, _c
     // Cada día: un ingreso (posición 2i) y un egreso (2i + 1) en chartTx
     chartData: MOCK_WEEK.map(([label, income, expense], i) => ({ label, income, expense, net: income - expense, txIdx: [2 * i, 2 * i + 1] })),
     chartTx: MOCK_WEEK.flatMap(([label, income, expense], i) => [
-      { id: `mock-in-${i}`, type: 'INCOME', amount: income, date: new Date(), description: `Ventas ${label}`, category: 'Venta de productos', account: 'Caja' },
-      { id: `mock-out-${i}`, type: 'EXPENSE', amount: expense, date: new Date(), description: `Gastos ${label}`, category: 'Sueldos', account: 'Banco' },
+      { id: `mock-in-${i}`, type: 'INCOME', amount: income, date: new Date(), description: `Ventas ${label}`, category: 'Venta de productos', subcategory: null, account: 'Caja', contact: null, items: null },
+      { id: `mock-out-${i}`, type: 'EXPENSE', amount: expense, date: new Date(), description: `Gastos ${label}`, category: 'Sueldos', subcategory: null, account: 'Banco', contact: null, items: null },
     ]),
     categoryBreakdown: [
       { name: 'Alquiler', value: 150000, color: catColors[0] },

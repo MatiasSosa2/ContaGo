@@ -9,8 +9,9 @@ type Bucket = { label: string; income: number; expense: number; txIdx: number[] 
 type Kind = 'INCOME' | 'EXPENSE'
 
 // Colores y tipografía estilo iOS
-const GREEN = '#34C759'
-const RED = '#FF3B30'
+// Paleta sobria (salvia + terracota): menos saturada que el verde/rojo de iOS
+const GREEN = '#6FA287'
+const RED = '#D08770'
 const SF = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'
 
 const fmt = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(Math.round(v)).toLocaleString('es-AR')}`
@@ -20,6 +21,20 @@ const fmtShort = (v: number) => {
   if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })}M`
   if (abs >= 1_000) return `${sign}$${Math.round(abs / 1_000)}k`
   return `${sign}$${Math.round(abs)}`
+}
+
+/** Cartelito: montos siempre en millones ("$3,7 M"; los muy chicos con 2 decimales) */
+const fmtM = (v: number) => {
+  const m = Math.abs(v) / 1_000_000
+  const dec = m > 0 && m < 0.1 ? 2 : 1
+  return `${v < 0 ? '−' : ''}$${m.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec })} M`
+}
+
+/** Sin "Venta:", "Cobro", "Pago de…" adelante: en el detalle ya se sabe qué es */
+const sinPrefijo = (nombre: string) => {
+  const limpio = nombre.replace(/^(venta|compra|cobro|pago)(s*[:·-]s*|s+)/i, '').trim()
+  // "Pago de deuda", "Cobro de crédito": sin nombre detrás, se dejan como están
+  return !limpio || /^des/i.test(limpio) ? nombre : limpio
 }
 
 /** Título de una barra: día completo si todos sus movimientos son del mismo día, si no el mes */
@@ -34,11 +49,15 @@ function bucketTitle(txs: DashboardChartTx[], fallback: string) {
 }
 
 // ── Recuadro al pasar el mouse: vidrio translúcido, tipografía del sistema ──
-function GlassTooltip({ active, payload, label, both }: {
+type Detalle = { filas: [string, number][]; resto: number }
+
+function GlassTooltip({ active, payload, label, both, detalle }: {
   active?: boolean
   payload?: readonly { payload?: { income: number | null; expense: number | null } }[]
   label?: string | number
   both: boolean
+  /** Con una categoría elegida: en qué se compone el monto de esa barra */
+  detalle?: Detalle | null
 }) {
   const p = payload?.[0]?.payload
   if (!active || !p) return null
@@ -56,14 +75,25 @@ function GlassTooltip({ active, payload, label, both }: {
           <span className="flex items-center gap-1.5 text-[#3C3C43] dark:text-[#EBEBF5]/80">
             <span className="h-[7px] w-[7px] rounded-full" style={{ background: color }} />{name}
           </span>
-          <span className="font-semibold tabular-nums text-[#1C1C1E] dark:text-white">{fmt(value)}</span>
+          <span className="font-semibold tabular-nums text-[#1C1C1E] dark:text-white">{fmtM(value)}</span>
         </p>
       ))}
+      {detalle && detalle.filas.length > 0 && (
+        <div className="mt-1 space-y-px border-t border-black/5 pt-1 dark:border-white/10">
+          {detalle.filas.map(([nombre, monto]) => (
+            <p key={nombre} className="flex justify-between gap-4 text-[10.5px] leading-4 text-[#AEAEB2] dark:text-[#8E8E93]">
+              <span className="max-w-[150px] truncate">{nombre}</span>
+              <span className="tabular-nums">{fmtM(monto)}</span>
+            </p>
+          ))}
+          {detalle.resto > 0 && <p className="text-[10.5px] leading-4 text-[#C7C7CC] dark:text-[#636366]">y {detalle.resto} más</p>}
+        </div>
+      )}
       {both && (
         <p className="mt-1 flex justify-between gap-4 border-t border-black/5 pt-1 text-[12px] leading-5 dark:border-white/10">
           <span className="text-[#8E8E93]">Resultado</span>
-          <span className={`font-semibold tabular-nums ${(p.income ?? 0) - (p.expense ?? 0) >= 0 ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#D70015] dark:text-[#FF453A]'}`}>
-            {(p.income ?? 0) - (p.expense ?? 0) >= 0 ? '+' : ''}{fmt((p.income ?? 0) - (p.expense ?? 0))}
+          <span className={`font-semibold tabular-nums ${(p.income ?? 0) - (p.expense ?? 0) >= 0 ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : 'text-[#B8664F] dark:text-[#E3A592]'}`}>
+            {(p.income ?? 0) - (p.expense ?? 0) >= 0 ? '+' : ''}{fmtM((p.income ?? 0) - (p.expense ?? 0))}
           </span>
         </p>
       )}
@@ -163,13 +193,13 @@ function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: Dashboar
             {kinds.includes('INCOME') && (
               <div className="rounded-xl bg-white px-3 py-2.5 dark:bg-[#2C2C2E]">
                 <p className="text-[11px] text-[#8E8E93]">Ingresos</p>
-                <p className="text-[15px] font-semibold tabular-nums text-[#248A3D] dark:text-[#30D158]">{fmtShort(totalInc)}</p>
+                <p className="text-[15px] font-semibold tabular-nums text-[#4F8A6B] dark:text-[#8FC0A4]">{fmtShort(totalInc)}</p>
               </div>
             )}
             {kinds.includes('EXPENSE') && (
               <div className="rounded-xl bg-white px-3 py-2.5 dark:bg-[#2C2C2E]">
                 <p className="text-[11px] text-[#8E8E93]">Egresos</p>
-                <p className="text-[15px] font-semibold tabular-nums text-[#D70015] dark:text-[#FF453A]">{fmtShort(totalExp)}</p>
+                <p className="text-[15px] font-semibold tabular-nums text-[#B8664F] dark:text-[#E3A592]">{fmtShort(totalExp)}</p>
               </div>
             )}
             {both && (
@@ -186,7 +216,7 @@ function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: Dashboar
           {both && (
             <div className="mt-5 flex items-center justify-between rounded-xl bg-white px-4 py-3 dark:bg-[#2C2C2E]">
               <span className="text-[14px] font-medium text-[#1C1C1E] dark:text-white">Resultado de caja</span>
-              <span className={`text-[16px] font-semibold tabular-nums ${resultado >= 0 ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#D70015] dark:text-[#FF453A]'}`}>
+              <span className={`text-[16px] font-semibold tabular-nums ${resultado >= 0 ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : 'text-[#B8664F] dark:text-[#E3A592]'}`}>
                 {resultado >= 0 ? '+' : ''}{fmt(resultado)}
               </span>
             </div>
@@ -206,6 +236,8 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
   // Siempre arranca mostrando todo
   const [kinds, setKinds] = useState<Kind[]>(['INCOME', 'EXPENSE'])
   const [cats, setCats] = useState<string[]>([])
+  // Subcategorías de la categoría elegida (solo con una categoría elegida)
+  const [subs, setSubs] = useState<string[]>([])
   const [hover, setHover] = useState<number | null>(null)
   const [openIdx, setOpenIdx] = useState<number | null>(null)
 
@@ -213,12 +245,15 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
   // Tocar la leyenda aísla ese tipo; tocarla de nuevo vuelve a mostrar todo
   const toggleKind = (k: Kind) => {
     setCats([])
+    setSubs([])
     setKinds((prev) => (prev.length === 1 && prev[0] === k ? ['INCOME', 'EXPENSE'] : [k]))
   }
 
   // Movimientos que pasan el filtro (tipo y, si hay un solo tipo, categorías)
   const visible = (t: DashboardChartTx) =>
-    kinds.includes(t.type === 'INCOME' ? 'INCOME' : 'EXPENSE') && (!single || cats.length === 0 || cats.includes(t.category))
+    kinds.includes(t.type === 'INCOME' ? 'INCOME' : 'EXPENSE') &&
+    (!single || cats.length === 0 || cats.includes(t.category)) &&
+    (cats.length !== 1 || subs.length === 0 || (t.subcategory !== null && subs.includes(t.subcategory)))
 
   const data = useMemo(() => chartData.map((b) => {
     let income = 0
@@ -235,7 +270,7 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
       expense: kinds.includes('EXPENSE') ? expense : null,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [chartData, chartTx, kinds, cats])
+  }), [chartData, chartTx, kinds, cats, subs])
 
   const totals = useMemo(() => {
     let income = 0
@@ -247,7 +282,7 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
     }
     return { income, expense }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartTx, kinds, cats])
+  }, [chartTx, kinds, cats, subs])
 
   // Categorías del tipo aislado, con su total en el período
   const catTotals = useMemo(() => {
@@ -259,6 +294,35 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1])
   }, [chartTx, single])
+
+  const subTotals = useMemo(() => {
+    if (!single || cats.length !== 1) return []
+    const map = new Map<string, number>()
+    for (const t of chartTx) {
+      if ((t.type === 'INCOME' ? 'INCOME' : 'EXPENSE') !== single || t.category !== cats[0] || !t.subcategory) continue
+      map.set(t.subcategory, (map.get(t.subcategory) ?? 0) + t.amount)
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1])
+  }, [chartTx, single, cats])
+
+  // Con una categoría elegida: el detalle de la barra con el mouse encima
+  const detalleHover = useMemo<Detalle | null>(() => {
+    if (hover === null || cats.length === 0) return null
+    const map = new Map<string, number>()
+    for (const i of chartData[hover]?.txIdx ?? []) {
+      const t = chartTx[i]
+      if (!t || !visible(t)) continue
+      if (t.items && t.items.length > 0) {
+        for (const it of t.items) map.set(sinPrefijo(it.nombre), (map.get(sinPrefijo(it.nombre)) ?? 0) + it.monto)
+      } else {
+        const key = t.contact ?? t.subcategory ?? sinPrefijo(t.description)
+        map.set(key, (map.get(key) ?? 0) + t.amount)
+      }
+    }
+    const filas = [...map.entries()].sort((a, b) => b[1] - a[1])
+    return { filas: filas.slice(0, 5), resto: Math.max(0, filas.length - 5) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hover, cats, subs, chartData, chartTx])
 
   const hasData = chartTx.length > 0
   const barSize = Math.max(4, Math.min(12, Math.floor(560 / Math.max(1, data.length) / (kinds.length === 2 ? 3 : 2))))
@@ -273,16 +337,14 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
         type="button"
         onClick={() => toggleKind(k)}
         aria-pressed={single === k}
-        className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] transition ${on ? 'bg-black/[0.04] dark:bg-white/[0.07]' : 'opacity-40 hover:opacity-70'}`}
+        className={`flex items-center gap-1.5 px-2 py-0.5 text-[11px] transition ${on ? '' : 'opacity-35 hover:opacity-70'}`}
       >
-        <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
         <span className="text-[#3C3C43] dark:text-[#EBEBF5]/80">{label}</span>
         <span className="font-semibold tabular-nums text-[#1C1C1E] dark:text-white">{fmtShort(total)}</span>
       </button>
     )
   }
-
-  const resultado = totals.income - totals.expense
 
   return (
     <div style={{ fontFamily: SF }}>
@@ -307,7 +369,7 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
               <CartesianGrid vertical={false} stroke="rgba(120,120,128,0.14)" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#8E8E93' }} interval="preserveStartEnd" minTickGap={10} height={16} />
               <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#8E8E93' }} width={38} tickCount={4} tickFormatter={(v) => fmtShort(Number(v))} />
-              <Tooltip cursor={false} content={(p) => <GlassTooltip active={p.active} payload={p.payload as never} label={p.label} both={kinds.length === 2} />} />
+              <Tooltip cursor={false} content={(p) => <GlassTooltip active={p.active} payload={p.payload as never} label={p.label} both={kinds.length === 2} detalle={detalleHover} />} />
               {kinds.includes('INCOME') && (
                 <Bar dataKey="income" fill={GREEN} barSize={barSize} radius={barSize / 2} animationDuration={350}>
                   {data.map((_, i) => <Cell key={i} fillOpacity={opacity(i)} />)}
@@ -323,43 +385,41 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
         </div>
       )}
 
-      {/* Leyenda que filtra + resultado del período */}
-      <div className="mt-3 flex flex-wrap items-center gap-1">
+      {/* Leyenda que filtra, centrada */}
+      <div className="mt-1.5 flex flex-wrap items-center justify-center gap-2">
         {legendPill('INCOME', 'Ingresos', GREEN, totals.income)}
         {legendPill('EXPENSE', 'Egresos', RED, totals.expense)}
-        <p className="ml-auto text-right text-[12px]">
-          <span className="text-[#8E8E93]">{single ? `Total ${single === 'INCOME' ? 'ingresos' : 'egresos'}` : 'Resultado del período'} </span>
-          <span className={`font-semibold tabular-nums ${single ? 'text-[#1C1C1E] dark:text-white' : resultado >= 0 ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#D70015] dark:text-[#FF453A]'}`}>
-            {!single && resultado >= 0 ? '+' : ''}{fmt(single ? (single === 'INCOME' ? totals.income : totals.expense) : resultado)}
-          </span>
-        </p>
       </div>
 
-      {/* Con un solo tipo: pastillas por categoría (se pueden prender varias) */}
-      {single && catTotals.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => setCats([])}
-            className={`rounded-full px-3 py-1 text-[12px] transition ${cats.length === 0 ? 'bg-[#1C1C1E] text-white dark:bg-white dark:text-[#1C1C1E]' : 'bg-black/[0.05] text-[#3C3C43] hover:bg-black/[0.08] dark:bg-white/[0.08] dark:text-[#EBEBF5]/80'}`}
-          >
-            Todas
-          </button>
-          {catTotals.map(([name, total]) => {
-            const on = cats.includes(name)
-            return (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setCats((prev) => (on ? prev.filter((c) => c !== name) : [...prev, name]))}
-                className={`rounded-full px-3 py-1 text-[12px] transition ${on ? 'bg-[#1C1C1E] text-white dark:bg-white dark:text-[#1C1C1E]' : 'bg-black/[0.05] text-[#3C3C43] hover:bg-black/[0.08] dark:bg-white/[0.08] dark:text-[#EBEBF5]/80'}`}
-              >
-                {name} <span className="tabular-nums opacity-60">{fmtShort(total)}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {/* Con un solo tipo: categorías como texto con separadores (sin elegir ninguna = todas) */}
+      {single && catTotals.length > 0 && (() => {
+        const onCls = single === 'INCOME'
+          ? 'text-[#4F8A6B] underline decoration-[#6FA287]/60 underline-offset-[3px] dark:text-[#8FC0A4]'
+          : 'text-[#B8664F] underline decoration-[#D08770]/60 underline-offset-[3px] dark:text-[#E3A592]'
+        const offCls = 'text-[#8E8E93] hover:text-[#3C3C43] dark:hover:text-[#EBEBF5]'
+        const fila = (items: [string, number][], elegidos: string[], onToggle: (n: string) => void, size: string) => (
+          <div className={`flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 ${size}`}>
+            {items.map(([name, total], i) => {
+              const on = elegidos.includes(name)
+              return (
+                <span key={name} className="inline-flex items-center gap-1">
+                  {i > 0 && <span className="text-[#C7C7CC] dark:text-[#48484A]" aria-hidden>·</span>}
+                  <button type="button" aria-pressed={on} onClick={() => onToggle(name)} className={`transition-colors ${on ? onCls : offCls}`}>
+                    {name} <span className="tabular-nums opacity-70">{fmtShort(total)}</span>
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        )
+        return (
+          <div className="mt-1 space-y-0.5">
+            {fila(catTotals, cats, (name) => { setSubs([]); setCats((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name])) }, 'text-[11px]')}
+            {/* Una sola categoría elegida: sus subcategorías, todavía más chicas */}
+            {subTotals.length > 0 && fila(subTotals, subs, (name) => setSubs((prev) => (prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name])), 'text-[10px]')}
+          </div>
+        )
+      })()}
 
       {openIdx !== null && openTxs.length > 0 && (
         <DaySheet

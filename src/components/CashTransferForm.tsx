@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { createCashTransfer } from '@/app/actions'
 import type { Account } from './TransactionForm'
+import type { Registrado } from '@/lib/registro'
 import { MoneyField, fmt, num } from './registro/payment'
 import { Caption, Group, IOS_FONT, MenuSelect, PrimaryButton, Row } from './ui/ios'
 
@@ -12,7 +13,7 @@ const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
 export default function CashTransferForm({ accounts, date, onDone, footerSlot }: {
   accounts: Account[]
   date: string
-  onDone: () => void
+  onDone: (registrado?: Registrado) => void
   /** Lugar debajo de la pestaña para la tarjeta del botón */
   footerSlot?: HTMLElement | null
 }) {
@@ -66,7 +67,13 @@ export default function CashTransferForm({ accounts, date, onDone, footerSlot }:
     const result = await createCashTransfer(fd)
     setSubmitting(false)
     if (!result.success) { setError(result.error || 'No se pudo registrar el cambio'); return }
-    onDone()
+    onDone({
+      titulo: 'Cambio de caja registrado',
+      monto: a,
+      currency: from?.currency,
+      detalle: from && to ? `${from.name} → ${to.name}` : undefined,
+      undo: result.data?.undo,
+    })
   }
 
   if (accounts.length < 2) {

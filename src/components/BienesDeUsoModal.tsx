@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { getBienesDeUso } from '@/app/actions'
 
 export interface BienItem {
@@ -63,14 +63,15 @@ export default function BienesDeUsoModal({
   const [bienes, setBienes] = useState<BienItem[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Carga los bienes la primera vez que se abre el modal
-  useEffect(() => {
-    if (!open || bienes.length > 0) return
+  // Abre el modal y, la primera vez, carga los bienes
+  const abrir = () => {
+    setOpen(true)
+    if (bienes.length > 0 || loading) return
     setLoading(true)
     getBienesDeUso(true)
       .then(data => setBienes(data as BienItem[]))
       .finally(() => setLoading(false))
-  }, [open])
+  }
 
   const groups = buildGroups(bienes)
   const grandTotal = groups.reduce((s, g) => s + g.total, 0)
@@ -80,7 +81,7 @@ export default function BienesDeUsoModal({
       {/* Card — idéntica al Link original pero como botón */}
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={abrir}
         className="group flex flex-col rounded-2xl border-2 border-[#92400E]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#92400E]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#D97706]/40 dark:hover:border-[#D97706]/80 dark:bg-[#141414] dark:shadow-none w-full text-left"
       >
         <div className="mb-3 flex items-center gap-2">

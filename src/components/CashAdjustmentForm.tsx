@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createCashAdjustment, getCashAccountBalance } from '@/app/actions'
 import type { Account } from './TransactionForm'
+import type { Registrado } from '@/lib/registro'
 import { MoneyField, num, round2 } from './registro/payment'
 import { Caption, Group, IOS_FONT, MenuSelect, PrimaryButton, Row } from './ui/ios'
 
@@ -19,7 +20,7 @@ function fmtCur(v: number, currency: string) {
 export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot }: {
   accounts: Account[]
   date: string
-  onDone: () => void
+  onDone: (registrado?: Registrado) => void
   /** Lugar debajo de la pestaña para la tarjeta del botón */
   footerSlot?: HTMLElement | null
 }) {
@@ -63,7 +64,13 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
     const result = await createCashAdjustment(fd)
     setSubmitting(false)
     if (!result.success) { setError(result.error || 'No se pudo registrar la diferencia'); return }
-    onDone()
+    const dif = result.data?.difference ?? difference ?? 0
+    onDone({
+      titulo: dif >= 0 ? 'Sobrante registrado' : 'Faltante registrado',
+      monto: Math.abs(dif),
+      currency: accounts.find((x) => x.id === accountId)?.currency,
+      undo: result.data?.undo,
+    })
   }
 
   if (accounts.length === 0) {
@@ -100,7 +107,7 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
         {difference !== null && (
           <div className="flex min-h-[40px] items-center justify-between px-4 text-[13px]">
             <span className="text-[#8E8E93]">Diferencia</span>
-            <span className={difference > 0 ? 'font-medium text-brand-military dark:text-[#9AC7A8]' : difference < 0 ? 'font-medium text-brand-oxide' : 'text-[#8E8E93]'}>
+            <span className={difference > 0 ? 'font-medium text-[#34C759] dark:text-[#30D158]' : difference < 0 ? 'font-medium text-[#FF3B30] dark:text-[#FF453A]' : 'text-[#8E8E93]'}>
               {difference > 0 ? '+' : difference < 0 ? '−' : ''}{fmtCur(difference, currency)}
               <span className="ml-1.5 text-[11px] font-normal text-[#8E8E93]">{difference > 0 ? 'sobrante' : difference < 0 ? 'faltante' : 'sin diferencia'}</span>
             </span>

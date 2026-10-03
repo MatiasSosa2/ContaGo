@@ -1,10 +1,11 @@
 ﻿import { getDashboardStats, getAssetSnapshotAsOf, getCashFlowKpis } from '@/app/actions'
-import { FinancialOverviewChart, EvolutionTabs } from '@/components/DashboardCharts'
+import { EvolutionTabs } from '@/components/DashboardCharts'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
 import { Suspense } from 'react'
+import KpiNumber from '@/components/dashboard/KpiNumber'
 import Link from 'next/link'
 import BienesDeUsoModal from '@/components/BienesDeUsoModal'
 
@@ -41,61 +42,31 @@ function DashboardSkeleton() {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function fmt(v: number) {
-  return '$' + Math.abs(v).toLocaleString('es-AR', { minimumFractionDigits: 0 })
+  return '$' + Math.round(Math.abs(v)).toLocaleString('es-AR')
+}
+
+/** Un decimal con coma (es-AR): 22,1 */
+function dec1(v: number) {
+  return v.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
 function variationState(value: number | null, trend: 'direct' | 'inverse' = 'direct') {
-  if (value === null) return { label: 'Sin datos', positive: null, favorable: null }
+  if (value === null) return { label: 'Sin comparación', positive: null, favorable: null }
   const positive = value >= 0
   const favorable = trend === 'inverse' ? !positive : positive
   return {
-    label: `${positive ? '▲ +' : '▼ '}${Math.abs(value).toFixed(1)}% vs ant.`,
+    label: `${positive ? '▲ +' : '▼ '}${dec1(Math.abs(value))}%`,
     positive,
     favorable,
   }
 }
 
+/** Pastilla iOS: fondo suave verde (favorable), rojo (desfavorable) o gris (sin comparación) */
 function variationClass(state: ReturnType<typeof variationState>) {
-  if (state.favorable === null) return 'text-stone-400'
-  return state.favorable ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-}
-
-// ── AI Insight generator ───────────────────────────────────────────────────────
-function generateInsights(
-  kpis: { income: number; expense: number; gain: number; marginPct: number },
-  prevKpis: { income: number; expense: number; gain: number },
-  periodLabel: string,
-) {
-  const expenseShare = kpis.income > 0 ? (kpis.expense / kpis.income) * 100 : 0
-
-  const insights: { icon: 'income' | 'expense' | 'margin'; label: string; text: string }[] = []
-
-  if (prevKpis.income > 0) {
-    const pct = ((kpis.income - prevKpis.income) / prevKpis.income) * 100
-    if (pct > 10) insights.push({ icon: 'income', label: 'Ingresos', text: `Tus ingresos crecieron un ${pct.toFixed(0)}% vs el período anterior. Buen ritmo.` })
-    else if (pct < -10) insights.push({ icon: 'income', label: 'Ingresos', text: `Tus ingresos bajaron un ${Math.abs(pct).toFixed(0)}% vs el período anterior. Revisá las fuentes de ingreso.` })
-    else insights.push({ icon: 'income', label: 'Ingresos', text: `Tus ingresos se mantuvieron estables en ${periodLabel}.` })
-  } else {
-    insights.push({ icon: 'income', label: 'Ingresos', text: 'Registrá tus primeras ventas para ver la evolución aquí.' })
-  }
-
-  if (prevKpis.expense > 0) {
-    const pct = ((kpis.expense - prevKpis.expense) / prevKpis.expense) * 100
-    if (pct > 15) insights.push({ icon: 'expense', label: 'Egresos', text: `Los egresos subieron un ${pct.toFixed(0)}%. Revisá qué categoría impactó más.` })
-    else insights.push({ icon: 'expense', label: 'Egresos', text: `Los egresos representan el ${kpis.income > 0 ? expenseShare.toFixed(0) : '—'}% de tus ingresos.` })
-  } else {
-    insights.push({ icon: 'expense', label: 'Egresos', text: `Sin egresos registrados en ${periodLabel}.` })
-  }
-
-  insights.push({
-    icon: 'margin',
-    label: 'Rentabilidad',
-    text: kpis.marginPct > 0
-      ? `Margen del ${kpis.marginPct.toFixed(1)}% en ${periodLabel}. ${kpis.marginPct >= 20 ? 'Muy saludable.' : kpis.marginPct >= 10 ? 'Aceptable.' : 'Considerá optimizar costos.'}`
-      : `Sin rentabilidad positiva en ${periodLabel}. Revisá la estructura de costos.`,
-  })
-
-  return insights
+  if (state.favorable === null) return 'bg-black/[0.04] text-stone-400 dark:bg-white/[0.06] dark:text-stone-500'
+  return state.favorable
+    ? 'bg-[#34C759]/[0.12] text-[#248A3D] dark:bg-[#30D158]/[0.16] dark:text-[#30D158]'
+    : 'bg-[#FF3B30]/[0.10] text-[#D70015] dark:bg-[#FF453A]/[0.16] dark:text-[#FF6961]'
 }
 
 // ── Async content component ────────────────────────────────────────────────────
@@ -117,22 +88,29 @@ async function DashboardContent({
     getCashFlowKpis(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])
 
-  const { chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown, periodLabel } = stats
-  // Ingresos y egresos = totales del Estado de flujo de efectivo (pesos); resultado = la diferencia
-  const toKpis = (f: { ingresos: number; egresos: number }) => {
-    const gain = f.ingresos - f.egresos
-    return { income: f.ingresos, expense: f.egresos, gain, marginPct: f.ingresos > 0 ? (gain / f.ingresos) * 100 : 0 }
-  }
-  const kpis = toKpis(cashFlow.current)
-  const prevKpis = toKpis(cashFlow.prev)
+  const { chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown } = stats
+  // Ingresos, egresos y variación neta = Estado de flujo de efectivo (pesos), igual que Informes:
+  // la variación incluye el cambio de moneda. Rentabilidad y ROA salen de la ganancia neta del
+  // Estado de resultados (no de la caja).
+  const toKpis = (f: { ingresos: number; egresos: number; cambioMoneda: number }, er: { ingresos: number; gananciaNeta: number }) => ({
+    income: f.ingresos,
+    expense: f.egresos,
+    gain: f.ingresos - f.egresos + f.cambioMoneda,
+    cambioMoneda: f.cambioMoneda,
+    netProfit: er.gananciaNeta,
+    marginPct: er.ingresos > 0 ? (er.gananciaNeta / er.ingresos) * 100 : 0,
+    hasSales: er.ingresos > 0,
+  })
+  const kpis = toKpis(cashFlow.current, cashFlow.resultados)
+  const prevKpis = toKpis(cashFlow.prev, cashFlow.prevResultados)
+  // Si el negocio empezó a cargar a mitad del período anterior, no se compara
+  const comparable = cashFlow.prevComparable
 
-  const incomeGrowth = prevKpis.income > 0 ? ((kpis.income - prevKpis.income) / prevKpis.income) * 100 : null
-  const expenseGrowth = prevKpis.expense > 0 ? ((kpis.expense - prevKpis.expense) / prevKpis.expense) * 100 : null
-  const gainGrowth = prevKpis.gain !== 0 ? ((kpis.gain - prevKpis.gain) / Math.abs(prevKpis.gain)) * 100 : null
+  const incomeGrowth = comparable && prevKpis.income > 0 ? ((kpis.income - prevKpis.income) / prevKpis.income) * 100 : null
+  const expenseGrowth = comparable && prevKpis.expense > 0 ? ((kpis.expense - prevKpis.expense) / prevKpis.expense) * 100 : null
+  const gainGrowth = comparable && prevKpis.gain !== 0 ? ((kpis.gain - prevKpis.gain) / Math.abs(prevKpis.gain)) * 100 : null
 
   const gainIsPositive = kpis.gain >= 0
-  const expenseShare = kpis.income > 0 ? Math.min(100, (kpis.expense / kpis.income) * 100) : 0
-  const gainShare = kpis.income > 0 ? Math.min(100, Math.abs(kpis.gain) / kpis.income * 100) : 0
 
   const incomeV = variationState(incomeGrowth)
   const expenseV = variationState(expenseGrowth, 'inverse')
@@ -145,17 +123,17 @@ async function DashboardContent({
 
   // Total de activos al cierre del período (para ROA)
   const activosTotal = cajaTotal + totalACobrar + stockTotal + bienesTotal
-  const roaPct = activosTotal > 0 ? (kpis.gain / activosTotal) * 100 : 0
+  const roaPct = activosTotal > 0 ? (kpis.netProfit / activosTotal) * 100 : 0
   const rotacionInventario = stockTotal > 0 ? cmvPeriod / stockTotal : 0
 
   // Variaciones vs período anterior
   const prevActivosTotal = cashFlow.prev.saldoFinal + prev.totalACobrar + prev.stockTotal + prev.bienesTotal
-  const prevRoaPct = prevActivosTotal > 0 ? (prevKpis.gain / prevActivosTotal) * 100 : 0
+  const prevRoaPct = prevActivosTotal > 0 ? (prevKpis.netProfit / prevActivosTotal) * 100 : 0
   const prevRotacion = prev.stockTotal > 0 ? prev.cmvPeriod / prev.stockTotal : 0
 
-  const rentDelta = kpis.income > 0 && prevKpis.income > 0 ? kpis.marginPct - prevKpis.marginPct : null
-  const roaDelta = activosTotal > 0 && prevActivosTotal > 0 ? roaPct - prevRoaPct : null
-  const rotDelta = stockTotal > 0 && prev.stockTotal > 0 ? rotacionInventario - prevRotacion : null
+  const rentDelta = comparable && kpis.hasSales && prevKpis.hasSales ? kpis.marginPct - prevKpis.marginPct : null
+  const roaDelta = comparable && activosTotal > 0 && prevActivosTotal > 0 ? roaPct - prevRoaPct : null
+  const rotDelta = comparable && stockTotal > 0 && prev.stockTotal > 0 ? rotacionInventario - prevRotacion : null
 
   const deltaClass = (d: number | null) =>
     d === null ? 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400'
@@ -163,7 +141,6 @@ async function DashboardContent({
     : 'bg-[#FDECEC] text-[#B91C1C] dark:bg-[#3A1717] dark:text-[#FCA5A5]'
   const deltaArrow = (d: number | null) => (d === null ? '' : d >= 0 ? '▲' : '▼')
 
-  const insights = generateInsights(kpis, prevKpis, periodLabel)
 
   return (
     <>
@@ -171,75 +148,56 @@ async function DashboardContent({
       <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
 
         {/* KPI Ingresos — verde */}
-        <div className="flex flex-col justify-between rounded-2xl border border-[#D5E3D8] bg-white p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#1E3627] dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col gap-3 rounded-2xl border border-[#D5E3D8] bg-white p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#1E3627] dark:bg-[#141414] dark:shadow-none">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2D6A4F] dark:text-[#8FD0A7]">Ingresos</span>
-            <span className={`text-[11px] font-semibold ${variationClass(incomeV)}`}>{incomeV.label}</span>
+            <span title={incomeV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(incomeV)}`}>{incomeV.label}</span>
           </div>
           <p className="mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] text-[#1F2937] dark:text-[#E8E8E8] num-tabular">
-            {fmt(kpis.income)}
+            <KpiNumber id="ingresos" value={kpis.income} />
           </p>
-          <div className="mt-3 flex items-center gap-2">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#ECF5EF] dark:bg-[#1E3627]">
-              <div className="h-full rounded-full bg-[#2D6A4F]" style={{ width: '100%' }} />
-            </div>
-            <span className="text-[11px] text-stone-400">100%</span>
-          </div>
         </div>
 
         {/* KPI Egresos — rojo */}
-        <div className="flex flex-col justify-between rounded-2xl border border-[#F3D6D6] bg-white p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#2E1919] dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col gap-3 rounded-2xl border border-[#F3D6D6] bg-white p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#2E1919] dark:bg-[#141414] dark:shadow-none">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#B91C1C] dark:text-[#F87171]">Egresos</span>
-            <span className={`text-[11px] font-semibold ${variationClass(expenseV)}`}>{expenseV.label}</span>
+            <span title={expenseV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(expenseV)}`}>{expenseV.label}</span>
           </div>
           <p className="mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] text-[#1F2937] dark:text-[#E8E8E8] num-tabular">
-            {fmt(kpis.expense)}
+            <KpiNumber id="egresos" value={kpis.expense} />
           </p>
-          <div className="mt-3 flex items-center gap-2">
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#FDEDED] dark:bg-[#2E1919]">
-              <div className="h-full rounded-full bg-[#B91C1C]" style={{ width: `${expenseShare.toFixed(0)}%` }} />
-            </div>
-            <span className="text-[11px] text-stone-400">{expenseShare.toFixed(0)}%</span>
-          </div>
         </div>
 
-        {/* KPI Resultado de caja (ingresos − egresos) — celeste */}
-        <div className={`flex flex-col justify-between rounded-2xl border p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${
+        {/* KPI Variación neta de caja (entró − salió ± cambio de moneda) — celeste */}
+        <div className={`flex flex-col gap-3 rounded-2xl border p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${
           gainIsPositive ? 'border-[#BAE6FD] bg-white dark:border-[#0C3450] dark:bg-[#141414]' : 'border-[#F3D6D6] bg-white dark:border-[#2E1919] dark:bg-[#141414]'
         }`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${gainIsPositive ? 'text-[#0369A1] dark:text-[#38BDF8]' : 'text-[#B91C1C] dark:text-[#F87171]'}`}>
-              Resultado de caja
+              Variación neta
             </span>
-            <span className={`text-[11px] font-semibold ${variationClass(gainV)}`}>{gainV.label}</span>
+            <span title={gainV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(gainV)}`}>{gainV.label}</span>
           </div>
           <p className={`mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] num-tabular ${
             gainIsPositive ? 'text-[#0369A1] dark:text-[#38BDF8]' : 'text-[#B91C1C] dark:text-[#F87171]'
           }`}>
-            {gainIsPositive ? '' : '-'}{fmt(kpis.gain)}
+            <KpiNumber id="variacion" value={kpis.gain} conSigno />
           </p>
-          <div className="mt-3 flex items-center gap-2">
-            <div className={`h-1.5 flex-1 overflow-hidden rounded-full ${gainIsPositive ? 'bg-[#E0F2FE] dark:bg-[#0C3450]' : 'bg-[#FDEDED] dark:bg-[#2E1919]'}`}>
-              <div className={`h-full rounded-full ${gainIsPositive ? 'bg-[#0369A1]' : 'bg-[#B91C1C]'}`} style={{ width: `${gainShare.toFixed(0)}%` }} />
-            </div>
-            <span className="text-[11px] text-stone-400">{kpis.income > 0 ? `${gainShare.toFixed(0)}%` : 'N/A'}</span>
-          </div>
+          {/* Mismo número que la Variación neta de Informes: aclara el cambio de moneda si lo hubo */}
+          {kpis.cambioMoneda !== 0 && (
+            <p className="mt-3 text-[11px] text-stone-400">
+              Incluye cambio de moneda {kpis.cambioMoneda < 0 ? '−' : '+'}{fmt(kpis.cambioMoneda)}
+            </p>
+          )}
         </div>
       </section>
       <div className="mb-5">
         <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
-          {/* Encabezado: título + período + leyendas */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 py-3.5 dark:border-white/10 dark:bg-[#171717]">
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold leading-tight tracking-[-0.01em] text-[#1F2937] dark:text-[#E8E8E8]">
-                Evolución Financiera
-              </h2>
-              <p className="mt-0.5 text-[11px] font-medium leading-none text-stone-400 dark:text-stone-500">
-                {periodLabel}
-              </p>
-            </div>
-          </div>
+          {/* Título solo, sobre blanco (sin franja) */}
+          <h2 className="px-5 pt-4 text-[15px] font-semibold tracking-[-0.01em] text-[#1F2937] dark:text-[#E8E8E8]">
+            Evolución financiera
+          </h2>
           <EvolutionTabs chartData={chartData} chartTx={chartTx} categoryBreakdown={categoryBreakdown} incomeCategoryBreakdown={incomeCategoryBreakdown} />
         </div>
       </div>
@@ -330,14 +288,14 @@ async function DashboardContent({
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-stone-400">Rentabilidad</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(rentDelta)}`}>
-                <span>{deltaArrow(rentDelta)} {rentDelta === null ? '—' : `${rentDelta >= 0 ? '+' : ''}${rentDelta.toFixed(1)} pp`}</span>
+                <span>{deltaArrow(rentDelta)} {rentDelta === null ? '—' : `${rentDelta >= 0 ? '+' : ''}${dec1(rentDelta)} pp`}</span>
                 <span className="text-[9px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
             <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#0369A1] dark:text-[#38BDF8]">
-              {kpis.income > 0 ? `${kpis.marginPct.toFixed(1)}%` : '—'}
+              {kpis.hasSales ? `${dec1(kpis.marginPct)}%` : '—'}
             </p>
-            <p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">Ganancia / Ingresos</p>
+            <p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">Ganancia neta / Ingresos</p>
           </div>
           <div className="h-1.5 bg-[#E0F2FE] dark:bg-[#0C2A3E]">
             <div className="h-full bg-gradient-to-r from-[#0369A1] to-[#38BDF8]" style={{ width: `${Math.min(100, Math.max(0, kpis.marginPct))}%` }} />
@@ -355,14 +313,14 @@ async function DashboardContent({
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-stone-400">ROA</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(roaDelta)}`}>
-                <span>{deltaArrow(roaDelta)} {roaDelta === null ? '—' : `${roaDelta >= 0 ? '+' : ''}${roaDelta.toFixed(1)} pp`}</span>
+                <span>{deltaArrow(roaDelta)} {roaDelta === null ? '—' : `${roaDelta >= 0 ? '+' : ''}${dec1(roaDelta)} pp`}</span>
                 <span className="text-[9px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
             <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#0D9488] dark:text-[#5EEAD4]">
-              {activosTotal > 0 ? `${roaPct.toFixed(1)}%` : '—'}
+              {activosTotal > 0 ? `${dec1(roaPct)}%` : '—'}
             </p>
-            <p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">Ganancia / Activos</p>
+            <p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">Ganancia neta / Activos</p>
           </div>
           <div className="h-1.5 bg-[#CCFBF1] dark:bg-[#0C2E2A]">
             <div className="h-full bg-gradient-to-r from-[#0D9488] to-[#5EEAD4]" style={{ width: `${Math.min(100, Math.max(0, roaPct))}%` }} />
@@ -380,12 +338,12 @@ async function DashboardContent({
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-stone-400">Rotación de Inventario</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(rotDelta)}`}>
-                <span>{deltaArrow(rotDelta)} {rotDelta === null ? '—' : `${rotDelta >= 0 ? '+' : ''}${rotDelta.toFixed(1)}×`}</span>
+                <span>{deltaArrow(rotDelta)} {rotDelta === null ? '—' : `${rotDelta >= 0 ? '+' : ''}${dec1(rotDelta)}×`}</span>
                 <span className="text-[9px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
             <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#7C3AED] dark:text-[#A78BFA]">
-              {stockTotal > 0 ? `${rotacionInventario.toFixed(1)}×` : '—'}
+              {stockTotal > 0 ? `${dec1(rotacionInventario)}×` : '—'}
             </p>
             <p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">Costo de mercadería vendida / Inventario</p>
           </div>
@@ -395,26 +353,7 @@ async function DashboardContent({
         </div>
       </section>
 
-      {/* ══ SECCIÓN 5 — ANÁLISIS IA ════════════════════════════════════════ */}
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {insights.map((insight, i) => (
-          <div key={i} className="flex items-start gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3.5 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
-            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-              insight.icon === 'income' ? 'bg-[#F5FAF7] text-[#2D5A41] dark:bg-[#173326] dark:text-[#9AC7A8]'
-              : insight.icon === 'expense' ? 'bg-[#FFF5F5] text-[#B91C1C] dark:bg-[#241818] dark:text-[#F87171]'
-              : 'bg-[#EFF6FF] text-[#1D4ED8] dark:bg-[#1E2D3D] dark:text-[#60A5FA]'
-            }`}>
-              {insight.icon === 'income' && <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>}
-              {insight.icon === 'expense' && <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" /></svg>}
-              {insight.icon === 'margin' && <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09ZM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456Z" /></svg>}
-            </div>
-            <div className="min-w-0">
-              <p className="mb-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-[#9CA3AF] dark:text-stone-500">{insight.label}</p>
-              <p className="text-[11px] leading-snug text-[#4B5563] dark:text-stone-300">{insight.text}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+
     </>
   )
 }

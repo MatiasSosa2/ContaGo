@@ -5,17 +5,17 @@ import { usePathname } from 'next/navigation'
 import TransactionForm from './TransactionForm'
 import CashTransferForm from './CashTransferForm'
 import CashAdjustmentForm from './CashAdjustmentForm'
-import DeudaSaldadaModal from './DeudaSaldadaModal'
+import RegistroToast from './registro/RegistroToast'
 import DatePickerField from './ui/DatePickerField'
-import { getModalCatalogs, createTransaction, createCategoryWithContable, deleteCategory, createSubcategory, deleteSubcategory } from '@/app/actions'
-import type { Account, Category, Subcategory, Contact, AreaNegocio, Producto, Empleado, BienDeUso } from './TransactionForm'
+import { getModalCatalogs, createCategoryWithContable, deleteCategory, createSubcategory, deleteSubcategory } from '@/app/actions'
+import type { Account, Category, Subcategory, Contact, Producto, Empleado, BienDeUso } from './TransactionForm'
+import type { Registrado } from '@/lib/registro'
 
 type CatalogsData = {
   accounts: Account[]
   categories: Category[]
   subcategories: Subcategory[]
   contacts: Contact[]
-  areas: AreaNegocio[]
   productos: Producto[]
   empleados: Empleado[]
   bienesDeUso: BienDeUso[]
@@ -24,12 +24,27 @@ type CatalogsData = {
 
 type Mode = 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'ADJUST'
 
-const MODE_TITLE: Record<Mode, { label: string; cls: string }> = {
-  INCOME: { label: 'Ingreso', cls: 'text-brand-military' },
-  EXPENSE: { label: 'Egreso', cls: 'text-brand-oxide' },
-  TRANSFER: { label: 'Cambio de caja', cls: 'text-zinc-700 dark:text-zinc-300' },
-  ADJUST: { label: 'Diferencia de caja', cls: 'text-zinc-700 dark:text-zinc-300' },
+const MODE_TITLE: Record<Mode, string> = {
+  INCOME: 'Ingreso',
+  EXPENSE: 'Egreso',
+  TRANSFER: 'Cambio de caja',
+  ADJUST: 'Diferencia de caja',
 }
+
+// Color de todo el registro según el tipo: verde ingreso, rojo egreso, azul movimientos de caja
+const MODE_TONE: Record<Mode, string> = {
+  INCOME: 'reg-income',
+  EXPENSE: 'reg-expense',
+  TRANSFER: 'reg-neutral',
+  ADJUST: 'reg-neutral',
+}
+
+// Duraciones de las animaciones (en sincronía con globals.css)
+const CLOSE_MS = 260
+const CHECK_MS = 750
+// Arrastre de la hoja (celu): se cierra si baja más de esto o si se suelta rápido
+const DRAG_CLOSE_PX = 120
+const DRAG_CLOSE_SPEED = 0.6
 
 // Pastillas principales del abanico: Ingresos arriba del "+", Egresos a su izquierda.
 // `pos` las ubica abiertas; `from` es el desplazamiento hacia el "+" cuando están cerradas.
@@ -67,9 +82,14 @@ export default function FloatingActionButton() {
   const [cartSlot, setCartSlot] = useState<HTMLDivElement | null>(null)
   // Tarjeta debajo de la pestaña con el botón "Registrar…"
   const [footerSlot, setFooterSlot] = useState<HTMLDivElement | null>(null)
-  const [saldadaOpen, setSaldadaOpen] = useState(false)
-  const [saldadaNombre, setSaldadaNombre] = useState('')
-  const [saldadaTipo, setSaldadaTipo] = useState<'cliente' | 'proveedor'>('cliente')
+  // Cierre animado, check de confirmación y aviso con Deshacer
+  const [closing, setClosing] = useState(false)
+  const [exito, setExito] = useState<Registrado | null>(null)
+  const [toast, setToast] = useState<{ id: number; registro: Registrado; tone: string } | null>(null)
+  // Arrastre de la hoja hacia abajo (celu)
+  const [dragY, setDragY] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const dragRef = useRef<{ startY: number; startT: number } | null>(null)
   const [initialSubType, setInitialSubType] = useState<'COBRO_CREDITO' | 'PAGO_DEUDA' | undefined>(undefined)
   const [creditoPreset, setCreditoPreset] = useState<{ linkedCreditoId: string; contactId: string; saldoMax: number } | null>(null)
   const fetchPromiseRef = useRef<Promise<CatalogsData> | null>(null)
@@ -124,7 +144,6 @@ export default function FloatingActionButton() {
         categories: mappedCategories,
         subcategories: raw.subcategories ?? [],
         contacts: mappedContacts,
-        areas: raw.areas,
         productos,
         empleados,
         bienesDeUso,
@@ -166,21 +185,73 @@ export default function FloatingActionButton() {
 
   const handleClose = () => {
     setOpen(false)
+    setClosing(false)
+    setExito(null)
+    setDragY(0)
     setActiveTab('INCOME')
     setDate(todayIso())
     setInitialSubType(undefined)
     setCreditoPreset(null)
   }
 
+  // Cierre con animación: la hoja baja (celu) o la ventana se desvanece (compu)
+  const closingRef = useRef(false)
+  const requestClose = () => {
+    if (closingRef.current) return
+    closingRef.current = true
+    setClosing(true)
+    setTimeout(() => {
+      closingRef.current = false
+      handleClose()
+    }, CLOSE_MS)
+  }
+
+  // Registro hecho: check animado en la ventana, se cierra sola y queda el aviso con Deshacer
+  const handleDone = (registrado?: Registrado) => {
+    if (!registrado) { requestClose(); return }
+    const tone = MODE_TONE[activeTab]
+    setExito(registrado)
+    setTimeout(() => {
+      requestClose()
+      setToast({ id: Date.now(), registro: registrado, tone })
+    }, CHECK_MS)
+  }
+
+  // ── Arrastrar la hoja hacia abajo para cerrarla (solo celu) ──
+  const onDragStart = (e: React.PointerEvent) => {
+    if (window.matchMedia('(min-width: 768px)').matches) return
+    if ((e.target as HTMLElement).closest('button, input, select, textarea, a')) return
+    dragRef.current = { startY: e.clientY, startT: performance.now() }
+    setDragging(true)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  const onDragMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    // Hacia arriba ofrece resistencia; hacia abajo sigue al dedo
+    const dy = e.clientY - dragRef.current.startY
+    setDragY(dy > 0 ? dy : dy / 6)
+  }
+  const onDragEnd = (e: React.PointerEvent) => {
+    const start = dragRef.current
+    if (!start) return
+    dragRef.current = null
+    setDragging(false)
+    const dy = e.clientY - start.startY
+    const speed = dy / Math.max(1, performance.now() - start.startT)
+    if (dy > DRAG_CLOSE_PX || (dy > 30 && speed > DRAG_CLOSE_SPEED)) requestClose()
+    else setDragY(0)
+  }
+
   useEffect(() => {
     if (!open && !menuOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (open) handleClose()
+      if (open) requestClose()
       else setMenuOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, menuOpen])
 
   const handleAddCategory = async (name: string, type: 'INCOME' | 'EXPENSE') => {
@@ -261,28 +332,7 @@ export default function FloatingActionButton() {
     return null
   }
 
-  const handleCreate = async (formData: FormData) => {
-    const result = await createTransaction(formData)
-    if (result.success) {
-      // Cerrar modal solo si no hay deuda saldada — para que el usuario vea el aviso.
-      if (!result.data?.clienteSaldado && !result.data?.proveedorSaldado) handleClose()
-    }
-    return result
-  }
-
-  const handleClienteSaldado = (nombre: string) => {
-    setSaldadaTipo('cliente')
-    setSaldadaNombre(nombre)
-    setSaldadaOpen(true)
-    handleClose()
-  }
-
-  const handleProveedorSaldado = (nombre: string) => {
-    setSaldadaTipo('proveedor')
-    setSaldadaNombre(nombre)
-    setSaldadaOpen(true)
-    handleClose()
-  }
+  const tone = MODE_TONE[activeTab]
 
   return (
     <>
@@ -367,13 +417,26 @@ export default function FloatingActionButton() {
       {open && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center md:items-center">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
+          <div
+            className="reg-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm"
+            data-closing={closing || undefined}
+            onClick={requestClose}
+          />
 
-          {/* Pestañas en una fila y, debajo, la tarjeta del botón a todo el ancho */}
-          <div className="relative flex w-full max-w-lg flex-col gap-3 md:mx-4 md:w-auto md:max-w-none">
+          {/* Celu: hoja que sube desde abajo y se cierra arrastrando · Compu: ventana centrada.
+              Pestañas en una fila y, debajo, la tarjeta del botón a todo el ancho */}
+          <div
+            className={`reg-sheet ${tone} relative flex w-full max-w-lg flex-col gap-3 md:mx-4 md:w-auto md:max-w-none ${exito ? 'pointer-events-none' : ''}`}
+            data-closing={closing || undefined}
+            style={{
+              transform: dragY ? `translateY(${dragY}px)` : undefined,
+              transition: dragging ? 'none' : 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
+              ['--reg-drag' as string]: `${Math.max(0, dragY)}px`,
+            }}
+          >
           {/* Cerrar: afuera del panel, sin fondo */}
           <button
-            onClick={handleClose}
+            onClick={requestClose}
             className="absolute -top-11 right-3 z-10 rounded-full p-1.5 text-white/80 transition-colors hover:text-white md:-right-11 md:top-0"
             aria-label="Cerrar"
           >
@@ -384,14 +447,37 @@ export default function FloatingActionButton() {
 
           <div className="flex w-full items-start gap-4">
           {/* Panel */}
-          <div className="relative flex max-h-[calc(88vh-80px)] w-full shrink-0 flex-col overflow-hidden rounded-3xl md:w-[32rem] bg-[#F2F2F7] shadow-2xl animate-in slide-in-from-bottom duration-300 dark:bg-black md:max-h-[calc(92vh-80px)]">
-            {/* Header */}
-            <div className="flex shrink-0 items-center justify-between px-5 pt-5 pb-3">
-              <h2 className={`text-[17px] font-semibold ${MODE_TITLE[activeTab].cls}`}>
-                {MODE_TITLE[activeTab].label}
-              </h2>
-              <DatePickerField variant="icon" value={date} onChange={setDate} />
+          <div className="relative flex max-h-[calc(88vh-80px)] w-full shrink-0 flex-col overflow-hidden rounded-3xl md:w-[32rem] bg-[#F2F2F7] shadow-2xl dark:bg-black md:max-h-[calc(92vh-80px)]">
+            {/* Manija + header: desde acá se arrastra la hoja para cerrarla (celu) */}
+            <div
+              className="shrink-0 touch-none md:touch-auto"
+              onPointerDown={onDragStart}
+              onPointerMove={onDragMove}
+              onPointerUp={onDragEnd}
+              onPointerCancel={onDragEnd}
+            >
+              <div className="flex justify-center pt-2 md:hidden" aria-hidden>
+                <span className="h-[5px] w-9 rounded-full bg-black/15 dark:bg-white/20" />
+              </div>
+              <div className="flex items-center justify-between px-5 pt-3 pb-3 md:pt-5">
+                <h2 className="text-[17px] font-semibold text-[var(--reg-accent)]">
+                  {MODE_TITLE[activeTab]}
+                </h2>
+                <DatePickerField variant="icon" value={date} onChange={setDate} />
+              </div>
             </div>
+
+            {/* Confirmación: check que se dibuja sobre la ventana */}
+            {exito && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[#F2F2F7]/85 backdrop-blur-md dark:bg-black/80" role="status">
+                <span className="reg-check-circle flex h-20 w-20 items-center justify-center rounded-full bg-[var(--reg-accent)] shadow-lg">
+                  <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.6}>
+                    <path className="reg-check-path" strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.5 4.5L19 7.5" />
+                  </svg>
+                </span>
+                <p className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">{exito.titulo}</p>
+              </div>
+            )}
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto px-4 pb-6">
@@ -400,33 +486,28 @@ export default function FloatingActionButton() {
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-military border-t-transparent" />
                 </div>
               ) : activeTab === 'TRANSFER' ? (
-                <CashTransferForm accounts={data.accounts} date={date} onDone={handleClose} footerSlot={footerSlot} />
+                <CashTransferForm accounts={data.accounts} date={date} onDone={handleDone} footerSlot={footerSlot} />
               ) : activeTab === 'ADJUST' ? (
-                <CashAdjustmentForm accounts={data.accounts} date={date} onDone={handleClose} footerSlot={footerSlot} />
+                <CashAdjustmentForm accounts={data.accounts} date={date} onDone={handleDone} footerSlot={footerSlot} />
               ) : (
                 <TransactionForm
                   accounts={data.accounts}
                   categories={data.categories}
                   subcategories={data.subcategories}
                   contacts={data.contacts}
-                  areas={data.areas}
                   productos={data.productos}
                   empleados={data.empleados}
                   bienesDeUso={data.bienesDeUso}
-                  onSubmit={handleCreate}
-                  onClienteSaldado={handleClienteSaldado}
-                  onProveedorSaldado={handleProveedorSaldado}
                   initialType={activeTab}
                   initialSubType={initialSubType}
                   initialCreditoPreset={creditoPreset}
-                  onTypeChange={setActiveTab}
                   date={date}
-                  onDateChange={setDate}
                   onAddCategory={handleAddCategory}
                   onDeleteCategory={handleDeleteCategory}
                   onAddSubcategory={handleAddSubcategory}
                   onDeleteSubcategory={handleDeleteSubcategory}
-                  onSaleDone={handleClose}
+                  onDone={handleDone}
+                  onContactCreated={(c) => setData((d) => (d && !d.contacts.some((x) => x.id === c.id) ? { ...d, contacts: [...d.contacts, c] } : d))}
                   cartSlot={cartSlot}
                   footerSlot={footerSlot}
                 />
@@ -442,11 +523,13 @@ export default function FloatingActionButton() {
           </div>
 
           {/* Tarjeta del botón "Registrar…": ocupa el ancho de todas las pestañas */}
-          <div ref={setFooterSlot} className="empty:hidden" />
+          <div ref={setFooterSlot} className={`empty:hidden transition-opacity duration-200 ${exito ? 'opacity-0' : ''}`} />
           </div>
         </div>
       )}
-      <DeudaSaldadaModal open={saldadaOpen} clienteNombre={saldadaNombre} tipo={saldadaTipo} onClose={() => setSaldadaOpen(false)} />
+      {toast && (
+        <RegistroToast key={toast.id} registro={toast.registro} tone={toast.tone} onDismiss={() => setToast(null)} />
+      )}
     </>
   )
 }

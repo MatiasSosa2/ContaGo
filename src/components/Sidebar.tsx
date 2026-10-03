@@ -3,17 +3,17 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useTransition, useState, useEffect } from 'react'
+import { useTransition, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import ThemeToggle from '@/components/ThemeToggle'
-import DashboardUserMenu from '@/components/DashboardUserMenu'
+import { useStoredValue } from '@/lib/useStoredValue'
 
 const NAV_ITEMS = [
   {
     href: '/',
     label: 'Balance General',
     icon: (
-      <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
       </svg>
     ),
@@ -23,7 +23,7 @@ const NAV_ITEMS = [
     label: 'Cajas',
     subLabel: 'Cuentas y movimientos',
     icon: (
-      <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
       </svg>
     ),
@@ -33,7 +33,7 @@ const NAV_ITEMS = [
     label: 'Créditos',
     subLabel: 'CxC / CxP',
     icon: (
-      <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
       </svg>
     ),
@@ -43,7 +43,7 @@ const NAV_ITEMS = [
     label: 'Inventario',
     subLabel: 'Stock',
     icon: (
-      <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
       </svg>
     ),
@@ -52,22 +52,13 @@ const NAV_ITEMS = [
     href: '/reports',
     label: 'Informes',
     icon: (
-      <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
       </svg>
     ),
   },
 ]
 
-type Role = 'ADMIN' | 'COLLABORATOR' | 'VIEWER'
-type Provider = 'google' | 'apple' | 'credentials' | 'mock'
-type SidebarProps = {
-  sessionContext: {
-    user: { name?: string | null; email: string; image?: string | null; emailVerified: boolean }
-    activeBusiness: { name: string; role: Role }
-    auth: { provider: Provider }
-  }
-}
 
 /** Ícono redondo del pie del panel con su nombre flotante al pasar el mouse */
 function SidebarIcon({ label, collapsed, children }: { label: string; collapsed: boolean; children: React.ReactNode }) {
@@ -85,25 +76,13 @@ function SidebarIcon({ label, collapsed, children }: { label: string; collapsed:
   )
 }
 
-export default function Sidebar({ sessionContext }: SidebarProps) {
+export default function Sidebar() {
   const pathname = usePathname()
   const [isSigningOut, startSignOut] = useTransition()
-  const [collapsed, setCollapsed] = useState(false)
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sidebar-collapsed')
-      if (saved === 'true') setCollapsed(true)
-    } catch {}
-  }, [])
-
-  const toggleCollapse = () => {
-    setCollapsed((prev) => {
-      const next = !prev
-      try { localStorage.setItem('sidebar-collapsed', String(next)) } catch {}
-      return next
-    })
-  }
+  // Contraído o no: se guarda en el navegador
+  const [savedCollapsed, setSavedCollapsed] = useStoredValue('sidebar-collapsed')
+  const collapsed = savedCollapsed === 'true'
+  const toggleCollapse = () => setSavedCollapsed(String(!collapsed))
 
   // Cerrar sesión pide confirmación (cartel estilo iOS)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
@@ -122,11 +101,11 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
   return (
     <>
     <aside
-      className={`hidden md:flex md:flex-col h-screen sticky top-0 z-20 shrink-0 overflow-hidden transition-all duration-300 ${collapsed ? 'w-[68px]' : 'w-60'}`}
+      className={`hidden md:flex md:flex-col h-screen sticky top-0 z-20 shrink-0 overflow-hidden transition-all duration-300 ${collapsed ? 'w-[60px]' : 'w-[208px]'}`}
       style={{ background: 'linear-gradient(180deg, #1A3424 0%, #16281D 100%)', borderRight: '1px solid rgba(255,255,255,0.08)' }}
     >
       {/* LOGOTIPO */}
-      <div className={`h-[88px] flex items-center overflow-hidden transition-all duration-300 ${collapsed ? 'px-3 justify-center' : 'px-5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className={`h-[76px] flex items-center overflow-hidden transition-all duration-300 ${collapsed ? 'px-3 justify-center' : 'px-5'}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         {collapsed ? (
           <Image
             src="/contago-mark.svg"
@@ -134,7 +113,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
             width={355}
             height={355}
             priority
-            className="h-10 w-10"
+            className="h-9 w-9"
           />
         ) : (
           <div className="flex items-center gap-0">
@@ -144,7 +123,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
               width={560}
               height={180}
               priority
-              className="h-auto w-[124px]"
+              className="h-auto w-[108px]"
             />
             <Image
               src="/contago-mark.svg"
@@ -152,7 +131,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
               width={355}
               height={355}
               priority
-              className="-ml-[14px] h-[78px] w-[78px] translate-y-[2px]"
+              className="-ml-[12px] h-[68px] w-[68px] translate-y-[2px]"
             />
           </div>
         )}
@@ -174,7 +153,7 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.12)' }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
             >
-              <span className="shrink-0 scale-[1.08]" style={isActive ? { color: '#6EE7B7' } : { color: 'rgba(255,255,255,0.40)' }}>
+              <span className="shrink-0" style={isActive ? { color: '#6EE7B7' } : { color: 'rgba(255,255,255,0.40)' }}>
                 {item.icon}
               </span>
               {!collapsed && (
@@ -203,9 +182,9 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
             type="button"
             onClick={toggleCollapse}
             aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff]/[0.08] text-[#fff]/75 transition hover:bg-[#fff]/[0.14] hover:text-[#fff] active:scale-95"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff]/[0.08] text-[#fff]/75 transition hover:bg-[#fff]/[0.14] hover:text-[#fff] active:scale-95"
           >
-            <svg className={`h-[18px] w-[18px] transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+            <svg className={`h-4 w-4 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
               <rect x="3.75" y="4.5" width="16.5" height="15" rx="2.5" />
               <path strokeLinecap="round" d="M9 4.5v15M15 10l-2 2 2 2" />
             </svg>
@@ -220,9 +199,9 @@ export default function Sidebar({ sessionContext }: SidebarProps) {
             onClick={handleSignOut}
             disabled={isSigningOut}
             aria-label="Cerrar sesión"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#FF453A]/[0.14] text-[#FF6961] transition hover:bg-[#FF453A]/[0.24] active:scale-95 disabled:opacity-50"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF453A]/[0.14] text-[#FF6961] transition hover:bg-[#FF453A]/[0.24] active:scale-95 disabled:opacity-50"
           >
-            <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
             </svg>

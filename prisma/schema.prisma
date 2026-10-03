@@ -141,6 +141,7 @@ model Business {
   contacts       Contact[]
   areas          AreaNegocio[]
   productos      Producto[]
+  articulos      Articulo[]
   empleados      Empleado[]
   journalEntries JournalEntry[]
   bienesDeUso    BienDeUso[]
@@ -405,6 +406,14 @@ model Producto {
   stockActual   Float             @default(0)
   enTransito    Float             @default(0)
   alertaStock   Float?            // Umbral de stock bajo. Si es null, no alerta.
+  // Variante de un artículo (ej. Remera Oversize · Negra · M). Null = producto suelto.
+  articuloId    String?
+  articulo      Articulo?         @relation(fields: [articuloId], references: [id])
+  // JSON {"Talle":"M","Color":"Negra"}; null = sin atributos
+  atributos     String?
+  // true = precio propio de la variante; false = sigue el precio del artículo
+  precioPropio  Boolean           @default(false)
+  codigoBarras  String?
   activo        Boolean           @default(true)
   movimientos   MovimientoStock[]
   transactions  Transaction[]
@@ -439,6 +448,34 @@ model BienDeUso {
   updatedAt  DateTime @updatedAt
 
   @@index([businessId, activo])
+}
+
+/// Artículo: agrupa variantes (talle, color, tamaño…). Cada variante es un Producto con su stock.
+model Articulo {
+  id           String     @id @default(uuid())
+  nombre       String
+  tipo         String     @default("MERCADERIA")
+  categoria    String?
+  subcategoria String?
+  marca        String?
+  unidad       String     @default("unidad")
+  // Precio base: lo usan las variantes sin precio propio
+  precioVenta  Float      @default(0)
+  // JSON [{"nombre":"Talle","valores":["S","M"]}]
+  atributos    String?
+  // Foto achicada (data URL webp) y cuándo se cambió (para la caché del navegador)
+  foto         String?
+  fotoAt       DateTime?
+  activo       Boolean    @default(true)
+  productos    Producto[]
+
+  businessId   String
+  business     Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([businessId])
 }
 
 model MovimientoStock {

@@ -1,7 +1,9 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useHydrated } from '@/lib/useStoredValue'
+import { CalendarPopover, RangeCalendar, SingleCalendar } from './ui/IosCalendar'
 
 export const PERIOD_KEYS = ['diario', 'semanal', 'mensual', 'anual', 'custom'] as const
 export type PeriodKey = typeof PERIOD_KEYS[number]
@@ -88,8 +90,7 @@ export default function PeriodSelector({
   // y la del navegador. Durante SSR y el primer render de cliente, `mounted`
   // es false y el componente devuelve null (el <Suspense fallback={null}> ya
   // reserva el espacio, así que la UX no cambia).
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  const mounted = useHydrated()
 
   const now = useMemo(() => new Date(), [])
   const todayISO = toISO(now)
@@ -273,7 +274,8 @@ export default function PeriodSelector({
     onClick: () => void
   }
 
-  const items: Item[] = useMemo(() => {
+  // Lista corta (≈7 botones): se arma en cada render, más simple que memorizarla
+  const items: Item[] = (() => {
     const list: Item[] = []
     if (active === 'diario') {
       const center = addDays(selectedDayDate, dayOffset)
@@ -335,7 +337,7 @@ export default function PeriodSelector({
       }
     }
     return list
-  }, [active, dayOffset, weekOffset, monthOffset, yearOffset, selectedDayDate, selectedWeekMonday, effectiveYear, effectiveMonth, currentYear, currentMonth, todayISO, todayWeekISO])
+  })()
 
   function shiftWindow(direction: -1 | 1) {
     if (active === 'diario') setDayOffset((v) => v + direction)
@@ -365,6 +367,31 @@ export default function PeriodSelector({
   const arrowBtnClass = 'h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.05] dark:hover:text-emerald-300'
 
   const navBtnClass = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-[#1B4332]/40 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-stone-300 dark:hover:text-emerald-300'
+
+  // Calendario iOS del ícono 📅 (salta a cualquier día/semana/mes/año) y el de rango (Personalizado)
+  const calRef = useRef<HTMLButtonElement>(null)
+  const rangoRef = useRef<HTMLButtonElement>(null)
+  const [calOpen, setCalOpen] = useState(false)
+  const [rangoOpen, setRangoOpen] = useState(false)
+
+  function irAFecha(d: Date) {
+    setDayOffset(0); setWeekOffset(0); setMonthOffset(0); setYearOffset(0)
+    if (active === 'diario') selectDay(d)
+    else if (active === 'semanal') selectWeek(getMondayOf(d))
+    else if (active === 'anual') selectYear(d.getFullYear())
+    else selectMonth(d.getFullYear(), d.getMonth() + 1)
+    setCalOpen(false)
+  }
+  const fechaElegida =
+    active === 'diario' ? selectedDayDate
+      : active === 'semanal' ? selectedWeekMonday
+      : active === 'anual' ? new Date(effectiveYear, 0, 1)
+      : new Date(effectiveYear, effectiveMonth - 1, 1)
+  const rangoActual = (() => {
+    const f = customDraft.from || customFrom
+    const t = customDraft.to || customTo
+    return f ? { from: new Date(f + 'T12:00:00'), to: t ? new Date(t + 'T12:00:00') : undefined } : undefined
+  })()
 
   // Evita mismatch de hidratación por dependencia de `new Date()`.
   if (!mounted) return null
@@ -445,17 +472,34 @@ export default function PeriodSelector({
           </div>
 
           <button
+            ref={calRef}
             type="button"
-            onClick={goToday}
+            onClick={() => setCalOpen((v) => !v)}
             disabled={pending}
-            aria-label="Hoy"
-            title="Ir a hoy"
+            aria-label="Elegir fecha"
+            aria-expanded={calOpen}
+            title="Elegir fecha"
             className={navBtnClass}
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
             </svg>
           </button>
+          <CalendarPopover anchorRef={calRef} open={calOpen} onClose={() => setCalOpen(false)} align="right">
+            <SingleCalendar
+              selected={fechaElegida}
+              onSelect={irAFecha}
+              footer={
+                <button
+                  type="button"
+                  onClick={() => { goToday(); setCalOpen(false) }}
+                  className="mt-2 w-full border-t border-black/[0.06] pt-2 text-center text-[14px] font-medium text-[#007AFF] dark:border-white/10 dark:text-[#0A84FF]"
+                >
+                  Hoy
+                </button>
+              }
+            />
+          </CalendarPopover>
         </div>
       ) : (
         <>
@@ -492,57 +536,36 @@ export default function PeriodSelector({
               Limpiar
             </button>
           </div>
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-          <div className="flex min-w-[160px] flex-col">
-            <label className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Desde</label>
-            <input
-              type="date"
-              value={customDraft.from}
-              onChange={(e) => {
-                const next = e.target.value
-                setCustomDraft((prev) => {
-                  const updated = { ...prev, from: next }
-                  applyCustomIfReady(updated.from, updated.to)
-                  return updated
-                })
-              }}
+          <div className="mt-3">
+            <button
+              ref={rangoRef}
+              type="button"
+              onClick={() => setRangoOpen((v) => !v)}
               disabled={pending}
-              className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none transition focus:border-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.05] dark:bg-[#0d0e10] dark:text-stone-200"
-            />
+              aria-expanded={rangoOpen}
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[14px] text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition active:scale-[0.99] disabled:opacity-40 dark:bg-[#1C1C1E] dark:text-white"
+            >
+              <svg className="h-4 w-4 text-[var(--reg-accent,#34C759)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
+              {customSummary ? (
+                <span>{customSummary.label} <span className="text-[#8E8E93]">· {customSummary.days} días</span></span>
+              ) : (
+                <span className="text-[#8E8E93]">Elegir desde – hasta</span>
+              )}
+            </button>
+            <CalendarPopover anchorRef={rangoRef} open={rangoOpen} onClose={() => setRangoOpen(false)}>
+              <RangeCalendar
+                value={rangoActual}
+                onChange={({ from, to }) => {
+                  const next = { from: toISO(from), to: toISO(to) }
+                  setCustomDraft(next)
+                  applyCustomIfReady(next.from, next.to)
+                  setRangoOpen(false)
+                }}
+              />
+            </CalendarPopover>
           </div>
-
-          <span className="mb-2 text-stone-400">→</span>
-
-          <div className="flex min-w-[160px] flex-col">
-            <label className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Hasta</label>
-            <input
-              type="date"
-              value={customDraft.to}
-              onChange={(e) => {
-                const next = e.target.value
-                setCustomDraft((prev) => {
-                  const updated = { ...prev, to: next }
-                  applyCustomIfReady(updated.from, updated.to)
-                  return updated
-                })
-              }}
-              disabled={pending}
-              className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 outline-none transition focus:border-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.05] dark:bg-[#0d0e10] dark:text-stone-200"
-            />
-          </div>
-
-          <div className="ml-auto flex min-w-[200px] flex-col rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 dark:border-white/[0.04] dark:bg-[#17191c]">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-400">Rango seleccionado</span>
-            {customSummary ? (
-              <>
-                <span className="mt-0.5 text-sm font-semibold text-stone-800 dark:text-stone-100">{customSummary.label}</span>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400">{customSummary.days} días</span>
-              </>
-            ) : (
-              <span className="mt-0.5 text-sm font-medium text-stone-400">Seleccioná Desde y Hasta</span>
-            )}
-          </div>
-        </div>
         </>
       )}
     </div>

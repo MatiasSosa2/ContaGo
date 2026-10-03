@@ -175,7 +175,7 @@ export default function OperationTypeSelect({
 
   const toggleExpand = (id: string) => setExpandedId((cur) => (cur === id ? null : id))
 
-  const selectedCls = type === 'INCOME' ? 'font-semibold text-brand-military-dark dark:text-brand-military-light' : 'font-semibold text-brand-oxide'
+  const selectedCls = type === 'INCOME' ? 'font-semibold text-[var(--reg-accent,#34C759)]' : 'font-semibold text-[var(--reg-accent,#FF3B30)]'
 
   return (
     <div ref={ref} className="relative">
@@ -186,7 +186,7 @@ export default function OperationTypeSelect({
           ? 'flex min-h-[44px] w-full items-center justify-between rounded-xl bg-white px-4 text-[15px] text-[#1C1C1E] outline-none active:bg-black/[0.04] dark:bg-[#1C1C1E] dark:text-white'
           : 'flex w-full items-center justify-between rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all hover:border-gray-300 focus:border-brand-military dark:border-white/10 dark:bg-zinc-900 dark:text-gray-200'}
       >
-        <span className={`truncate ${labelText ? '' : 'text-gray-400'}`}>{labelText ?? 'Seleccionar categoría'}</span>
+        <span className={`truncate ${labelText ? (variant === 'ios' ? 'font-medium text-[var(--reg-accent,#1C1C1E)]' : '') : 'text-gray-400'}`}>{labelText ?? 'Seleccionar categoría'}</span>
         <svg className={`h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>

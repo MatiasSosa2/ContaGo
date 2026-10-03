@@ -35,235 +35,13 @@ const C = {
   tooltip:    '#1A1A1A',
 }
 
-const DARK = {
-  axis:    '#2a2a2a',
-  label:   '#6b7280',
-  track:   '#2a2a2a',
-  bg:      '#1a1a1a',
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function fmtARS(v: number) {
-  return '$' + v.toLocaleString('es-AR', { minimumFractionDigits: 0 })
+  return '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. KPI SPARKLINE — Mini line/area chart sin ejes, solo tendencia
-// ─────────────────────────────────────────────────────────────────────────────
-interface SparklineProps {
-  data: number[]
-  color?: string
-  height?: number
-}
-
-export function KpiSparkline({ data, color = C.income, height = 44 }: SparklineProps) {
-  const option: EChartsOption = {
-    animation: false,
-    grid: { top: 2, bottom: 2, left: 2, right: 2 },
-    xAxis: { type: 'category', show: false, data: data.map((_, i) => i) },
-    yAxis: { type: 'value', show: false },
-    series: [{
-      type: 'line',
-      data,
-      smooth: true,
-      showSymbol: false,
-      lineStyle: { color, width: 1.5 },
-      areaStyle: {
-        color: {
-          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-          colorStops: [
-            { offset: 0, color: color + '90' },
-            { offset: 1, color: color + '30' },
-          ],
-        },
-      },
-    }],
-  }
-  return (
-    <ReactECharts
-      option={option}
-      style={{ height, width: '100%' }}
-      opts={{ renderer: 'svg' }}
-    />
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. GAUGE DE MARGEN — Semi-círculo de rentabilidad
-// ─────────────────────────────────────────────────────────────────────────────
-interface MarginGaugeProps {
-  value: number   // porcentaje 0–100
-  height?: number
-}
-
-export function MarginGauge({ value, height = 130 }: MarginGaugeProps) {
-  const isDark = useDarkMode()
-  const clamped = Math.max(0, Math.min(100, value))
-  const color = clamped >= 30 ? C.income : clamped >= 10 ? C.net : C.red
-  const trackColor = isDark ? DARK.track : '#f3f4f6'
-  const option: EChartsOption = {
-    animation: true,
-    series: [{
-      type: 'gauge',
-      startAngle: 180,
-      endAngle: 0,
-      min: 0,
-      max: 100,
-      radius: '100%',
-      center: ['50%', '72%'],
-      progress: { show: true, width: 14, itemStyle: { color } },
-      axisLine: { lineStyle: { width: 14, color: [[1, trackColor]] } },
-      axisTick: { show: false },
-      splitLine: { show: false },
-      axisLabel: { show: false },
-      pointer: { show: false },
-      detail: {
-        valueAnimation: true,
-        formatter: '{value}%',
-        color,
-        fontSize: 22,
-        fontWeight: 300,
-        fontFamily: 'ui-monospace, monospace',
-        offsetCenter: [0, '-10%'],
-      },
-      data: [{ value: Math.round(clamped) }],
-    }],
-  }
-  return (
-    <ReactECharts
-      option={option}
-      style={{ height, width: '100%' }}
-      opts={{ renderer: 'svg' }}
-    />
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. RESUMEN FINANCIERO — Barras (ingresos/egresos) + Línea (neto)
-// ─────────────────────────────────────────────────────────────────────────────
-interface FinancialOverviewItem {
-  label: string
-  income: number
-  expense: number
-  net: number
-}
-
-interface FinancialOverviewProps {
-  data: FinancialOverviewItem[]
-  height?: number
-}
-
-export function FinancialOverviewChart({ data, height = 240 }: FinancialOverviewProps) {
-  const isDark = useDarkMode()
-  const axisColor  = isDark ? DARK.axis  : C.axis
-  const labelColor = isDark ? DARK.label : C.label
-  const labels  = data.map(d => d.label)
-  const incomes  = data.map(d => d.income)
-  const expenses = data.map(d => d.expense)
-  const nets     = data.map(d => d.net)
-
-  const option: EChartsOption = {
-    animation: true,
-    backgroundColor: 'transparent',
-    grid: { top: 12, bottom: 36, left: 16, right: 16, containLabel: true },
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: C.tooltip,
-      borderColor: '#374151',
-      borderWidth: 1,
-      textStyle: { color: '#fff', fontSize: 11 },
-      formatter: (params: any) => {
-        const label = params[0]?.axisValue ?? ''
-        let html = `<div style="font-weight:600;color:#9ca3af;margin-bottom:6px;">${label}</div>`
-        for (const p of params) {
-          const val = Number(p.value ?? 0)
-          const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px;"></span>`
-          html += `<div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:2px;">`
-          html += `<span>${dot}${p.seriesName}</span>`
-          html += `<span style="font-family:monospace;font-weight:300;">${val >= 0 ? '' : '-'}${fmtARS(Math.abs(val))}</span>`
-          html += `</div>`
-        }
-        return html
-      },
-    },
-    legend: {
-      bottom: 0,
-      icon: 'circle',
-      itemWidth: 8,
-      itemHeight: 8,
-      textStyle: { color: labelColor, fontSize: 11 },
-    },
-    xAxis: {
-      type: 'category',
-      data: labels,
-      axisLine: { lineStyle: { color: axisColor } },
-      axisTick: { show: false },
-      axisLabel: { color: labelColor, fontSize: 10, fontWeight: 500 },
-    },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      axisTick: { show: false },
-      splitLine: { lineStyle: { color: axisColor, type: 'dashed' } },
-      axisLabel: {
-        color: labelColor,
-        fontSize: 10,
-        formatter: (v: number) => {
-          const abs = Math.abs(v)
-          if (abs >= 1_000_000) return `${v < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(1).replace('.0', '')}M`
-          return `${v < 0 ? '-' : ''}$${abs.toLocaleString('es-AR')}`
-        },
-      },
-    },
-    series: [
-      {
-        name: 'Ingresos',
-        type: 'bar',
-        data: incomes,
-        barMaxWidth: 28,
-        itemStyle: { color: C.income, borderRadius: [4, 4, 0, 0] },
-        emphasis: { itemStyle: { color: '#3A7D5C' } },
-      },
-      {
-        name: 'Egresos',
-        type: 'bar',
-        data: expenses,
-        barMaxWidth: 28,
-        itemStyle: { color: '#B91C1C', borderRadius: [4, 4, 0, 0] },
-        emphasis: { itemStyle: { color: '#991B1B' } },
-      },
-      {
-        name: 'Ganancia',
-        type: 'line',
-        data: nets,
-        smooth: true,
-        showSymbol: true,
-        symbolSize: 5,
-        lineStyle: { color: '#38BDF8', width: 2 },
-        itemStyle: { color: '#38BDF8' },
-        areaStyle: {
-          color: {
-            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
-              { offset: 0, color: '#38BDF830' },
-              { offset: 1, color: '#38BDF800' },
-            ],
-          },
-        },
-      },
-    ],
-  }
-  return (
-    <ReactECharts
-      option={option}
-      style={{ height, width: '100%' }}
-      opts={{ renderer: 'svg' }}
-    />
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. DONUT DE GASTOS POR CATEGORÍA
 // ─────────────────────────────────────────────────────────────────────────────
 interface DonutSlice {
   name: string
@@ -271,79 +49,6 @@ interface DonutSlice {
   itemStyle: { color: string }
 }
 
-interface ExpenseDonutProps {
-  data: DonutSlice[]
-  totalLabel?: string
-  height?: number
-}
-
-export function ExpenseCategoryDonut({ data, totalLabel = '', height = 220 }: ExpenseDonutProps) {
-  const option: EChartsOption = {
-    animation: true,
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: C.tooltip,
-      borderColor: '#374151',
-      textStyle: { color: '#fff', fontSize: 11 },
-      formatter: (p: any) => {
-        const pct = p.percent?.toFixed(1) ?? '0'
-        return `<div style="font-weight:600;margin-bottom:4px;">${p.name}</div>
-          <div style="font-family:monospace;">${fmtARS(p.value)}<span style="color:#9ca3af;margin-left:8px;">${pct}%</span></div>`
-      },
-    },
-    legend: { show: false },
-    graphic: [
-      {
-        type: 'text',
-        left: 'center',
-        top: '36%',
-        style: {
-          text: totalLabel,
-          fill: '#6b7280',
-          fontSize: 11,
-          fontWeight: 500,
-        } as any,
-      },
-      {
-        type: 'text',
-        left: 'center',
-        top: '44%',
-        style: {
-          text: fmtARS(data.reduce((s, d) => s + d.value, 0)),
-          fill: '#1A1A1A',
-          fontSize: 17,
-          fontFamily: 'ui-monospace, monospace',
-          fontWeight: 300,
-        } as any,
-      },
-    ],
-    series: [{
-      type: 'pie',
-      radius: ['54%', '76%'],
-      center: ['50%', '50%'],
-      padAngle: 2,
-      itemStyle: { borderRadius: 4 },
-      label: { show: false },
-      data,
-      emphasis: {
-        scale: true,
-        scaleSize: 4,
-        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
-      },
-    }],
-  }
-  return (
-    <ReactECharts
-      option={option}
-      style={{ height, width: '100%' }}
-      opts={{ renderer: 'svg' }}
-    />
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4a. DONUT + FLECHAS SIN CRUCE (arco derecho → labels)
-// ─────────────────────────────────────────────────────────────────────────────
 export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; height?: number }) {
   const isDark = useDarkMode()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -395,8 +100,9 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
       backgroundColor: C.tooltip,
       borderColor: '#374151',
       textStyle: { color: '#fff', fontSize: 11 },
-      formatter: (p: any) => {
-        const pct = p.percent?.toFixed(1) ?? '0'
+      formatter: (params: unknown) => {
+        const p = params as { name: string; value: number; percent?: number }
+        const pct = p.percent?.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '0'
         return `<div style="font-weight:600;margin-bottom:4px;">${p.name}</div>
           <div style="font-family:monospace;">${fmtARS(p.value)}<span style="color:#9ca3af;margin-left:8px;">${pct}%</span></div>`
       },
@@ -413,8 +119,8 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
           fontSize: 13,
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           fontWeight: 700,
-          textAlign: 'center',
-        } as any,
+          align: 'center',
+        },
       },
     ],
     series: [{
@@ -553,137 +259,6 @@ export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; he
 // ─────────────────────────────────────────────────────────────────────────────
 // 4b. DONUT 3D — Rentabilidad (Egresos vs Ganancia)
 // ─────────────────────────────────────────────────────────────────────────────
-interface ProfitabilityDonutProps {
-  expense: number
-  gain: number
-  height?: number
-}
-
-export function ProfitabilityDonut({ expense, gain, height = 140 }: ProfitabilityDonutProps) {
-  const hasGain = gain > 0
-  const data = [
-    { value: expense, name: '% de egresos', itemStyle: { color: '#B91C1C' } },
-    ...(hasGain ? [{ value: gain, name: '% de ganancia', itemStyle: { color: '#52A875' } }] : []),
-  ]
-
-  const option: EChartsOption = {
-    animation: true,
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: C.tooltip,
-      borderColor: '#374151',
-      textStyle: { color: '#fff', fontSize: 11 },
-      formatter: (p: any) => {
-        const pct = p.percent?.toFixed(1) ?? '0'
-        return `<div style="font-weight:600;margin-bottom:2px;">${p.name}</div>
-          <div style="font-family:monospace;">${fmtARS(p.value)}<span style="color:#9ca3af;margin-left:6px;">${pct}%</span></div>`
-      },
-    },
-    legend: { show: false },
-    series: [{
-      type: 'pie',
-      radius: ['50%', '78%'],
-      center: ['50%', '50%'],
-      padAngle: 2,
-      itemStyle: { borderRadius: 4 },
-      label: {
-        show: true,
-        position: 'outside',
-        formatter: '{b}',
-        fontSize: 11,
-        fontWeight: 600,
-        fontFamily: 'ui-serif, Georgia, serif',
-        color: 'inherit',
-      },
-      labelLine: {
-        show: true,
-        length: 8,
-        length2: 12,
-        smooth: true,
-        lineStyle: { color: '#d1d5db', width: 1 },
-      },
-      data,
-      emphasis: {
-        scale: true,
-        scaleSize: 4,
-        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
-      },
-    }],
-  }
-
-  return (
-    <ReactECharts
-      option={option}
-      style={{ height, width: '100%' }}
-      opts={{ renderer: 'svg' }}
-    />
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 5. BARRA APILADA HORIZONTAL — Semáforo de deuda
-// ─────────────────────────────────────────────────────────────────────────────
-interface DebtBarItem {
-  name: string
-  value: number
-  color: string
-}
-
-interface DebtStatusBarProps {
-  data: DebtBarItem[]
-  height?: number
-}
-
-export function DebtStatusBar({ data, height = 48 }: DebtStatusBarProps) {
-  const total = data.reduce((s, d) => s + d.value, 0)
-  if (total === 0) return null
-
-  const option: EChartsOption = {
-    animation: true,
-    grid: { top: 0, bottom: 0, left: 0, right: 0 },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'none' },
-      backgroundColor: C.tooltip,
-      borderColor: '#374151',
-      textStyle: { color: '#fff', fontSize: 11 },
-      formatter: (params: any) => {
-        let html = ''
-        for (const p of params) {
-          if (!p.value) continue
-          const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px;"></span>`
-          html += `<div style="display:flex;justify-content:space-between;gap:12px;">`
-          html += `<span>${dot}${p.seriesName}</span>`
-          html += `<span style="font-family:monospace;font-weight:300;">${fmtARS(p.value)}</span>`
-          html += `</div>`
-        }
-        return html
-      },
-    },
-    xAxis: { type: 'value', show: false },
-    yAxis: { type: 'category', show: false, data: [''] },
-    series: data.map(d => ({
-      name: d.name,
-      type: 'bar',
-      stack: 'deuda',
-      data: [d.value],
-      barMaxWidth: 16,
-      itemStyle: { color: d.color, borderRadius: 0 },
-      label: { show: false },
-    })),
-  }
-  return (
-    <ReactECharts
-      option={option}
-      style={{ height, width: '100%' }}
-      opts={{ renderer: 'svg' }}
-    />
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 6. EVOLUTION TABS — gráfico full-width con 4 sub-vistas
-// ─────────────────────────────────────────────────────────────────────────────
 type EvView = 'overview' | 'income_cats' | 'expense_cats' | 'net'
 
 interface EvolutionTabsProps {
@@ -706,9 +281,9 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
   const isDark = useDarkMode()
 
   const TABS: { key: EvView; label: string }[] = [
-    { key: 'overview', label: 'Ingresos vs Egresos' },
-    { key: 'income_cats', label: 'Composición Ingresos' },
-    { key: 'expense_cats', label: 'Composición Egresos' },
+    { key: 'overview', label: 'Ingresos vs egresos' },
+    { key: 'income_cats', label: 'Ingresos' },
+    { key: 'expense_cats', label: 'Egresos' },
   ]
 
   const hasData = chartData.some(d => d.income > 0 || d.expense > 0)
@@ -726,8 +301,8 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
         borderColor: '#374151',
         borderWidth: 1,
         textStyle: { color: '#fff', fontSize: 11 },
-        formatter: (params: any) => {
-          const p = params[0]
+        formatter: (params: unknown) => {
+          const p = (params as { value?: number; axisValue?: string }[])[0]
           const val = Number(p?.value ?? 0)
           return `<div style="font-weight:600;color:#9ca3af;margin-bottom:4px;">${p?.axisValue ?? ''}</div><div style="font-family:monospace;">${val >= 0 ? '' : '-'}${fmtARS(Math.abs(val))}</div>`
         },
@@ -749,8 +324,8 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
           fontSize: 10,
           formatter: (v: number) => {
             const abs = Math.abs(v)
-            if (abs >= 1_000_000) return `${v < 0 ? '-' : ''}$${(abs / 1_000_000).toFixed(1).replace('.0', '')}M`
-            return `${v < 0 ? '-' : ''}$${abs.toLocaleString('es-AR')}`
+            if (abs >= 1_000_000) return `${v < 0 ? '−' : ''}$${(abs / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })} M`
+            return `${v < 0 ? '−' : ''}$${Math.round(abs).toLocaleString('es-AR')}`
           },
         },
       },
@@ -796,27 +371,31 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
 
   return (
     <div>
-      {/* Pestañas */}
-      <div className="flex gap-0 overflow-x-auto border-b border-[#ECE7E1] px-5 dark:border-white/10">
-        {TABS.map(tab => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setView(tab.key)}
-            className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] transition ${
-              view === tab.key
-                ? 'border-[#3A4D39] text-[#3A4D39] dark:border-[#9AC7A8] dark:text-[#9AC7A8]'
-                : 'border-transparent text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Segmentado iOS: ingresos vs egresos, o en qué se compone cada uno */}
+      <div className="px-5 pt-3">
+        <div className="inline-flex max-w-full overflow-x-auto rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/[0.1]" role="tablist" aria-label="Ver gráfico">
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={view === tab.key}
+              onClick={() => setView(tab.key)}
+              className={`shrink-0 whitespace-nowrap rounded-md px-3.5 py-1 text-[13px] transition ${
+                view === tab.key
+                  ? 'bg-white font-medium text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white'
+                  : 'text-[#3C3C43] dark:text-[#EBEBF5]/70'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Contenido del gráfico */}
       <div className="p-4">
-        {view === 'overview' && <CashEvolutionChart chartData={chartData} chartTx={chartTx} height={280} />}
+        {view === 'overview' && <CashEvolutionChart chartData={chartData} chartTx={chartTx} height={300} />}
         {view === 'income_cats' && (
           incomeDonutData.length > 0
             ? <DonutWithLegend data={incomeDonutData} height={280} />
