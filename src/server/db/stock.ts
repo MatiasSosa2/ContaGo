@@ -5,8 +5,8 @@
 
 import prisma from '@/lib/prisma'
 import { revalidatePath, revalidateTag, updateTag } from 'next/cache'
-import { createProductoSchema, type ActionResult } from '@/lib/validations'
-import { getBusinessId, type DashboardPeriodKey, computePeriodRange } from './shared'
+import { createProductoSchema, createMovimientoStockSchema, type ActionResult } from '@/lib/validations'
+import { getBusinessId, parseMovementDate, type DashboardPeriodKey, computePeriodRange } from './shared'
 
 export async function getProductos(
   period?: DashboardPeriodKey,
@@ -133,7 +133,7 @@ export async function createProducto(formData: FormData): Promise<ActionResult<{
   const parsed = createProductoSchema.safeParse(raw)
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
 
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
 
   const creado = await prisma.producto.create({ data: {
     ...parsed.data,
@@ -151,7 +151,7 @@ export async function createProducto(formData: FormData): Promise<ActionResult<{
 }
 
 export async function updateProducto(id: string, formData: FormData): Promise<ActionResult> {
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
 
   // Preservar campos calculados desde DB (no se editan por form)
   const existente = await prisma.producto.findFirst({
@@ -203,7 +203,7 @@ export async function updateProducto(id: string, formData: FormData): Promise<Ac
 }
 
 export async function deleteProducto(id: string) {
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   await prisma.producto.updateMany({ where: { id, businessId }, data: { activo: false } })
   revalidateTag(`dashboard:${businessId}`, 'max')
   revalidatePath('/stock')
@@ -286,3 +286,110 @@ export async function getBienesDeUso(
   })
 }
 
+
+
+export async function deleteBienDeUso(id: string): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  await prisma.bienDeUso.updateMany({
+    where: { id, businessId },
+    data: { activo: false },
+  })
+  revalidatePath('/bienes-de-uso')
+  return { success: true }
+}
+
+
+export async function createBienDeUso(formData: FormData): Promise<ActionResult> {
+  const { createBienDeUsoSchema } = await import('@/lib/validations')
+  const raw = {
+    nombre: (formData.get('nombre') as string)?.trim(),
+    descripcion: (formData.get('descripcion') as string)?.trim(),
+    categoria: (formData.get('categoria') as string)?.trim(),
+    marca: (formData.get('marca') as string)?.trim(),
+    valorAdquisicion: parseFloat(formData.get('valorAdquisicion') as string) || 0,
+    valorResidual: parseFloat(formData.get('valorResidual') as string) || 0,
+    fechaAdquisicion: (formData.get('fechaAdquisicion') as string) || undefined,
+    vidaUtilMeses: formData.get('vidaUtilMeses') ? parseInt(formData.get('vidaUtilMeses') as string, 10) : undefined,
+  }
+  const parsed = createBienDeUsoSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+  const businessId = await getBusinessId(true)
+  const data = parsed.data
+  await prisma.bienDeUso.create({
+    data: {
+      nombre: data.nombre,
+      descripcion: data.descripcion || null,
+      categoria: data.categoria || null,
+      marca: data.marca || null,
+      valorAdquisicion: data.valorAdquisicion,
+      valorResidual: data.valorResidual,
+      fechaAdquisicion: data.fechaAdquisicion ? new Date(data.fechaAdquisicion) : new Date(),
+      vidaUtilMeses: data.vidaUtilMeses ?? null,
+      businessId,
+    },
+  })
+  revalidatePath('/bienes-de-uso')
+  revalidatePath('/')
+  return { success: true }
+}
+
+
+export async function addMovimientoStock(formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  const raw = {
+    productoId: formData.get('productoId') as string,
+    tipo: formData.get('tipo') as string,
+    cantidad: parseFloat(formData.get('cantidad') as string),
+    precio: parseFloat(formData.get('precio') as string) || 0,
+    motivo: (formData.get('motivo') as string)?.trim(),
+    fecha: formData.get('fecha') as string,
+  }
+
+  const parsed = createMovimientoStockSchema.safeParse(raw)
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+
+  const { productoId, tipo, cantidad, precio, motivo, fecha: fechaStr } = parsed.data
+  const fecha = parseMovementDate(fechaStr)
+  const result = await prisma.$transaction(async (tx) => {
+    const producto = await tx.producto.findFirst({
+      where: { id: productoId, businessId },
+      select: { id: true, nombre: true, stockActual: true, precioCosto: true },
+    })
+    if (!producto) return { success: false as const, error: 'El producto no existe o no pertenece al negocio activo' }
+    if (tipo === 'SALIDA' && cantidad > producto.stockActual) {
+      return { success: false as const, error: `No hay stock suficiente de ${producto.nombre}` }
+    }
+
+    const updated = await tx.producto.updateMany({
+      where: {
+        id: productoId,
+        businessId,
+        ...(tipo === 'SALIDA' ? { stockActual: { gte: cantidad } } : {}),
+      },
+      data: {
+        stockActual: tipo === 'ENTRADA'
+          ? { increment: cantidad }
+          : tipo === 'SALIDA'
+            ? { decrement: cantidad }
+            : cantidad,
+      },
+    })
+    if (updated.count === 0) {
+      return { success: false as const, error: 'El producto cambió durante el ajuste. Volvé a intentarlo.' }
+    }
+
+    await tx.movimientoStock.create({
+      data: {
+        productoId, tipo, cantidad, precio, motivo: motivo || null, fecha,
+        costoUnitario: tipo === 'SALIDA' ? producto.precioCosto : null,
+      },
+    })
+    return { success: true as const }
+  })
+  if (!result.success) return result
+
+  revalidatePath('/stock')
+  return { success: true }
+}

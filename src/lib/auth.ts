@@ -73,6 +73,11 @@ function getConfiguredProviders() {
         const postVerifyChallengeId = credentials?.postVerifyChallengeId?.trim() || null
 
         if (wantsTemporaryAccess) {
+          if (process.env.NODE_ENV === 'production') {
+            console.warn('[auth] acceso temporal rechazado en producción')
+            return null
+          }
+
           const temporaryAccessEmail = getTemporaryAccessAdminEmail()
 
           if (!temporaryAccessEmail || !prisma) {

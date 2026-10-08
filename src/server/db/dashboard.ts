@@ -8,6 +8,8 @@ import { unstable_cache } from 'next/cache'
 import { CASH_ACCOUNT_TYPES } from '@/server/cash/cash-flow'
 import { getBusinessId, type DashboardPeriodKey, computePeriodRange } from './shared'
 
+const DASHBOARD_MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
 /** Movimiento de caja del período, para filtrar el gráfico por categoría y ver el detalle de cada barra */
 export interface DashboardChartTx {
   id: string
@@ -67,6 +69,27 @@ export interface DashboardPresetSummary {
   incomeChangePct: number | null
   expenseChangePct: number | null
   gainChangePct: number | null
+}
+
+export async function getDailyStats() {
+  const businessId = await getBusinessId()
+  const now = new Date()
+  const inicioHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+  const finHoy = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+  const txHoy = await prisma.transaction.findMany({
+    where: { businessId, date: { gte: inicioHoy, lte: finHoy } },
+    include: { category: true, account: true },
+    orderBy: { date: 'desc' },
+  })
+  const byCurrency: Record<string, { income: number; expense: number; count: number }> = {}
+  for (const tx of txHoy) {
+    const currency = tx.currency || 'ARS'
+    if (!byCurrency[currency]) byCurrency[currency] = { income: 0, expense: 0, count: 0 }
+    if (tx.type === 'INCOME') byCurrency[currency].income += tx.amount
+    else byCurrency[currency].expense += tx.amount
+    byCurrency[currency].count++
+  }
+  return { txHoy, byCurrency }
 }
 
 function groupTransactions(
@@ -194,14 +217,12 @@ export async function getDashboardStats(
   period: DashboardPeriodKey,
   customFrom?: string,
   customTo?: string,
-  /** Pre-resolved businessId — avoids redundant requireBusinessContext() calls */
-  preBusinessId?: string,
   selectedYear?: number,
   selectedMonth?: number,
   selectedDay?: string,
   selectedWeekStart?: string,
 ): Promise<DashboardStatsResult> {
-  const businessId = preBusinessId ?? await getBusinessId()
+  const businessId = await getBusinessId()
 
   // Cache key includes businessId + period params → safe per-tenant isolation.
   // Revalidates every 15 s so rapid tab switches hit memory, not Turso.
@@ -268,8 +289,13 @@ async function _fetchDashboardStats(
       select: { amount: true, type: true },
     }),
     prisma.transaction.findMany({
-      where: { businessId, esCredito: true, estado: { in: ['PENDIENTE', 'VENCIDO'] } },
-      select: { amount: true, estado: true, fechaVencimiento: true },
+      where: { businessId, esCredito: true, estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } },
+      select: {
+        amount: true,
+        estado: true,
+        fechaVencimiento: true,
+        cobrosAplicados: { where: { businessId }, select: { amount: true } },
+      },
     }),
   ])
 
@@ -358,19 +384,21 @@ async function _fetchDashboardStats(
   // ── Debt status (independent of period) ──
   const now48h = new Date(now.getTime() + 48 * 60 * 60 * 1000)
   const vencidos = creditosDeudas.filter(c =>
-    c.estado === 'VENCIDO' || (c.fechaVencimiento && new Date(c.fechaVencimiento) < now && c.estado === 'PENDIENTE')
+    c.estado === 'VENCIDO' || (c.fechaVencimiento && new Date(c.fechaVencimiento) < now && (c.estado === 'PENDIENTE' || c.estado === 'PARCIAL'))
   )
   const en48hs = creditosDeudas.filter(c =>
-    c.estado === 'PENDIENTE' && c.fechaVencimiento && new Date(c.fechaVencimiento) >= now && new Date(c.fechaVencimiento) <= now48h
+    (c.estado === 'PENDIENTE' || c.estado === 'PARCIAL') && c.fechaVencimiento && new Date(c.fechaVencimiento) >= now && new Date(c.fechaVencimiento) <= now48h
   )
   const futuros = creditosDeudas.filter(c =>
-    c.estado === 'PENDIENTE' && (!c.fechaVencimiento || new Date(c.fechaVencimiento) > now48h)
+    (c.estado === 'PENDIENTE' || c.estado === 'PARCIAL') && (!c.fechaVencimiento || new Date(c.fechaVencimiento) > now48h)
   )
+  const saldoDeuda = (credit: (typeof creditosDeudas)[number]) =>
+    Math.max(0, credit.amount - credit.cobrosAplicados.reduce((sum, payment) => sum + payment.amount, 0))
   const debtStatus = {
-    vencidos: { count: vencidos.length, total: vencidos.reduce((s, c) => s + c.amount, 0) },
-    en48hs: { count: en48hs.length, total: en48hs.reduce((s, c) => s + c.amount, 0) },
-    futuros: { count: futuros.length, total: futuros.reduce((s, c) => s + c.amount, 0) },
-    totalPendiente: creditosDeudas.filter(c => c.estado === 'PENDIENTE' || c.estado === 'VENCIDO').reduce((s, c) => s + c.amount, 0),
+    vencidos: { count: vencidos.length, total: vencidos.reduce((s, c) => s + saldoDeuda(c), 0) },
+    en48hs: { count: en48hs.length, total: en48hs.reduce((s, c) => s + saldoDeuda(c), 0) },
+    futuros: { count: futuros.length, total: futuros.reduce((s, c) => s + saldoDeuda(c), 0) },
+    totalPendiente: creditosDeudas.reduce((sum, credit) => sum + saldoDeuda(credit), 0),
     creditosDeudas,
   }
 
@@ -515,4 +543,105 @@ export async function getAssetSnapshotAsOf(
   ])
 
   return { ...current, prev }
+}
+
+
+export async function getDashboardPresetSummaries(): Promise<DashboardPresetSummary[]> {
+  const periods: Array<Exclude<DashboardPeriodKey, 'custom'>> = [
+    'diario',
+    'semanal',
+    'mensual',
+    'anual',
+  ]
+
+  const entries = await Promise.all(
+    periods.map(async (period) => {
+      const stats = await getDashboardStats(period)
+
+      return {
+        period,
+        periodLabel: stats.periodLabel,
+        income: stats.kpis.income,
+        expense: stats.kpis.expense,
+        gain: stats.kpis.gain,
+        incomeChangePct: stats.prevKpis.income > 0 ? ((stats.kpis.income - stats.prevKpis.income) / stats.prevKpis.income) * 100 : null,
+        expenseChangePct: stats.prevKpis.expense > 0 ? ((stats.kpis.expense - stats.prevKpis.expense) / stats.prevKpis.expense) * 100 : null,
+        gainChangePct: stats.prevKpis.gain !== 0 ? ((stats.kpis.gain - stats.prevKpis.gain) / Math.abs(stats.prevKpis.gain)) * 100 : null,
+      } satisfies DashboardPresetSummary
+    }),
+  )
+
+  return entries
+}
+
+
+export async function getAvailableDashboardMonths(): Promise<DashboardMonthOption[]> {
+  const businessId = await getBusinessId()
+  const txs = await prisma.transaction.findMany({
+    where: { businessId },
+    orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+    select: { date: true },
+    take: 2000,
+  })
+
+  const seen = new Set<string>()
+  const months: DashboardMonthOption[] = []
+
+  for (const tx of txs) {
+    const date = new Date(tx.date)
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const key = `${year}-${String(month).padStart(2, '0')}`
+
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    months.push({
+      year,
+      month,
+      key,
+      label: DASHBOARD_MONTH_LABELS[month - 1],
+      shortYear: String(year).slice(2),
+    })
+
+  }
+
+  if (months.length === 0) {
+    const now = new Date()
+    months.push({
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      key: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      label: DASHBOARD_MONTH_LABELS[now.getMonth()],
+      shortYear: String(now.getFullYear()).slice(2),
+    })
+  }
+
+  while (months.length < 4) {
+    const first = months[0]
+    const previousDate = new Date(first.year, first.month - 2, 1)
+    const year = previousDate.getFullYear()
+    const month = previousDate.getMonth() + 1
+    const key = `${year}-${String(month).padStart(2, '0')}`
+
+    if (!seen.has(key)) {
+      seen.add(key)
+      months.unshift({
+        year,
+        month,
+        key,
+        label: DASHBOARD_MONTH_LABELS[month - 1],
+        shortYear: String(year).slice(2),
+      })
+    }
+  }
+
+  return months.slice(-24)
+}
+
+
+export async function getMonthlyDashboardStats(): Promise<DashboardStatsResult> {
+  return getDashboardStats('mensual')
 }

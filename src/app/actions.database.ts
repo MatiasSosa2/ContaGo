@@ -1,7 +1,6 @@
 /**
- * Acciones con la base de datos, separadas por tema en src/server/db/*.
- * Solo las usa src/app/actions.ts (que elige entre datos reales y demo); los componentes
- * importan de acá únicamente tipos.
+ * Database actions grouped by domain in src/server/db/*.
+ * Used by src/app/actions.ts to choose between real and demo data.
  */
 export * from '@/server/db/catalogs'
 export * from '@/server/db/transactions'

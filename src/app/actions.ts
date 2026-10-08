@@ -39,6 +39,12 @@ const getDatabaseActions = () => {
 
 // ---- PROXY FUNCTIONS ----
 
+export async function getAccounts() {
+  if (USE_MOCK) return MOCK.MOCK_ACCOUNTS;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getAccounts();
+}
+
 export async function getModalCatalogs() {
   if (USE_MOCK) {
     return {
@@ -63,6 +69,30 @@ export async function getModalCatalogs() {
     }
     throw error;
   }
+}
+
+export async function getCategories() {
+  if (USE_MOCK) return MOCK.MOCK_CATEGORIES;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCategories();
+}
+
+export async function getTransactions() {
+  if (USE_MOCK) return MOCK.MOCK_TRANSACTIONS;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getTransactions();
+}
+
+export async function getAreasNegocio() {
+  if (USE_MOCK) return MOCK.MOCK_AREAS;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getAreasNegocio();
+}
+
+export async function getContacts() {
+  if (USE_MOCK) return MOCK.MOCK_CONTACTS;
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getContacts();
 }
 
 export async function createContact(formData: FormData): Promise<ActionResult<{ id: string; name: string; type: string }>> {
@@ -108,6 +138,18 @@ export async function createCategoryWithContable(formData: FormData): Promise<Ac
   if (USE_MOCK) return { success: true, data: { id: 'mock', name: 'mock' } };
   const databaseActions = await getDatabaseActions();
   return databaseActions.createCategoryWithContable(formData);
+}
+
+export async function deleteTransaction(id: string): Promise<ActionResult> {
+  if (USE_MOCK) { revalidatePath('/'); return { success: true }; }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.deleteTransaction(id);
+}
+
+export async function createAccount(formData: FormData): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.createAccount(formData);
 }
 
 export async function getAllTransactions(
@@ -191,6 +233,12 @@ export async function getProductos(
   if (USE_MOCK) return MOCK.MOCK_PRODUCTOS;
   const databaseActions = await getDatabaseActions();
   return databaseActions.getProductos(period as CashPeriodKey, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
+}
+
+export async function getEmpleados() {
+  if (USE_MOCK) return [];
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getEmpleados();
 }
 
 export async function createProducto(formData: FormData): Promise<ActionResult<{ id: string }>> {
@@ -277,13 +325,19 @@ export async function getReportDataExtended(range?: DateRange) {
   return databaseActions.getReportDataExtended(range);
 }
 
-export async function getDashboardStats(period: string, customFrom?: string, customTo?: string, preBusinessId?: string, selectedYear?: number, selectedMonth?: number, selectedDay?: string, selectedWeekStart?: string) {
+export async function getDailyStats() {
+  if (USE_MOCK) return { txHoy: [], byCurrency: {} };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getDailyStats();
+}
+
+export async function getDashboardStats(period: string, customFrom?: string, customTo?: string, selectedYear?: number, selectedMonth?: number, selectedDay?: string, selectedWeekStart?: string) {
   if (USE_MOCK) {
     const { getMockDashboardStats } = await import('@/lib/mock');
     return getMockDashboardStats();
   }
   const databaseActions = await getDatabaseActions();
-  return databaseActions.getDashboardStats(period as CashPeriodKey, customFrom, customTo, preBusinessId, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
+  return databaseActions.getDashboardStats(period as CashPeriodKey, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
 export async function getAssetSnapshotAsOf(period: string, customFrom?: string, customTo?: string, selectedYear?: number, selectedMonth?: number, selectedDay?: string, selectedWeekStart?: string) {
@@ -293,6 +347,51 @@ export async function getAssetSnapshotAsOf(period: string, customFrom?: string, 
   }
   const databaseActions = await getDatabaseActions();
   return databaseActions.getAssetSnapshotAsOf(period as CashPeriodKey, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
+}
+
+export async function getMonthlyDashboardStats() {
+  if (USE_MOCK) {
+    const { getMockDashboardStats } = await import('@/lib/mock');
+    return getMockDashboardStats();
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getMonthlyDashboardStats();
+}
+
+export async function getAvailableDashboardMonths() {
+  if (USE_MOCK) {
+    const now = new Date();
+    return Array.from({ length: 4 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      return {
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        label: date.toLocaleDateString('es-AR', { month: 'short' }).replace('.', ''),
+        shortYear: String(date.getFullYear()).slice(2),
+        key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+      };
+    });
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getAvailableDashboardMonths();
+}
+
+export async function getDashboardPresetSummaries() {
+  if (USE_MOCK) {
+    const periods = ['diario', 'semanal', 'mensual', 'anual'] as const;
+    return periods.map((period) => ({
+      period,
+      periodLabel: period,
+      income: 500000,
+      expense: 320000,
+      gain: 180000,
+      incomeChangePct: 12.5,
+      expenseChangePct: -4.2,
+      gainChangePct: 18.1,
+    }));
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getDashboardPresetSummaries();
 }
 
 export async function getCajasData(

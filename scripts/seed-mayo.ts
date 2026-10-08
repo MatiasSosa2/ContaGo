@@ -3,6 +3,7 @@
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
+import { requireTargetBusinessId } from './target-business'
 dotenv.config()
 
 async function main() {
@@ -12,8 +13,9 @@ async function main() {
   })
   const prisma = new PrismaClient({ adapter } as any)
 
-  const biz = await prisma.business.findFirst()
-  if (!biz) throw new Error('No hay negocio')
+  const targetBusinessId = requireTargetBusinessId(true)
+  const biz = await prisma.business.findUnique({ where: { id: targetBusinessId } })
+  if (!biz) throw new Error(`No existe el negocio ${targetBusinessId}`)
 
   const accounts   = await prisma.account.findMany({ where: { businessId: biz.id } })
   const contacts   = await prisma.contact.findMany({ where: { businessId: biz.id } })
@@ -80,8 +82,15 @@ async function main() {
   console.log(`   Cuentas: cash=${cash?.name}, bank=${bank?.name}, cxc=${cxc?.name}, cxp=${cxp?.name}`)
   console.log(`   Insertando ${movimientos.length} movimientos de mayo 2026...\n`)
 
-  for (const m of movimientos) {
-    await prisma.transaction.create({ data: {
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.transaction.findFirst({
+      where: { businessId: biz.id, description: { in: movimientos.map((movement) => movement.desc) } },
+      select: { id: true },
+    })
+    if (existing) throw new Error('Ya existen registros de este seed; se canceló la importación completa.')
+
+    for (const m of movimientos) {
+    await tx.transaction.create({ data: {
       description: m.desc,
       type: m.type as 'INCOME' | 'EXPENSE',
       subType: m.subType,
@@ -101,6 +110,7 @@ async function main() {
     grupos[m.estado]++
     total++
   }
+  })
 
   console.log(`\n✅ Resumen:`)
   for (const [estado, n] of Object.entries(grupos)) console.log(`   ${estado}: ${n} registros`)

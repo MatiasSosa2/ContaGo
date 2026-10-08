@@ -2,6 +2,7 @@
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
+import { requireTargetBusinessId } from './target-business'
 dotenv.config()
 
 async function main() {
@@ -11,8 +12,9 @@ async function main() {
   })
   const prisma = new PrismaClient({ adapter } as any)
 
-  const biz = await prisma.business.findFirst()
-  if (!biz) throw new Error('No hay negocio en la BD')
+  const targetBusinessId = requireTargetBusinessId(true)
+  const biz = await prisma.business.findUnique({ where: { id: targetBusinessId } })
+  if (!biz) throw new Error(`No existe el negocio ${targetBusinessId}`)
 
   const accounts   = await prisma.account.findMany({ where: { businessId: biz.id } })
   const contacts   = await prisma.contact.findMany({ where: { businessId: biz.id } })
@@ -78,11 +80,24 @@ async function main() {
   ]
 
   let total = 0
+  const seedDescriptions = [
+    ...pendientes.map((transaction) => transaction.desc),
+    ...vencidos.map((transaction) => transaction.desc),
+    ...cobrados.map((transaction) => transaction.desc),
+    ...pagados.map((transaction) => transaction.desc),
+  ]
 
-  console.log('\n🟡 PENDIENTE')
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.transaction.findFirst({
+      where: { businessId: biz.id, description: { in: seedDescriptions } },
+      select: { id: true },
+    })
+    if (existing) throw new Error('Ya existen registros de este seed; se canceló la importación completa.')
+
+    console.log('\n🟡 PENDIENTE')
   for (let i = 0; i < pendientes.length; i++) {
     const t = pendientes[i]
-    await prisma.transaction.create({ data: {
+    await tx.transaction.create({ data: {
       description: t.desc, type: t.type as 'INCOME' | 'EXPENSE',
       subType: t.type === 'INCOME' ? 'COBRO' : 'PAGO',
       amount: t.amount, currency: 'ARS', date: t.date,
@@ -97,7 +112,7 @@ async function main() {
   console.log('\n🔴 VENCIDO')
   for (let i = 0; i < vencidos.length; i++) {
     const t = vencidos[i]
-    await prisma.transaction.create({ data: {
+    await tx.transaction.create({ data: {
       description: t.desc, type: t.type as 'INCOME' | 'EXPENSE',
       subType: t.type === 'INCOME' ? 'COBRO' : 'PAGO',
       amount: t.amount, currency: 'ARS', date: t.date,
@@ -112,7 +127,7 @@ async function main() {
   console.log('\n🟢 COBRADO')
   for (let i = 0; i < cobrados.length; i++) {
     const t = cobrados[i]
-    await prisma.transaction.create({ data: {
+    await tx.transaction.create({ data: {
       description: t.desc, type: 'INCOME', subType: 'COBRO',
       amount: t.amount, currency: 'ARS', date: t.date,
       estado: 'COBRADO', esCredito: false,
@@ -126,7 +141,7 @@ async function main() {
   console.log('\n🔵 PAGADO')
   for (let i = 0; i < pagados.length; i++) {
     const t = pagados[i]
-    await prisma.transaction.create({ data: {
+    await tx.transaction.create({ data: {
       description: t.desc, type: 'EXPENSE', subType: 'PAGO',
       amount: t.amount, currency: 'ARS', date: t.date,
       estado: 'PAGADO', esCredito: false,
@@ -136,6 +151,7 @@ async function main() {
     console.log(`  ✅ ${t.desc.slice(0, 55)} — $${t.amount.toLocaleString('es-AR')}`)
     total++
   }
+  })
 
   console.log(`\n🎉 ${total} transacciones insertadas en "${biz.name}"`)
   await prisma.$disconnect()

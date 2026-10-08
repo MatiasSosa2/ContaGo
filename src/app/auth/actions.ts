@@ -17,7 +17,7 @@ import { ensureUserBusinessMembership } from '@/server/auth/business-context'
 import { decideLoginChallenge } from '@/server/auth/login-security'
 import { requireAuth } from '@/server/auth/require-auth'
 import { hashPassword, requestPasswordResetFlow, resetPasswordWithCodeFlow } from '@/server/auth/passwords'
-import { createContableAccountForCategory } from '@/server/accounting/setup-contable-accounts'
+import { setupContableAccountsForBusiness } from '@/server/accounting/setup-contable-accounts'
 
 const DEFAULT_EXPENSE_CATEGORIES = ['Sueldos', 'Alquiler', 'Publicidad', 'Impuestos']
 
@@ -74,6 +74,16 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
       select: { id: true },
     })
 
+    await tx.account.create({
+      data: {
+        name: 'Caja principal',
+        type: 'CASH',
+        currency: 'ARS',
+        currentBalance: 0,
+        businessId: business.id,
+      },
+    })
+
     await tx.businessMember.create({
       data: {
         userId: user.id,
@@ -86,12 +96,12 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
 
     // Categorías de egreso que vienen por defecto en la pestaña de registración
     for (const nombre of DEFAULT_EXPENSE_CATEGORIES) {
-      const category = await tx.category.create({
+      await tx.category.create({
         data: { name: nombre, type: 'EXPENSE', businessId: business.id },
-        select: { id: true },
       })
-      await createContableAccountForCategory(category.id, nombre, 'EXPENSE', business.id, tx as never)
     }
+
+    await setupContableAccountsForBusiness(business.id, tx)
 
     await tx.user.update({
       where: { id: user.id },

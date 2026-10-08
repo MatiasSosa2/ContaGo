@@ -83,7 +83,7 @@ async function DashboardContent({
   selectedWeekStart?: string
 }) {
   const [stats, snapshot, cashFlow] = await Promise.all([
-    getDashboardStats(periodo, customFrom, customTo, businessId, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    getDashboardStats(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getAssetSnapshotAsOf(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getCashFlowKpis(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])

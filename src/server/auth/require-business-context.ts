@@ -17,3 +17,13 @@ export async function requireBusinessContext(): Promise<BusinessSessionContext> 
 
   return sessionContext as BusinessSessionContext
 }
+
+export async function requireBusinessWriteContext(): Promise<BusinessSessionContext> {
+  const sessionContext = await requireBusinessContext()
+
+  if (sessionContext.activeBusiness.role === 'VIEWER') {
+    redirect('/auth/error?error=AccessDenied')
+  }
+
+  return sessionContext
+}

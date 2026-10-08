@@ -3,6 +3,7 @@
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
+import { requireTargetBusinessId } from './target-business'
 dotenv.config()
 
 async function main() {
@@ -12,8 +13,9 @@ async function main() {
   })
   const prisma = new PrismaClient({ adapter } as any)
 
-  const biz = await prisma.business.findFirst()
-  if (!biz) throw new Error('No hay negocio en la BD')
+  const targetBusinessId = requireTargetBusinessId(true)
+  const biz = await prisma.business.findUnique({ where: { id: targetBusinessId } })
+  if (!biz) throw new Error(`No existe el negocio ${targetBusinessId}`)
 
   const accounts  = await prisma.account.findMany({ where: { businessId: biz.id } })
   const contacts  = await prisma.contact.findMany({ where: { businessId: biz.id } })
@@ -51,6 +53,7 @@ async function main() {
   }
 
   const c = (i: number) => contacts[i % contacts.length]
+  if (contacts.length === 0) throw new Error('El negocio no tiene contactos para los datos de ejemplo')
 
   const creditos = [
     // ── CxC (por cobrar — INCOME, esCredito: true) ───────────────────────
@@ -197,26 +200,36 @@ async function main() {
     },
   ]
 
-  let inserted = 0
-  for (const mov of creditos) {
-    await prisma.transaction.create({
-      data: {
-        description: mov.description,
-        type: mov.type,
-        subType: mov.subType,
-        amount: mov.amount,
-        currency: mov.currency,
-        date: mov.date,
-        fechaVencimiento: mov.fechaVencimiento,
-        estado: mov.estado,
-        esCredito: mov.esCredito,
-        businessId: biz.id,
-        accountId: mov.accountId,
-        categoryId: mov.categoryId ?? undefined,
-        contactId: mov.contactId ?? undefined,
-      },
+  const inserted = await prisma.$transaction(async (tx) => {
+    const existing = await tx.transaction.findFirst({
+      where: { businessId: biz.id, description: { in: creditos.map((mov) => mov.description) } },
+      select: { id: true },
     })
-    inserted++
+    if (existing) throw new Error('Ya existen registros de este seed; se canceló la importación completa.')
+
+    for (const mov of creditos) {
+      await tx.transaction.create({
+        data: {
+          description: mov.description,
+          type: mov.type,
+          subType: mov.subType,
+          amount: mov.amount,
+          currency: mov.currency,
+          date: mov.date,
+          fechaVencimiento: mov.fechaVencimiento,
+          estado: mov.estado,
+          esCredito: mov.esCredito,
+          businessId: biz.id,
+          accountId: mov.accountId,
+          categoryId: mov.categoryId ?? undefined,
+          contactId: mov.contactId ?? undefined,
+        },
+      })
+    }
+    return creditos.length
+  })
+
+  for (const mov of creditos) {
     const tag = mov.type === 'INCOME' ? '📥 CxC' : '📤 CxP'
     console.log(`  ✅ ${tag} ${mov.description} — $${mov.amount.toLocaleString('es-AR')}`)
   }

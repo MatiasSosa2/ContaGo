@@ -3,6 +3,7 @@
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
+import { requireTargetBusinessId } from './target-business'
 dotenv.config()
 
 async function main() {
@@ -13,8 +14,9 @@ async function main() {
   const prisma = new PrismaClient({ adapter } as any)
 
   // ─── Leer datos existentes ───────────────────────────────────────────────
-  const biz = await prisma.business.findFirst()
-  if (!biz) throw new Error('No hay ningún negocio en la BD')
+  const targetBusinessId = requireTargetBusinessId(true)
+  const biz = await prisma.business.findUnique({ where: { id: targetBusinessId } })
+  if (!biz) throw new Error(`No existe el negocio ${targetBusinessId}`)
 
   const accounts  = await prisma.account.findMany({ where: { businessId: biz.id } })
   const categories = await prisma.category.findMany({ where: { businessId: biz.id } })
@@ -168,24 +170,34 @@ async function main() {
   ]
 
   // ─── Insertar ─────────────────────────────────────────────────────────────
-  let inserted = 0
-  for (const mov of movements) {
-    await prisma.transaction.create({
-      data: {
-        description: mov.description,
-        type: mov.type,
-        subType: mov.subType,
-        amount: mov.amount,
-        currency: mov.currency,
-        date: mov.date,
-        businessId: biz.id,
-        accountId: mov.accountId,
-        categoryId: mov.categoryId ?? undefined,
-        contactId: mov.contactId ?? undefined,
-        estado: 'COBRADO',
-      },
+  const inserted = await prisma.$transaction(async (tx) => {
+    const existing = await tx.transaction.findFirst({
+      where: { businessId: biz.id, description: { in: movements.map((movement) => movement.description) } },
+      select: { id: true },
     })
-    inserted++
+    if (existing) throw new Error('Ya existen registros de este seed; se canceló la importación completa.')
+
+    for (const mov of movements) {
+      await tx.transaction.create({
+        data: {
+          description: mov.description,
+          type: mov.type,
+          subType: mov.subType,
+          amount: mov.amount,
+          currency: mov.currency,
+          date: mov.date,
+          businessId: biz.id,
+          accountId: mov.accountId,
+          categoryId: mov.categoryId ?? undefined,
+          contactId: mov.contactId ?? undefined,
+          estado: 'COBRADO',
+        },
+      })
+    }
+    return movements.length
+  })
+
+  for (const mov of movements) {
     console.log(`  ✅ [${mov.type}] ${mov.description} — ${mov.currency === 'USD' ? 'US$' : '$'}${mov.amount.toLocaleString('es-AR')}`)
   }
 

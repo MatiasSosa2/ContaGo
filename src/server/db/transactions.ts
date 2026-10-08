@@ -56,10 +56,29 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
     cantidad, precioUnitario,
     date: dateStr, currency, esCredito, estado, fechaVencimiento,
   } = parsed.data
+  if (esCredito && !['PENDIENTE', 'VENCIDO'].includes(estado)) {
+    return { success: false, error: 'Un crédito nuevo debe quedar pendiente; el estado pagado se registra mediante un cobro.' }
+  }
 
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   const account = await getScopedAccount(accountId, businessId)
-  if (!account) return { success: false, error: 'Cuenta no encontrada' }
+  if (!account || account.isSystemAccount) return { success: false, error: 'Elegí una cuenta física del negocio' }
+  if (account.currency !== currency) {
+    return { success: false, error: 'La moneda del movimiento debe coincidir con la moneda de la cuenta' }
+  }
+
+  const [category, contact, area, empleado, productoRef] = await Promise.all([
+    categoryId ? prisma.category.findFirst({ where: { id: categoryId, businessId, type }, select: { id: true } }) : null,
+    contactId ? prisma.contact.findFirst({ where: { id: contactId, businessId }, select: { id: true } }) : null,
+    areaNegocioId ? prisma.areaNegocio.findFirst({ where: { id: areaNegocioId, businessId }, select: { id: true } }) : null,
+    empleadoId ? prisma.empleado.findFirst({ where: { id: empleadoId, businessId }, select: { id: true } }) : null,
+    productoId ? prisma.producto.findFirst({ where: { id: productoId, businessId }, select: { id: true } }) : null,
+  ])
+  if (categoryId && !category) return { success: false, error: 'La categoría no pertenece al negocio activo' }
+  if (contactId && !contact) return { success: false, error: 'El contacto no pertenece al negocio activo' }
+  if (areaNegocioId && !area) return { success: false, error: 'El área no pertenece al negocio activo' }
+  if (empleadoId && !empleado) return { success: false, error: 'El empleado no pertenece al negocio activo' }
+  if (productoId && !productoRef) return { success: false, error: 'El producto no pertenece al negocio activo' }
 
   const isCobroCredito = subType === 'COBRO_CREDITO'
   const isPagoDeuda = subType === 'PAGO_DEUDA'
@@ -120,10 +139,17 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
       // ============ COBRO DE CRÉDITO ============
       if (isCobroCredito && linkedCreditoId) {
         const credito = await tx.transaction.findFirst({
-          where: { id: linkedCreditoId, businessId, esCredito: true, type: 'INCOME' },
-          select: { id: true, amount: true, contactId: true, contact: { select: { id: true, name: true } } },
+          where: { id: linkedCreditoId, businessId, esCredito: true, type: 'INCOME', estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } },
+          select: { id: true, amount: true, currency: true, estado: true, contactId: true, contact: { select: { id: true, name: true } } },
         })
         if (!credito) throw new Error('Crédito no encontrado')
+        if (credito.currency !== currency) throw new Error('La moneda del cobro debe coincidir con la del crédito')
+
+        const reserved = await tx.transaction.updateMany({
+          where: { id: credito.id, businessId, esCredito: true, estado: credito.estado },
+          data: { estado: 'PROCESSING' },
+        })
+        if (reserved.count !== 1) throw new Error('El crédito está siendo actualizado. Volvé a intentarlo.')
 
         const cobrosPrev = await tx.transaction.aggregate({
           where: { businessId, linkedCreditoId: credito.id },
@@ -155,7 +181,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
 
         await tx.account.update({
           where: { id: accountId },
-          data: { currentBalance: account.currentBalance + amount },
+          data: { currentBalance: { increment: amount } },
         })
 
         const nuevoCobrado = yaCobrado + amount
@@ -177,6 +203,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
           description,
           mode: 'COBRO_CREDITO',
         })
+        if (!journalResult.ok) throw new Error('No se pudo generar el asiento contable. Verificá las cuentas del negocio.')
         if (journalResult.ok) {
           await tx.journalEntry.create({
             data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
@@ -210,10 +237,17 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
       // ============ PAGO DE DEUDA (mirror de cobro) ============
       if (isPagoDeuda && linkedCreditoId) {
         const deuda = await tx.transaction.findFirst({
-          where: { id: linkedCreditoId, businessId, esCredito: true, type: 'EXPENSE' },
-          select: { id: true, amount: true, contactId: true, contact: { select: { id: true, name: true } } },
+          where: { id: linkedCreditoId, businessId, esCredito: true, type: 'EXPENSE', estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } },
+          select: { id: true, amount: true, currency: true, estado: true, contactId: true, contact: { select: { id: true, name: true } } },
         })
         if (!deuda) throw new Error('Deuda no encontrada')
+        if (deuda.currency !== currency) throw new Error('La moneda del pago debe coincidir con la de la deuda')
+
+        const reserved = await tx.transaction.updateMany({
+          where: { id: deuda.id, businessId, esCredito: true, estado: deuda.estado },
+          data: { estado: 'PROCESSING' },
+        })
+        if (reserved.count !== 1) throw new Error('La deuda está siendo actualizada. Volvé a intentarlo.')
 
         const pagosPrev = await tx.transaction.aggregate({
           where: { businessId, linkedCreditoId: deuda.id },
@@ -245,7 +279,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
 
         await tx.account.update({
           where: { id: accountId },
-          data: { currentBalance: account.currentBalance - amount },
+          data: { currentBalance: { decrement: amount } },
         })
 
         const nuevoPagado = yaPagado + amount
@@ -267,6 +301,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
           description,
           mode: 'PAGO_DEUDA',
         })
+        if (!journalResult.ok) throw new Error('No se pudo generar el asiento contable. Verificá las cuentas del negocio.')
         if (journalResult.ok) {
           await tx.journalEntry.create({
             data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
@@ -331,7 +366,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         if (!esCredito) {
           await tx.account.update({
             where: { id: accountId },
-            data: { currentBalance: account.currentBalance + amount },
+            data: { currentBalance: { increment: amount } },
           })
         }
 
@@ -355,6 +390,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
           fixedAssetAccountId: fixed?.id ?? null,
           bienValorNetoEnLibros: valorNeto,
         })
+        if (!journalResult.ok) throw new Error('No se pudo generar el asiento contable. Verificá las cuentas del negocio.')
         if (journalResult.ok) {
           await tx.journalEntry.create({
             data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
@@ -402,7 +438,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         if (!esCredito) {
           await tx.account.update({
             where: { id: accountId },
-            data: { currentBalance: account.currentBalance - amount },
+            data: { currentBalance: { decrement: amount } },
           })
         }
 
@@ -422,6 +458,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
           mode: 'PURCHASE_BIEN_USO',
           fixedAssetAccountId: fixed?.id ?? null,
         })
+        if (!journalResult.ok) throw new Error('No se pudo generar el asiento contable. Verificá las cuentas del negocio.')
         if (journalResult.ok) {
           await tx.journalEntry.create({
             data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
@@ -460,7 +497,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         const balanceChange = type === 'INCOME' ? amount : -amount
         await tx.account.update({
           where: { id: accountId },
-          data: { currentBalance: account.currentBalance + balanceChange },
+          data: { currentBalance: balanceChange > 0 ? { increment: balanceChange } : { decrement: -balanceChange } },
         })
       }
 
@@ -513,6 +550,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         cogsAccountId: cogsAccount?.id ?? null,
       })
 
+      if (!journalResult.ok) throw new Error('No se pudo generar el asiento contable. Verificá las cuentas del negocio.')
       if (journalResult.ok) {
         await tx.journalEntry.create({
           data: { date, description, transactionId: newTx.id, businessId, lines: { create: journalResult.lines } },
@@ -524,10 +562,15 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         if ((subType === 'SALE' || subType === 'SALE_PRODUCT') && producto.tipo === 'MERCADERIA') tipoMov = 'SALIDA'
         else if (subType === 'PURCHASE' || subType === 'PURCHASE_PRODUCT') tipoMov = 'ENTRADA'
         if (tipoMov) {
-          const nuevoStock = tipoMov === 'SALIDA'
-            ? producto.stockActual - cantidad
-            : producto.stockActual + cantidad
-          await tx.producto.update({ where: { id: productoId }, data: { stockActual: nuevoStock } })
+          const stockUpdate = await tx.producto.updateMany({
+            where: {
+              id: productoId,
+              businessId,
+              ...(tipoMov === 'SALIDA' ? { stockActual: { gte: cantidad } } : {}),
+            },
+            data: { stockActual: tipoMov === 'SALIDA' ? { decrement: cantidad } : { increment: cantidad } },
+          })
+          if (stockUpdate.count === 0) throw new Error(`No hay stock suficiente de ${productoId}`)
           await tx.movimientoStock.create({
             data: {
               tipo: tipoMov,
@@ -593,3 +636,24 @@ export async function getLatestTransactionDate() {
   return latest?.date ?? null
 }
 
+
+
+export async function deleteTransaction(id: string): Promise<ActionResult> {
+  await getBusinessId(true)
+  void id
+  return {
+    success: false,
+    error: 'No se eliminan movimientos financieros. Conservá el historial y registrá una reversión para corregirlo.',
+  }
+}
+
+
+export async function getTransactions() {
+  const businessId = await getBusinessId()
+  return await prisma.transaction.findMany({
+    where: { businessId },
+    orderBy: { date: 'desc' },
+    include: { category: true, subcategory: { select: { name: true } }, account: true, contact: true, areaNegocio: true },
+    take: 100
+  })
+}

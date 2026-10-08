@@ -26,7 +26,7 @@ export async function createCashTransfer(formData: FormData): Promise<ActionResu
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
   const { fromAccountId, toAccountId, amount, exchangeRate, date: dateStr, description } = parsed.data
 
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   const accounts = await prisma.account.findMany({
     where: {
       id: { in: [fromAccountId, toAccountId] },
@@ -103,7 +103,7 @@ export async function createCashAdjustment(formData: FormData): Promise<ActionRe
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
   const { accountId, counted, date: dateStr, description } = parsed.data
 
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   const account = await prisma.account.findFirst({
     where: { id: accountId, businessId, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] } },
     select: { id: true, currency: true },
@@ -175,7 +175,7 @@ export async function createProductOperation(formData: FormData): Promise<Action
   const pagado = round2(pagos.reduce((s, p) => s + p.monto, 0))
   if (Math.abs(pagado - total) > 0.01) return { success: false, error: 'La suma de las formas de pago no coincide con el total' }
 
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
 
   // Productos (del negocio)
   const productoIds = [...new Set(items.map((i) => i.productoId))]
@@ -225,6 +225,10 @@ export async function createProductOperation(formData: FormData): Promise<Action
     const contact = await prisma.contact.findFirst({ where: { id: contactId, businessId }, select: { id: true } })
     if (!contact) return { success: false, error: esVenta ? 'Cliente no encontrado' : 'Proveedor no encontrado' }
   }
+  if (empleadoId) {
+    const employee = await prisma.empleado.findFirst({ where: { id: empleadoId, businessId }, select: { id: true } })
+    if (!employee) return { success: false, error: 'El empleado no pertenece al negocio activo' }
+  }
 
   const txType = esVenta ? 'INCOME' : 'EXPENSE'
   const subType = esVenta ? 'SALE_PRODUCT' : 'PURCHASE_PRODUCT'
@@ -265,8 +269,11 @@ export async function createProductOperation(formData: FormData): Promise<Action
 
       let cmv = 0
       for (const item of items) {
-        // Estado actual del producto (puede repetirse en la lista)
-        const producto = productoById.get(item.productoId)!
+        const producto = await tx.producto.findFirst({
+          where: { id: item.productoId, businessId },
+          select: { id: true, nombre: true, tipo: true, precioCosto: true, stockActual: true },
+        })
+        if (!producto) throw new Error('Algún producto ya no pertenece al negocio activo')
         const esMercaderia = producto.tipo === 'MERCADERIA'
         const costoActual = producto.precioCosto ?? 0
         const costoNeto = round2(item.precioUnitario * factorNeto)
@@ -285,8 +292,11 @@ export async function createProductOperation(formData: FormData): Promise<Action
         if (esVenta) {
           // Venta: sale stock a su CPP del momento
           cmv += item.cantidad * costoActual
-          await tx.producto.update({ where: { id: producto.id }, data: { stockActual: { decrement: item.cantidad } } })
-          producto.stockActual -= item.cantidad
+          const stockUpdate = await tx.producto.updateMany({
+            where: { id: producto.id, businessId, stockActual: { gte: item.cantidad } },
+            data: { stockActual: { decrement: item.cantidad } },
+          })
+          if (stockUpdate.count === 0) throw new Error(`No hay stock suficiente de ${producto.nombre}`)
           const mov = await tx.movimientoStock.create({
             data: {
               tipo: 'SALIDA', cantidad: item.cantidad, precio: item.precioUnitario, costoUnitario: costoActual,
@@ -304,8 +314,6 @@ export async function createProductOperation(formData: FormData): Promise<Action
             where: { id: producto.id },
             data: { stockActual: { increment: item.cantidad }, precioCosto: cpp },
           })
-          producto.stockActual += item.cantidad
-          producto.precioCosto = cpp
           const mov = await tx.movimientoStock.create({
             data: {
               tipo: 'ENTRADA', cantidad: item.cantidad, precio: costoNeto,
@@ -381,6 +389,7 @@ export async function createProductOperation(formData: FormData): Promise<Action
           inventoryAccountId: inventoryAccount?.id ?? null,
           cogsAccountId: cogsAccount?.id ?? null,
         })
+        if (!journal.ok) throw new Error('No se pudo generar el asiento contable. Verificá las cuentas del negocio.')
         if (journal.ok) {
           await tx.journalEntry.create({
             data: { date, description, transactionId: newTx.id, businessId, lines: { create: journal.lines } },
@@ -445,7 +454,7 @@ export async function createConceptOperation(formData: FormData): Promise<Concep
     return { success: false, error: 'Un cobro o pago de deuda no puede ser a crédito' }
   }
 
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
 
   // Cajas en pesos
   const cashAccounts = await prisma.account.findMany({
@@ -473,12 +482,16 @@ export async function createConceptOperation(formData: FormData): Promise<Concep
     const contact = await prisma.contact.findFirst({ where: { id: contactId, businessId }, select: { id: true } })
     if (!contact) return { success: false, error: 'Contacto no encontrado' }
   }
+  if (empleadoId) {
+    const employee = await prisma.empleado.findFirst({ where: { id: empleadoId, businessId }, select: { id: true } })
+    if (!employee) return { success: false, error: 'El empleado no pertenece al negocio activo' }
+  }
 
   // ── Datos propios de cada tipo ──
   let categoryId: string | null = null
   let subcategoryId: string | null = null
   let bienVenta: { id: string; nombre: string; valorNeto: number } | null = null
-  let creditos: { id: string; amount: number; saldo: number; contactId: string | null; contactName: string | null }[] = []
+  let creditos: { id: string; amount: number; saldo: number; contactId: string | null; contactName: string | null; estado: string }[] = []
   let label = ''
 
   if (kind === 'OTRO_INGRESO' || kind === 'OTRO_EGRESO') {
@@ -514,19 +527,6 @@ export async function createConceptOperation(formData: FormData): Promise<Concep
   if (esSaldo) {
     const ids = parsed.data.creditoIds ?? []
     if (ids.length === 0) return { success: false, error: kind === 'COBRO' ? 'Elegí qué cuotas se cobran' : 'Elegí qué cuotas se pagan' }
-    const rows = await prisma.transaction.findMany({
-      where: { id: { in: ids }, businessId, esCredito: true, type: txType, estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } },
-      select: { id: true, amount: true, contactId: true, contact: { select: { name: true } }, cobrosAplicados: { select: { amount: true } } },
-    })
-    if (rows.length !== ids.length) return { success: false, error: 'Alguna cuota ya no está pendiente' }
-    const byId = new Map(rows.map((r) => [r.id, r]))
-    creditos = ids.map((id) => {
-      const r = byId.get(id)!
-      const aplicado = r.cobrosAplicados.reduce((s, c) => s + c.amount, 0)
-      return { id: r.id, amount: r.amount, saldo: round2(r.amount - aplicado), contactId: r.contactId, contactName: r.contact?.name ?? null }
-    })
-    const saldoTotal = round2(creditos.reduce((s, c) => s + c.saldo, 0))
-    if (monto > saldoTotal + 0.01) return { success: false, error: `El monto supera el saldo pendiente (${saldoTotal.toLocaleString('es-AR')})` }
     label = kind === 'COBRO' ? 'Cobro de crédito' : 'Pago de deuda'
   }
 
@@ -555,6 +555,60 @@ export async function createConceptOperation(formData: FormData): Promise<Concep
 
   try {
     await prisma.$transaction(async (tx) => {
+      if (esSaldo) {
+        const ids = parsed.data.creditoIds ?? []
+        const uniqueIds = [...new Set(ids)]
+        if (uniqueIds.length !== ids.length) throw new Error('No repitas una cuota en la misma operación')
+
+        const candidates = await tx.transaction.findMany({
+          where: { id: { in: uniqueIds }, businessId, esCredito: true, type: txType, estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } },
+          select: { id: true, estado: true },
+        })
+        if (candidates.length !== uniqueIds.length) throw new Error('Alguna cuota ya no está pendiente')
+
+        const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]))
+        for (const id of [...uniqueIds].sort()) {
+          const candidate = candidateById.get(id)!
+          const reserved = await tx.transaction.updateMany({
+            where: { id, businessId, esCredito: true, estado: candidate.estado },
+            data: { estado: 'PROCESSING' },
+          })
+          if (reserved.count !== 1) throw new Error('Una cuota está siendo actualizada. Volvé a intentarlo.')
+        }
+
+        const rows = await tx.transaction.findMany({
+          where: { id: { in: uniqueIds }, businessId, esCredito: true, type: txType, estado: 'PROCESSING' },
+          select: {
+            id: true,
+            amount: true,
+            currency: true,
+            estado: true,
+            contactId: true,
+            fechaVencimiento: true,
+            contact: { select: { name: true } },
+            cobrosAplicados: { where: { businessId }, select: { amount: true } },
+          },
+        })
+        const byId = new Map(rows.map((row) => [row.id, row]))
+        creditos = uniqueIds.map((id) => {
+          const row = byId.get(id)!
+          if (row.currency !== 'ARS') throw new Error('Los cobros y pagos de deuda deben registrarse en la moneda base ARS')
+          const appliedAmount = row.cobrosAplicados.reduce((sum, payment) => sum + payment.amount, 0)
+          return {
+            id: row.id,
+            amount: row.amount,
+            saldo: round2(row.amount - appliedAmount),
+            contactId: row.contactId,
+            contactName: row.contact?.name ?? null,
+            estado: candidateById.get(id)!.estado,
+          }
+        })
+        const saldoTotal = round2(creditos.reduce((sum, credit) => sum + credit.saldo, 0))
+        if (monto > saldoTotal + 0.01) {
+          throw new Error(`El monto supera el saldo pendiente (${saldoTotal.toLocaleString('es-AR')})`)
+        }
+      }
+
       const [categoryWithContable, cxcAccount, cxpAccount, fixedAccount] = await Promise.all([
         categoryId ? tx.category.findFirst({ where: { id: categoryId, businessId }, select: { contableAccountId: true } }) : null,
         tx.account.findFirst({ where: { businessId, isSystemAccount: true, subtype: 'RECEIVABLE' }, select: { id: true } }),
@@ -654,6 +708,7 @@ export async function createConceptOperation(formData: FormData): Promise<Concep
           fixedAssetAccountId: fixedAccount?.id ?? null,
           bienValorNetoEnLibros: extra.valorNeto,
         })
+        if (!journal.ok) throw new Error('No se pudo generar el asiento contable. Verificá las cuentas del negocio.')
         if (journal.ok) {
           await tx.journalEntry.create({
             data: { date, description, transactionId: newTx.id, businessId, lines: { create: journal.lines } },
@@ -686,11 +741,15 @@ export async function createConceptOperation(formData: FormData): Promise<Concep
         // Estado de cada cuota
         for (const c of saldos) {
           const original = creditos.find((x) => x.id === c.id)!
-          if (Math.abs(original.saldo - c.saldo) < 0.001) continue
-          const saldada = c.saldo <= 0.001
+          const appliedAmount = original.amount - c.saldo
+          const nextState = c.saldo <= 0.001
+            ? kind === 'COBRO' ? 'COBRADO' : 'PAGADO'
+            : appliedAmount > 0.001
+              ? 'PARCIAL'
+              : original.estado
           await tx.transaction.update({
             where: { id: c.id },
-            data: { estado: saldada ? (kind === 'COBRO' ? 'COBRADO' : 'PAGADO') : 'PARCIAL' },
+            data: { estado: nextState },
           })
         }
         // ¿El cliente / proveedor quedó sin deuda?

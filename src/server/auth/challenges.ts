@@ -145,6 +145,7 @@ export async function createEmailChallenge(input: CreateEmailChallengeInput) {
 export async function verifyEmailChallenge(
   input: VerifyEmailChallengeInput,
 ): Promise<VerifyEmailChallengeResult> {
+  const now = new Date()
   const challenge = await prisma.emailChallenge.findFirst({
     where: {
       email: input.email,
@@ -169,19 +170,19 @@ export async function verifyEmailChallenge(
     return { success: false, error: 'No hay un codigo vigente para verificar.' }
   }
 
-  if (challenge.expiresAt.getTime() < Date.now()) {
-    await prisma.emailChallenge.update({
-      where: { id: challenge.id },
-      data: { consumedAt: new Date() },
+  if (challenge.expiresAt.getTime() < now.getTime()) {
+    await prisma.emailChallenge.updateMany({
+      where: { id: challenge.id, consumedAt: null, attempts: challenge.attempts },
+      data: { consumedAt: now },
     })
 
     return { success: false, error: 'El codigo vencio. Solicita uno nuevo.' }
   }
 
   if (challenge.attempts >= challenge.maxAttempts) {
-    await prisma.emailChallenge.update({
-      where: { id: challenge.id },
-      data: { consumedAt: new Date() },
+    await prisma.emailChallenge.updateMany({
+      where: { id: challenge.id, consumedAt: null, attempts: challenge.attempts },
+      data: { consumedAt: now },
     })
 
     return { success: false, error: 'Se agotaron los intentos permitidos.' }
@@ -191,21 +192,38 @@ export async function verifyEmailChallenge(
 
   if (!isMatch) {
     const nextAttempts = challenge.attempts + 1
-    await prisma.emailChallenge.update({
-      where: { id: challenge.id },
+    const updated = await prisma.emailChallenge.updateMany({
+      where: {
+        id: challenge.id,
+        consumedAt: null,
+        attempts: challenge.attempts,
+        expiresAt: { gt: now },
+      },
       data: {
-        attempts: nextAttempts,
-        consumedAt: nextAttempts >= challenge.maxAttempts ? new Date() : null,
+        attempts: { increment: 1 },
+        ...(nextAttempts >= challenge.maxAttempts ? { consumedAt: now } : {}),
       },
     })
+
+    if (updated.count !== 1) {
+      return { success: false, error: 'El codigo ya fue usado o vencio. Solicita uno nuevo.' }
+    }
 
     return { success: false, error: 'El codigo ingresado no es valido.' }
   }
 
-  await prisma.emailChallenge.update({
-    where: { id: challenge.id },
-    data: { consumedAt: new Date() },
+  const consumed = await prisma.emailChallenge.updateMany({
+    where: {
+      id: challenge.id,
+      consumedAt: null,
+      attempts: challenge.attempts,
+      expiresAt: { gt: now },
+    },
+    data: { consumedAt: now },
   })
+  if (consumed.count !== 1) {
+    return { success: false, error: 'El codigo ya fue usado o vencio. Solicita uno nuevo.' }
+  }
 
   return {
     success: true,

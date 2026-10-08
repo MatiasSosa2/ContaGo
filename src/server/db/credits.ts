@@ -4,6 +4,8 @@
  */
 
 import prisma from '@/lib/prisma'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import type { ActionResult } from '@/lib/validations'
 import { getCreditAccountsData } from '@/server/credits/credit-balances'
 import { getBusinessId, type DashboardPeriodKey, computePeriodRange } from './shared'
 
@@ -181,3 +183,44 @@ export async function getProveedoresConDeudaPendiente(): Promise<ProveedorConDeu
 // =====================================================================
 //  BIENES DE USO — CRUD básico
 // =====================================================================
+
+
+export async function marcarEstadoCredito(id: string, estado: string): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  const result = await prisma.$transaction(async (tx) => {
+    const credit = await tx.transaction.findFirst({
+      where: { id, businessId, esCredito: true },
+      select: { id: true, amount: true, type: true, fechaVencimiento: true, estado: true },
+    })
+    if (!credit) return { success: false as const, error: 'La transacción no existe o no pertenece al negocio activo' }
+
+    const applied = await tx.transaction.aggregate({
+      where: { businessId, linkedCreditoId: credit.id },
+      _sum: { amount: true },
+    })
+    const paid = applied._sum.amount ?? 0
+    const pending = Math.max(0, credit.amount - paid)
+    const derivedState = pending <= 0.001
+      ? credit.type === 'INCOME' ? 'COBRADO' : 'PAGADO'
+      : paid > 0.001
+        ? 'PARCIAL'
+        : credit.fechaVencimiento && credit.fechaVencimiento < new Date()
+          ? 'VENCIDO'
+          : 'PENDIENTE'
+
+    if (estado !== derivedState) {
+      return { success: false as const, error: 'El estado del crédito se determina por los cobros/pagos aplicados y el vencimiento.' }
+    }
+
+    await tx.transaction.updateMany({
+      where: { id: credit.id, businessId, esCredito: true },
+      data: { estado: derivedState },
+    })
+    return { success: true as const }
+  })
+  if (!result.success) return result
+  revalidateTag(`dashboard:${businessId}`, 'max')
+  revalidatePath('/')
+  revalidatePath('/creditos')
+  return { success: true }
+}

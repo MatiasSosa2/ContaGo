@@ -3,6 +3,7 @@
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
+import { requireTargetBusinessId } from './target-business'
 dotenv.config()
 
 async function main() {
@@ -12,40 +13,36 @@ async function main() {
   })
   const prisma = new PrismaClient({ adapter } as any)
 
-  const biz = await prisma.business.findFirst()
-  if (!biz) throw new Error('No hay negocio')
-
-  // Buscar o crear contacto "Matias"
-  let matias = await prisma.contact.findFirst({
-    where: { businessId: biz.id, name: { contains: 'Matias' } },
-  })
-
-  if (!matias) {
-    matias = await prisma.contact.create({
-      data: {
-        name: 'Matias',
-        type: 'PERSON',
-        businessId: biz.id,
-      },
-    })
-    console.log(`✅ Contacto "Matias" creado (id: ${matias.id})`)
-  } else {
-    console.log(`ℹ️  Contacto encontrado: "${matias.name}" (id: ${matias.id})`)
+  if (process.env.ALLOW_DATA_REASSIGNMENT !== 'true') {
+    throw new Error('Definí ALLOW_DATA_REASSIGNMENT=true para confirmar esta reasignación.')
   }
+  const targetBusinessId = requireTargetBusinessId()
+  const biz = await prisma.business.findUnique({ where: { id: targetBusinessId } })
+  if (!biz) throw new Error(`No existe el negocio ${targetBusinessId}`)
 
   // Rango de mayo 2026
   const desde = new Date(2026, 4, 1, 0, 0, 0)
   const hasta = new Date(2026, 4, 31, 23, 59, 59)
 
-  const { count } = await prisma.transaction.updateMany({
-    where: {
-      businessId: biz.id,
-      date: { gte: desde, lte: hasta },
-    },
-    data: { contactId: matias.id },
+  const result = await prisma.$transaction(async (tx) => {
+    let matias = await tx.contact.findFirst({
+      where: { businessId: biz.id, name: { contains: 'Matias' } },
+    })
+
+    if (!matias) {
+      matias = await tx.contact.create({
+        data: { name: 'Matias', type: 'PERSON', businessId: biz.id },
+      })
+    }
+
+    const updated = await tx.transaction.updateMany({
+      where: { businessId: biz.id, date: { gte: desde, lte: hasta } },
+      data: { contactId: matias.id },
+    })
+    return { contact: matias, count: updated.count }
   })
 
-  console.log(`\n🎉 ${count} transacciones de mayo 2026 reasignadas a "${matias.name}"`)
+  console.log(`\n🎉 ${result.count} transacciones de mayo 2026 reasignadas a "${result.contact.name}"`)
   await prisma.$disconnect()
 }
 

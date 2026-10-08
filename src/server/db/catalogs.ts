@@ -5,7 +5,7 @@
 
 import prisma from '@/lib/prisma'
 import { revalidatePath, updateTag, unstable_cache } from 'next/cache'
-import { createContactSchema, createCategorySchema, createSubcategorySchema, type ActionResult } from '@/lib/validations'
+import { createContactSchema, createCategorySchema, createSubcategorySchema, createAccountSchema, updateAccountSchema, createAreaNegocioSchema, type ActionResult } from '@/lib/validations'
 import { createContableAccountForCategory } from '@/server/accounting/setup-contable-accounts'
 import { CASH_ACCOUNT_TYPES } from '@/server/cash/cash-flow'
 import { getBusinessId } from './shared'
@@ -112,36 +112,27 @@ export async function createCategory(formData: FormData): Promise<ActionResult> 
   }
 
   const parsed = createCategorySchema.safeParse(raw)
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message }
-  }
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
 
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   await prisma.$transaction(async (tx) => {
-    const category = await tx.category.create({
-      data: { ...parsed.data, businessId },
-    })
-    // Crear cuenta contable del sistema para esta categoría
-    await createContableAccountForCategory(
-      category.id,
-      category.name,
-      category.type,
-      businessId,
-      tx,
-    )
+    const category = await tx.category.create({ data: { ...parsed.data, businessId } })
+    await createContableAccountForCategory(category.id, category.name, category.type, businessId, tx)
   })
+
   revalidatePath('/')
   return { success: true }
 }
 
 export async function deleteCategory(id: string) {
-  const businessId = await getBusinessId()
-  // Desvincula transacciones
-  await prisma.transaction.updateMany({
-    where: { categoryId: id, businessId },
-    data: { categoryId: null }
+  const businessId = await getBusinessId(true)
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.updateMany({
+      where: { categoryId: id, businessId },
+      data: { categoryId: null },
+    })
+    await tx.category.deleteMany({ where: { id, businessId } })
   })
-  await prisma.category.deleteMany({ where: { id, businessId } })
   updateTag(`catalogs:${businessId}`)
   revalidatePath('/')
 }
@@ -156,7 +147,7 @@ export async function createSubcategory(formData: FormData): Promise<ActionResul
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message }
   }
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   const category = await prisma.category.findFirst({
     where: { id: parsed.data.categoryId, businessId },
     select: { id: true },
@@ -173,7 +164,7 @@ export async function createSubcategory(formData: FormData): Promise<ActionResul
 }
 
 export async function deleteSubcategory(id: string) {
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   // Los movimientos conservan la categoría padre y quedan sin subcategoría (onDelete: SetNull)
   await prisma.subcategory.deleteMany({ where: { id, businessId } })
   updateTag(`catalogs:${businessId}`)
@@ -191,13 +182,275 @@ export async function createCategoryWithContable(formData: FormData): Promise<Ac
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message }
   }
-  const businessId = await getBusinessId()
-  const created = await prisma.category.create({
-    data: { name: parsed.data.name, type: parsed.data.type, businessId },
-    select: { id: true, name: true },
+  const businessId = await getBusinessId(true)
+  const created = await prisma.$transaction(async (tx) => {
+    const category = await tx.category.create({
+      data: { name: parsed.data.name, type: parsed.data.type, businessId },
+      select: { id: true, name: true },
+    })
+    await createContableAccountForCategory(category.id, category.name, parsed.data.type, businessId, tx)
+    return category
   })
-  await createContableAccountForCategory(created.id, created.name, parsed.data.type, businessId, prisma as never)
   updateTag(`catalogs:${businessId}`)
   revalidatePath('/')
   return { success: true, data: created }
+}
+
+
+export async function getEmpleados() {
+  const businessId = await getBusinessId()
+  return await prisma.empleado.findMany({
+    where: { businessId, activo: true },
+    orderBy: { nombre: 'asc' },
+  })
+}
+
+
+export async function updateCategory(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  const raw = {
+    name: (formData.get('name') as string)?.trim(),
+    type: formData.get('type') as string,
+  }
+
+  const parsed = createCategorySchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  const result = await prisma.category.updateMany({ where: { id, businessId }, data: parsed.data })
+  if (result.count === 0) {
+    return { success: false, error: 'La categoría no existe o no pertenece al negocio activo' }
+  }
+  revalidatePath('/')
+  return { success: true }
+}
+
+
+export async function deleteAreaNegocio(id: string) {
+  const businessId = await getBusinessId(true)
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.updateMany({
+      where: { areaNegocioId: id, businessId },
+      data: { areaNegocioId: null },
+    })
+    await tx.areaNegocio.deleteMany({ where: { id, businessId } })
+  })
+  revalidatePath('/')
+}
+
+
+export async function updateAreaNegocio(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  const raw = {
+    nombre: (formData.get('nombre') as string)?.trim(),
+    descripcion: (formData.get('descripcion') as string)?.trim(),
+  }
+
+  const parsed = createAreaNegocioSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  try {
+    const result = await prisma.areaNegocio.updateMany({
+      where: { id, businessId },
+      data: { nombre: parsed.data.nombre, descripcion: parsed.data.descripcion || null }
+    })
+
+    if (result.count === 0) {
+      return { success: false, error: 'El área no existe o no pertenece al negocio activo' }
+    }
+  } catch {
+    return { success: false, error: 'Ya existe un área con ese nombre' }
+  }
+
+  revalidatePath('/')
+  return { success: true }
+}
+
+
+export async function createAreaNegocio(formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  const raw = {
+    nombre: (formData.get('nombre') as string)?.trim(),
+    descripcion: (formData.get('descripcion') as string)?.trim(),
+  }
+
+  const parsed = createAreaNegocioSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  try {
+    await prisma.areaNegocio.create({
+      data: {
+        nombre: parsed.data.nombre,
+        descripcion: parsed.data.descripcion || null,
+        businessId,
+      }
+    })
+  } catch {
+    return { success: false, error: 'Ya existe un área con ese nombre' }
+  }
+
+  revalidatePath('/')
+  return { success: true }
+}
+
+
+export async function deleteAccount(id: string): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  const result = await prisma.$transaction(async (tx) => {
+    const account = await tx.account.findFirst({
+      where: { id, businessId, isSystemAccount: false },
+      select: { id: true, currentBalance: true },
+    })
+    if (!account) return { success: false as const, error: 'La cuenta no existe o no pertenece al negocio activo' }
+    if (Math.abs(account.currentBalance) > 0.001) {
+      return { success: false as const, error: 'No se puede eliminar una cuenta con saldo distinto de cero' }
+    }
+
+    const [txCount, transferCount, journalLineCount] = await Promise.all([
+      tx.transaction.count({ where: { accountId: id, businessId } }),
+      tx.cashTransfer.count({ where: { businessId, OR: [{ fromAccountId: id }, { toAccountId: id }] } }),
+      tx.journalLine.count({ where: { accountId: id, journalEntry: { businessId } } }),
+    ])
+    if (txCount > 0 || transferCount > 0 || journalLineCount > 0) {
+      return { success: false as const, error: 'No se puede eliminar una cuenta con movimientos, transferencias o asientos asociados' }
+    }
+
+    const deleted = await tx.account.deleteMany({ where: { id, businessId, isSystemAccount: false } })
+    if (deleted.count === 0) {
+      return { success: false as const, error: 'La cuenta no existe o no pertenece al negocio activo' }
+    }
+    return { success: true as const }
+  })
+  if (!result.success) return result
+  revalidatePath('/')
+  return { success: true }
+}
+
+
+export async function updateAccount(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  const raw = { name: (formData.get('name') as string)?.trim() }
+
+  const parsed = updateAccountSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  const result = await prisma.account.updateMany({
+    where: { id, businessId, isSystemAccount: false },
+    data: { name: parsed.data.name }
+  })
+
+  if (result.count === 0) {
+    return { success: false, error: 'La cuenta no existe o no pertenece al negocio activo' }
+  }
+
+  revalidatePath('/')
+  return { success: true }
+}
+
+
+export async function deleteContact(id: string) {
+  const businessId = await getBusinessId(true)
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.updateMany({
+      where: { contactId: id, businessId },
+      data: { contactId: null },
+    })
+    await tx.contact.deleteMany({ where: { id, businessId } })
+  })
+  revalidatePath('/')
+}
+
+
+export async function updateContact(id: string, formData: FormData): Promise<ActionResult> {
+  const businessId = await getBusinessId(true)
+  const raw = {
+    name: (formData.get('name') as string)?.trim(),
+    type: formData.get('type') as string,
+    phone: (formData.get('phone') as string)?.trim(),
+    email: (formData.get('email') as string)?.trim(),
+  }
+
+  const parsed = createContactSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  const { name, type, phone, email } = parsed.data
+
+  const result = await prisma.contact.updateMany({
+    where: { id, businessId },
+    data: { name, type, phone: phone || null, email: email || null }
+  })
+
+  if (result.count === 0) {
+    return { success: false, error: 'El contacto no existe o no pertenece al negocio activo' }
+  }
+
+  revalidatePath('/')
+  return { success: true }
+}
+
+
+export async function createAccount(formData: FormData): Promise<ActionResult> {
+  const parsed = createAccountSchema.safeParse({
+    name: (formData.get('name') as string)?.trim(),
+    type: (formData.get('type') as string) || 'CASH',
+    currency: (formData.get('currency') as string) || 'ARS',
+  })
+  if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
+
+  const businessId = await getBusinessId(true)
+  await prisma.account.create({
+    data: {
+      ...parsed.data,
+      currentBalance: 0,
+      contableType: 'ASSET',
+      subtype: parsed.data.type === 'CASH' ? 'CASH' : 'BANK',
+      businessId,
+    },
+  })
+
+  revalidatePath('/')
+  return { success: true }
+}
+
+
+export async function getContacts() {
+  const businessId = await getBusinessId()
+  return await prisma.contact.findMany({
+    where: { businessId },
+    orderBy: { name: 'asc' }
+  })
+}
+
+
+export async function getAreasNegocio() {
+  const businessId = await getBusinessId()
+  return await prisma.areaNegocio.findMany({
+    where: { businessId },
+    orderBy: { nombre: 'asc' }
+  })
+}
+
+
+export async function getCategories() {
+  const businessId = await getBusinessId()
+  return await prisma.category.findMany({
+    where: { businessId },
+  })
+}
+
+
+export async function getAccounts() {
+  const businessId = await getBusinessId()
+  return await prisma.account.findMany({
+    where: { businessId },
+  })
 }

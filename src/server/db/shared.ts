@@ -4,11 +4,13 @@
  */
 
 import prisma from '@/lib/prisma'
-import { requireBusinessContext } from '@/server/auth/require-business-context'
+import { requireBusinessContext, requireBusinessWriteContext } from '@/server/auth/require-business-context'
 import { createContableAccountForCategory } from '@/server/accounting/setup-contable-accounts'
 
-export async function getBusinessId() {
-  const sessionContext = await requireBusinessContext()
+export async function getBusinessId(writeAccess = false) {
+  const sessionContext = writeAccess
+    ? await requireBusinessWriteContext()
+    : await requireBusinessContext()
   return sessionContext.activeBusiness.id
 }
 
@@ -31,7 +33,7 @@ export function parseMovementDate(dateStr: string | undefined | null): Date {
 export async function getScopedAccount(id: string, businessId: string) {
   return prisma.account.findFirst({
     where: { id, businessId },
-    select: { id: true, currentBalance: true },
+    select: { id: true, currentBalance: true, isSystemAccount: true, currency: true },
   })
 }
 

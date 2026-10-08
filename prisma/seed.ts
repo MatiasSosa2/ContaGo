@@ -79,6 +79,10 @@ async function clean() {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DATABASE_RESET !== 'true') {
+    throw new Error('Este seed elimina todos los datos locales. Para ejecutarlo, confirma con ALLOW_DATABASE_RESET=true fuera de producción.')
+  }
+
   console.log('🌱 Iniciando seed (corralón demo)...')
   await clean()
 

@@ -3,6 +3,7 @@
 import { PrismaLibSql } from '@prisma/adapter-libsql'
 import { PrismaClient } from '@prisma/client'
 import * as dotenv from 'dotenv'
+import { requireTargetBusinessId } from './target-business'
 dotenv.config()
 
 async function main() {
@@ -12,14 +13,11 @@ async function main() {
   })
   const prisma = new PrismaClient({ adapter } as any)
 
-  const biz = await prisma.business.findFirst()
-  if (!biz) throw new Error('No hay negocio en la BD')
+  const targetBusinessId = requireTargetBusinessId(true)
+  const biz = await prisma.business.findUnique({ where: { id: targetBusinessId } })
+  if (!biz) throw new Error(`No existe el negocio ${targetBusinessId}`)
   const bid = biz.id
   console.log(`📌 Negocio: ${biz.name}`)
-
-  // Borrar bienes existentes para no duplicar
-  const deleted = await prisma.bienDeUso.deleteMany({ where: { businessId: bid } })
-  console.log(`🗑️  Bienes anteriores eliminados: ${deleted.count}`)
 
   function fecha(year: number, month: number, day: number) {
     return new Date(year, month - 1, day)
@@ -411,7 +409,13 @@ async function main() {
     },
   ]
 
-  const { count } = await prisma.bienDeUso.createMany({ data: bienes })
+  const { count } = await prisma.$transaction(async (tx) => {
+    const existingCount = await tx.bienDeUso.count({ where: { businessId: bid } })
+    if (existingCount > 0) {
+      throw new Error('El negocio ya tiene bienes de uso. No se modificó ningún dato.')
+    }
+    return tx.bienDeUso.createMany({ data: bienes })
+  })
   console.log(`✅ Bienes de uso creados: ${count}`)
 
   const total = bienes.reduce((s, b) => s + b.valorAdquisicion, 0)

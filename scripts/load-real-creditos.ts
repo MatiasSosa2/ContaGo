@@ -30,20 +30,23 @@ async function main() {
   loadEnvFromFile('.env.local') || loadEnvFromFile('.env')
 
   const { default: prisma } = await import('../src/lib/prisma')
+  const { requireTargetBusinessId } = await import('./target-business')
+  const { generateJournalLines } = await import('../src/server/accounting/journal-engine')
+  const targetBusinessId = requireTargetBusinessId()
 
-  const business = await prisma.business.findFirst({
-    where: { name: 'Sosa Consulting' },
+  const business = await prisma.business.findUnique({
+    where: { id: targetBusinessId },
     select: { id: true, name: true },
   })
 
   if (!business) {
-    throw new Error('No se encontro el negocio Sosa Consulting en la base actual.')
+    throw new Error(`No existe el negocio ${targetBusinessId} en la base actual.`)
   }
 
   const [accounts, contacts, categories] = await Promise.all([
     prisma.account.findMany({
-      where: { businessId: business.id },
-      select: { id: true, name: true, currency: true },
+      where: { businessId: business.id, isSystemAccount: false, type: { in: ['CASH', 'BANK', 'WALLET'] }, currency: 'ARS' },
+      select: { id: true, name: true, currency: true, type: true },
       orderBy: { name: 'asc' },
     }),
     prisma.contact.findMany({
@@ -53,15 +56,20 @@ async function main() {
     }),
     prisma.category.findMany({
       where: { businessId: business.id },
-      select: { id: true, type: true },
+      select: { id: true, type: true, contableAccountId: true },
       orderBy: { name: 'asc' },
     }),
   ])
 
-  const arsAccount = accounts.find(account => account.currency === 'ARS') ?? accounts[0]
+  const arsAccount = accounts[0]
   if (!arsAccount) {
-    throw new Error('No hay cuentas disponibles para registrar creditos en Sosa Consulting.')
+    throw new Error('No hay cajas físicas en ARS para importar los créditos.')
   }
+  const [cxc, cxp] = await Promise.all([
+    prisma.account.findFirst({ where: { businessId: business.id, isSystemAccount: true, subtype: 'RECEIVABLE' }, select: { id: true } }),
+    prisma.account.findFirst({ where: { businessId: business.id, isSystemAccount: true, subtype: 'PAYABLE' }, select: { id: true } }),
+  ])
+  if (!cxc || !cxp) throw new Error('Faltan las cuentas contables de CxC/CxP del negocio.')
 
   const incomeCategory = categories.find(category => category.type === 'INCOME')
   const expenseCategory = categories.find(category => category.type === 'EXPENSE')
@@ -147,37 +155,76 @@ async function main() {
     },
   ]
 
-  let created = 0
-
-  for (const record of records) {
-    const existing = await prisma.transaction.findFirst({
-      where: {
-        businessId: business.id,
-        description: record.description,
-      },
-      select: { id: true },
-    })
-
-    if (existing) continue
-
-    await prisma.transaction.create({
-      data: {
-        description: record.description,
-        amount: record.amount,
-        currency: arsAccount.currency || 'ARS',
-        date: new Date(),
-        type: record.type,
+  const created = await prisma.$transaction(async (tx) => {
+    let inserted = 0
+    for (const record of records) {
+      const existing = await tx.transaction.findFirst({
+        where: { businessId: business.id, description: record.description },
+        select: {
+          id: true,
+          amount: true,
+          type: true,
+          date: true,
+          accountId: true,
+          categoryId: true,
+          journalEntry: { select: { id: true } },
+          account: { select: { isSystemAccount: true } },
+        },
+      })
+      const categoryId = existing?.categoryId ?? record.categoryId
+      const category = categories.find((item) => item.id === categoryId)
+      const categoryAccountId = category?.contableAccountId ?? null
+      const journal = generateJournalLines({
+        amount: existing?.amount ?? record.amount,
+        type: (existing?.type ?? record.type) as 'INCOME' | 'EXPENSE',
         esCredito: true,
-        estado: record.estado,
-        fechaVencimiento: record.fechaVencimiento,
-        businessId: business.id,
-        accountId: arsAccount.id,
-        contactId: record.contactId,
-        categoryId: record.categoryId,
-      },
-    })
-    created++
-  }
+        physicalAccountId: existing?.account.isSystemAccount ? arsAccount.id : existing?.accountId ?? arsAccount.id,
+        categoryContableAccountId: categoryAccountId,
+        cxcAccountId: cxc.id,
+        cxpAccountId: cxp.id,
+      })
+      if (!journal.ok) throw new Error(`No se pudo generar el asiento de ${record.description}: ${journal.reason}`)
+
+      const date = existing?.date ?? new Date()
+      const transaction = existing
+        ? await tx.transaction.update({
+            where: { id: existing.id },
+            data: { ...(existing.account.isSystemAccount ? { accountId: arsAccount.id } : {}) },
+            select: { id: true },
+          })
+        : await tx.transaction.create({
+            data: {
+              description: record.description,
+              amount: record.amount,
+              currency: 'ARS',
+              date,
+              type: record.type,
+              esCredito: true,
+              estado: record.estado,
+              fechaVencimiento: record.fechaVencimiento,
+              businessId: business.id,
+              accountId: arsAccount.id,
+              contactId: record.contactId,
+              categoryId: record.categoryId,
+            },
+            select: { id: true },
+          })
+
+      if (!existing?.journalEntry) {
+        await tx.journalEntry.create({
+          data: {
+            date,
+            description: record.description,
+            transactionId: transaction.id,
+            businessId: business.id,
+            lines: { create: journal.lines },
+          },
+        })
+      }
+      if (!existing) inserted++
+    }
+    return inserted
+  })
 
   const [pendingCxC, pendingCxP] = await Promise.all([
     prisma.transaction.count({
