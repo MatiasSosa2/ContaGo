@@ -58,7 +58,13 @@ function fmtEntero(v: number | null | undefined) { return formatNumberAR(Math.ro
 
 export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { initialProductos: Producto[]; ventasPeriodo?: number }) {
   // Vienen del servidor con el flujo del período; después de un cambio se piden de nuevo (router.refresh)
-  const productos = initialProductos
+  // Costo de cada producto al cierre del período (el promedio de ese momento, no el de hoy):
+  // así el valorizado de la lista suma lo mismo que "Stock final" en un período pasado.
+  const productos = initialProductos.map((p) =>
+    p.valorFinalPeriodo != null && p.valorFinalPeriodo > 0 && p.stockActual > 0.0001
+      ? { ...p, precioCosto: p.valorFinalPeriodo / p.stockActual }
+      : p,
+  )
   const router = useRouter()
   const [showForm, setShowForm] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
