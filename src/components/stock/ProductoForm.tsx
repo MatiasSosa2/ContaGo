@@ -238,7 +238,7 @@ function AtributoEditor({ def, sugeridos, nombresUsados, onChange, onQuitar }: {
  * de combinar los atributos (Talle S, M × Color Negra, Blanca = 4); cada una puede tener precio
  * propio (si no, usa el del artículo). El costo y el stock salen de las compras.
  */
-export default function ProductoForm({ articulo, categorias, subcategorias, marcas, valoresUsados, onClose, onSaved }: {
+export default function ProductoForm({ articulo, categorias, subcategorias, marcas, valoresUsados, onClose, onSaved, onEliminar }: {
   articulo: ArticuloEditable | null
   categorias: string[]
   /** Subcategorías ya usadas, por categoría */
@@ -248,6 +248,8 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
   valoresUsados: Record<string, string[]>
   onClose: () => void
   onSaved: (articuloId: string) => void
+  /** Solo al editar: eliminar el producto (va al final, en rojo) */
+  onEliminar?: () => void
 }) {
   const [nombre, setNombre] = useState(articulo?.nombre ?? '')
   const [tipo, setTipo] = useState<'MERCADERIA' | 'SERVICIO'>(articulo?.tipo ?? 'MERCADERIA')
@@ -391,7 +393,8 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
               </div>
             </Fila>
             {combos.length === 0 && (
-              <Fila label="Costo prom.">
+              <Fila label="Costo unitario">
+                {/* Se cambia desde la ficha (tocando el costo) */}
                 <span className="text-right text-[15px] tabular-nums text-[#8E8E93]">{costo > 0 ? fmt$(costo) : 'Sale de las compras'}</span>
               </Fila>
             )}
@@ -465,6 +468,12 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
           )}
 
           {error && <p className="mt-3 px-4 text-[13px] text-[#FF3B30]">{error}</p>}
+
+          {onEliminar && (
+            <button type="button" onClick={onEliminar} className="mt-6 w-full rounded-xl bg-white py-3 text-[15px] text-[#FF3B30] transition active:opacity-70 dark:bg-[#1C1C1E] dark:text-[#FF453A]">
+              Eliminar producto
+            </button>
+          )}
         </div>
       </form>
     </div>,

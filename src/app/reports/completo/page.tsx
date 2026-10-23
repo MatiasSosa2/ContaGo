@@ -50,7 +50,7 @@ export default async function InformeCompletoPage({ searchParams }: { searchPara
     bruta: er.map((m) => m.gananciaBruta),
     neta: er.map((m) => m.gananciaNeta),
   }
-  const cashTrends: CashTrends = { saldo: hasta(series.flujo).map((m) => m.saldoFinal) }
+  const cashTrends: CashTrends = { saldo: hasta(series.flujo).map((m) => m.saldoFinal), variacion: hasta(series.flujo).map((m) => m.ingresos - m.egresos) }
   const pat = hasta(series.patrimonio)
   const balanceTrends: BalanceTrends = { activo: pat.map((m) => m.activos), pasivo: pat.map((m) => m.pasivos) }
   const prevLabel = previousPeriodArgs(periodo, selectedYear, selectedMonth)?.label ?? 'anterior'
@@ -68,7 +68,7 @@ export default async function InformeCompletoPage({ searchParams }: { searchPara
       </Seccion>
       <Seccion titulo="Flujo de efectivo" salto>
         <Suspense fallback={null}>
-          <FlujoDetail data={statement} trends={cashTrends} />
+          <FlujoDetail data={statement} trends={cashTrends} previous={null} />
         </Suspense>
       </Seccion>
       <Seccion titulo="Estado patrimonial" salto>

@@ -60,7 +60,7 @@ export async function guardarArticulo(input: ArticuloInput): Promise<ActionResul
   const combos = combinaciones(atributos)
   if (combos.length > 200) return { success: false, error: 'Son demasiadas variantes (máximo 200)' }
 
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   const datos = {
     nombre,
     tipo: input.tipo === 'SERVICIO' ? 'SERVICIO' : 'MERCADERIA',
@@ -136,7 +136,7 @@ export async function guardarArticulo(input: ArticuloInput): Promise<ActionResul
 export async function guardarFotoArticulo(ref: { articuloId?: string | null; productoId?: string | null }, foto: string | null): Promise<ActionResult<{ articuloId: string }>> {
   const errorFoto = validarFoto(foto)
   if (errorFoto) return { success: false, error: errorFoto }
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   let articuloId = ref.articuloId ?? null
   if (!articuloId && ref.productoId) {
     const p = await prisma.producto.findFirst({ where: { id: ref.productoId, businessId } })
@@ -168,7 +168,7 @@ export async function getFotoArticulo(articuloId: string) {
 /** Precio rápido de una variante desde la ficha. null = vuelve al precio del artículo. */
 export async function actualizarPrecioVariante(productoId: string, precio: number | null): Promise<ActionResult> {
   if (precio !== null && (!Number.isFinite(precio) || precio < 0)) return { success: false, error: 'Precio inválido' }
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   const p = await prisma.producto.findFirst({
     where: { id: productoId, businessId },
     select: { id: true, articulo: { select: { id: true, precioVenta: true, productos: { where: { activo: true }, select: { id: true } } } } },
@@ -208,7 +208,7 @@ export async function actualizarPreciosMasivo(input: PreciosMasivoInput): Promis
   if (!Number.isFinite(pct) || pct === 0 || pct <= -100 || pct > 1000) return { success: false, error: 'Ingresá un porcentaje válido' }
   const paso = [1, 10, 100].includes(input.redondeo) ? input.redondeo : 1
   const nuevo = (precio: number) => Math.max(0, Math.round((precio * (1 + pct / 100)) / paso) * paso)
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   const where = {
     businessId,
     activo: true,
@@ -234,7 +234,7 @@ export async function actualizarPreciosMasivo(input: PreciosMasivoInput): Promis
 
 /** Archiva el artículo y todas sus variantes (no se borran ventas ni movimientos) */
 export async function deleteArticulo(articuloId: string) {
-  const businessId = await getBusinessId()
+  const businessId = await getBusinessId(true)
   await prisma.$transaction([
     prisma.articulo.updateMany({ where: { id: articuloId, businessId }, data: { activo: false } }),
     prisma.producto.updateMany({ where: { articuloId, businessId }, data: { activo: false } }),

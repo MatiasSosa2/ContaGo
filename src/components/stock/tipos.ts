@@ -7,9 +7,17 @@ export type VarianteVista = {
   /** "Negra · M" ('' si el artículo no tiene variantes) */
   etiqueta: string
   valores: ValoresVariante | null
+  /** Stock al cierre del período que se mira */
   stockActual: number
+  /** Stock de hoy (para corregirlo) */
+  stockHoy: number
   precioVenta: number
+  /** Costo unitario al cierre del período (fijo o promedio de ese momento) */
   precioCosto: number
+  /** Costo promedio que calcula el sistema (hoy) */
+  costoPromedio: number
+  /** Costo unitario fijado a mano (hoy); null = usa el promedio */
+  costoFijo: number | null
   precioPropio: boolean
   alertaStock: number | null
 }

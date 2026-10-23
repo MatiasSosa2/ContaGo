@@ -14,15 +14,16 @@ export default function AnimatedNumber({ value, format, duration = 600, desde }:
   desde?: number
 }) {
   const [shown, setShown] = useState(desde ?? value)
-  const fromRef = useRef(desde ?? value)
+  // Lo que se ve en pantalla en cada momento: si la animación se corta (React monta el
+  // componente dos veces, o cambia el valor a mitad de camino) sigue desde acá y no queda trabada
+  const shownRef = useRef(desde ?? value)
 
   useEffect(() => {
-    const from = fromRef.current
+    const from = shownRef.current
     if (from === value) return
     // Sin animación si el usuario pidió reducir el movimiento
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      fromRef.current = value
-      const id = requestAnimationFrame(() => setShown(value))
+      const id = requestAnimationFrame(() => { shownRef.current = value; setShown(value) })
       return () => cancelAnimationFrame(id)
     }
     const start = performance.now()
@@ -30,12 +31,13 @@ export default function AnimatedNumber({ value, format, duration = 600, desde }:
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration)
       const eased = 1 - Math.pow(1 - t, 3) // ease-out
-      setShown(from + (value - from) * eased)
+      const v = t < 1 ? from + (value - from) * eased : value
+      shownRef.current = v
+      setShown(v)
       if (t < 1) frame = requestAnimationFrame(tick)
-      else fromRef.current = value
     }
     frame = requestAnimationFrame(tick)
-    return () => { cancelAnimationFrame(frame); fromRef.current = value }
+    return () => cancelAnimationFrame(frame)
   }, [value, duration])
 
   return <>{format(shown)}</>

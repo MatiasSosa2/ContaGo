@@ -10,6 +10,10 @@
  *   registró; el cobro solo mueve la caja).
  * - Venta de bien de uso: solo su resultado = precio de venta − valor de libros (ganancia en
  *   otros ingresos, pérdida en gastos). El precio cobrado se ve en el Flujo de efectivo.
+ * - Diferencia de inventario: sobrantes (otros ingresos) y faltantes (gastos) cargados a mano,
+ *   al costo del momento. No van al CMV.
+ * - Diferencia de costo: con costo unitario fijo, lo que se pagó de más (gasto) o de menos
+ *   (otro ingreso) en cada compra respecto del costo fijo.
  * - Gastos: todos los egresos registrados, pagados o no (incluye faltantes de caja). NO las
  *   compras de mercadería (se reconocen como CMV al vender), NI las compras de bienes de uso
  *   (son un activo: impactan en la caja y en el Estado patrimonial), ni los pagos de deuda
@@ -18,12 +22,16 @@
  */
 
 import prisma from '@/lib/prisma'
+import { DIF_INVENTARIO } from '@/lib/stock-costos'
 
 export type IncomeStatementItem = { label: string; amount: number; sub: string | null }
 
 export type IncomeStatementData = {
   ventas: number
   cmv: number
+  /** Ventas y costo de lo vendido por categoría de inventario (suman ventas y cmv) */
+  ventasPorCategoria: Record<string, number>
+  cmvPorCategoria: Record<string, number>
   otherIncomeItems: IncomeStatementItem[]
   expenseItems: IncomeStatementItem[]
 }
@@ -48,18 +56,44 @@ export async function getIncomeStatementData(
         amount: true,
         description: true,
         bienDeUsoId: true,
+        operacionId: true,
+        producto: { select: { categoria: true } },
         category: { select: { name: true } },
         subcategory: { select: { name: true } },
       },
     }),
-    // Mismo universo que Inventario: productos activos
+    // Mismo universo que Inventario: productos activos. Salidas (CMV y faltantes) y entradas
+    // con costo guardado (sobrantes y compras con costo fijo)
     prisma.movimientoStock.findMany({
-      where: { tipo: 'SALIDA', fecha: { gte: from, lte: to }, producto: { businessId, activo: true } },
-      select: { cantidad: true, costoUnitario: true, producto: { select: { precioCosto: true } } },
+      where: {
+        fecha: { gte: from, lte: to },
+        producto: { businessId, activo: true },
+        OR: [{ tipo: 'SALIDA' }, { tipo: 'ENTRADA', costoUnitario: { not: null } }],
+      },
+      select: { tipo: true, concepto: true, cantidad: true, precio: true, costoUnitario: true, producto: { select: { precioCosto: true, categoria: true } } },
     }),
   ])
 
   let ventas = 0
+  const SIN_CAT = 'Sin categoría'
+  const catDe = (c: string | null | undefined) => c?.trim() || SIN_CAT
+  const ventasPorCategoria: Record<string, number> = {}
+  const sumar = (m: Record<string, number>, k: string, v: number) => { m[k] = (m[k] ?? 0) + v }
+  // Ventas de operaciones con varios productos: cada parte cobrada se reparte entre las
+  // categorías según el subtotal de cada ítem
+  const opIds = Array.from(new Set(txs.filter((t) => t.type === 'INCOME' && SALE_SUBTYPES.includes(t.subType ?? '') && t.operacionId).map((t) => t.operacionId!)))
+  const itemsOp = opIds.length > 0
+    ? await prisma.operacionItem.findMany({
+        where: { operacionId: { in: opIds } },
+        select: { operacionId: true, subtotal: true, producto: { select: { categoria: true } } },
+      })
+    : []
+  const repartoOp = new Map<string, { cat: string; peso: number }[]>()
+  for (const it of itemsOp) {
+    const lista = repartoOp.get(it.operacionId) ?? []
+    lista.push({ cat: catDe(it.producto?.categoria), peso: it.subtotal })
+    repartoOp.set(it.operacionId, lista)
+  }
   const otherIncomeItems: IncomeStatementItem[] = []
   const expenseItems: IncomeStatementItem[] = []
 
@@ -77,7 +111,16 @@ export async function getIncomeStatementData(
       sub: tx.subcategory?.name?.trim() || null,
     }
     if (tx.type === 'INCOME') {
-      if (SALE_SUBTYPES.includes(subType)) ventas += tx.amount
+      if (SALE_SUBTYPES.includes(subType)) {
+        ventas += tx.amount
+        const reparto = tx.operacionId ? repartoOp.get(tx.operacionId) : undefined
+        const pesoTotal = reparto?.reduce((s, r) => s + r.peso, 0) ?? 0
+        if (reparto && pesoTotal > 0) {
+          for (const r of reparto) sumar(ventasPorCategoria, r.cat, tx.amount * (r.peso / pesoTotal))
+        } else {
+          sumar(ventasPorCategoria, catDe(tx.producto?.categoria), tx.amount)
+        }
+      }
       else if (!EXCLUDED_INCOME_SUBTYPES.includes(subType)) otherIncomeItems.push(item)
     } else if (!EXCLUDED_EXPENSE_SUBTYPES.includes(subType)) {
       expenseItems.push(item)
@@ -111,7 +154,28 @@ export async function getIncomeStatementData(
   }
 
   // Salidas viejas sin costo guardado: se valorizan al CPP actual
-  const cmv = salidas.reduce((acc, m) => acc + m.cantidad * (m.costoUnitario ?? m.producto.precioCosto ?? 0), 0)
+  let cmv = 0
+  const cmvPorCategoria: Record<string, number> = {}
+  let sobrante = 0
+  let faltante = 0
+  let difCosto = 0
+  for (const m of salidas) {
+    const costo = m.costoUnitario ?? m.producto.precioCosto ?? 0
+    if (m.concepto === DIF_INVENTARIO) {
+      if (m.tipo === 'ENTRADA') sobrante += m.cantidad * costo
+      else faltante += m.cantidad * costo
+    } else if (m.tipo === 'SALIDA') {
+      cmv += m.cantidad * costo
+      sumar(cmvPorCategoria, catDe(m.producto.categoria), m.cantidad * costo)
+    } else if (m.precio > 0) {
+      // Compra con costo fijo: precio pagado − costo fijo
+      difCosto += m.cantidad * (m.precio - costo)
+    }
+  }
+  if (sobrante > 0.5) otherIncomeItems.push({ label: 'Diferencia de inventario', amount: sobrante, sub: 'Sobrantes' })
+  if (faltante > 0.5) expenseItems.push({ label: 'Diferencia de inventario', amount: faltante, sub: 'Faltantes' })
+  if (difCosto > 0.5) expenseItems.push({ label: 'Diferencia de costo', amount: difCosto, sub: 'Compras sobre el costo fijo' })
+  else if (difCosto < -0.5) otherIncomeItems.push({ label: 'Diferencia de costo', amount: -difCosto, sub: 'Compras bajo el costo fijo' })
 
-  return { ventas, cmv, otherIncomeItems, expenseItems }
+  return { ventas, cmv, ventasPorCategoria, cmvPorCategoria, otherIncomeItems, expenseItems }
 }

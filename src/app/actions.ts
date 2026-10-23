@@ -259,10 +259,22 @@ export async function deleteProducto(id: string) {
   return databaseActions.deleteProducto(id);
 }
 
-export async function ajustarStock(productoId: string, contado: number, motivo: string): Promise<ActionResult> {
+export async function ajustarStock(productoId: string, contado: number, motivo: string, fecha?: string): Promise<ActionResult> {
   if (USE_MOCK) return { success: true };
   const databaseActions = await getDatabaseActions();
-  return databaseActions.ajustarStock(productoId, contado, motivo);
+  return databaseActions.ajustarStock(productoId, contado, motivo, fecha);
+}
+
+export async function fijarCostoUnitario(productoId: string, costo: number | null): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.fijarCostoUnitario(productoId, costo);
+}
+
+export async function cambiarUnidad(ref: { articuloId?: string | null; productoId?: string | null }, unidad: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.cambiarUnidad(ref, unidad);
 }
 
 export async function getMovimientosStock(productoId: string | string[]) {
@@ -518,7 +530,7 @@ export async function getCashAccountsSnapshot(...args: [...CashPeriodArgs, curre
 }
 
 export async function getIncomeStatement(...args: [...CashPeriodArgs, currency?: string]) {
-  if (USE_MOCK) return { ventas: 0, cmv: 0, otherIncomeItems: [], expenseItems: [] };
+  if (USE_MOCK) return { ventas: 0, cmv: 0, ventasPorCategoria: {}, cmvPorCategoria: {}, otherIncomeItems: [], expenseItems: [] };
   const [period, ...rest] = args;
   const databaseActions = await getDatabaseActions();
   return databaseActions.getIncomeStatement(period as CashPeriodKey, ...rest);

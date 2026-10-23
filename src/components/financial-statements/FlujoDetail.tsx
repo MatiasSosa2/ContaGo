@@ -1,121 +1,78 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { CashLine, CashStatement } from '@/server/cash/cash-statement'
-import { Card, IOS, KpiCard, SF_FONT, fmtFull, fmtPctEs } from './modern'
+import { Card, IOS, KpiCard, SF_FONT, TONO_MONTO, TableRow, TableSection, TableSubRow, Variacion, fmtFull, fmtPctEs, type TonoMonto } from './modern'
 import MovementsSheet, { type SheetMov } from './MovementsSheet'
 import AnimatedNumber from './AnimatedNumber'
+import { EncabezadoVariacion, ModoVariacion } from './VariacionCol'
 
-export type CashTrends = { saldo: number[] }
+export type CashTrends = { saldo: number[]; variacion: number[] }
+
+/** El mismo cuadro del período anterior (mes o año), para la columna de variación */
+export type CashPrevious = {
+  label: string
+  saldoInicial: number
+  saldoFinal: number
+  ingresos: number
+  egresos: number
+  variacion: number
+  /** Montos por línea y por "línea›detalle" */
+  ing: Record<string, number>
+  egr: Record<string, number>
+} | null
 
 type Open = { title: string; subtitle: string; movs: SheetMov[]; sign: 1 | -1 } | null
 
-const pct = (v: number, total: number) => (total > 0 ? fmtPctEs((v / total) * 100) : '')
-
-// ── Renglones ──────────────────────────────────────────
-
-function Chevron() {
-  return (
-    <svg className="h-2.5 w-2.5 shrink-0 text-[#C7C7CC] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  )
-}
-
-/** Monto de la columna "$": ancho fijo y alineado a la derecha, así todos se leen parejos */
-function Money({ value, currency, className = '', signed = true }: { value: number; currency: string; className?: string; signed?: boolean }) {
-  return <span className={`w-[8.5rem] text-right tabular-nums sm:w-[9.5rem] ${className}`}>{fmtFull(value, currency, signed)}</span>
-}
-
-type Depth = 1 | 2 | 3
-// A medida que se abren los desplegables, la letra se achica y el texto se aclara
-const DEPTH = {
-  1: { row: 'py-2.5 text-[14px]', share: 'text-[12px]', indent: 'pl-4' },
-  2: { row: 'py-2 text-[13px]', share: 'text-[11px]', indent: 'pl-9' },
-  3: { row: 'py-1.5 text-[12px]', share: 'text-[11px]', indent: 'pl-14' },
-} as const
-
-/** Contenido de un renglón: nombre (con sangría), % y monto */
-function RowContent({ label, amount, share, currency, sign, depth, muted, strong, leading }: {
-  label: string
-  amount: number
-  share: string
-  currency: string
-  sign: 1 | -1
-  depth: Depth
-  muted?: boolean
-  strong?: boolean
-  leading?: ReactNode
-}) {
-  const color = muted ? 'text-[#8E8E93]' : 'text-[#1C1C1E] dark:text-white'
-  return (
-    <>
-      <span className={`flex min-w-0 items-center gap-1.5 ${DEPTH[depth].indent}`}>
-        {leading ?? <span className="w-2.5 shrink-0" aria-hidden />}
-        <span className={`truncate ${color} ${strong ? 'font-medium' : ''}`}>{label}</span>
-      </span>
-      <Money value={sign * amount} currency={currency} className={`${muted ? 'text-[#8E8E93]' : sign < 0 ? 'text-[#3C3C43] dark:text-[#EBEBF5]/80' : 'text-[#1C1C1E] dark:text-white'} ${strong ? 'font-medium' : ''}`} />
-      <span className={`hidden text-right tabular-nums text-[#AEAEB2] sm:inline dark:text-[#636366] ${DEPTH[depth].share}`}>{share}</span>
-    </>
-  )
-}
-
-const rowGrid = 'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 text-left sm:grid-cols-[minmax(0,1fr)_auto_44px] sm:gap-3 sm:px-5'
-const divider = 'border-b border-black/[0.06] last:border-b-0 dark:border-white/[0.08]'
+const pctDe = (v: number, total: number) => (total > 0 ? (v / total) * 100 : undefined)
 
 /**
- * Un renglón del cuadro. Si tiene detalle (productos, clientes, subcategorías) se despliega;
- * si no, al tocarlo se abren sus movimientos.
+ * Una línea del cuadro (ej. "Ventas cobradas"). Si tiene detalle (productos, clientes,
+ * subcategorías) se despliega; tocar una línea sin detalle, o un detalle, abre sus movimientos.
  */
-function LineRow({ line, total, currency, sign, depth, section, onOpen }: {
+function Linea({ line, total, currency, tono, section, anteriores, inverse, vs, onOpen }: {
   line: CashLine
   total: number
   currency: string
-  sign: 1 | -1
-  depth: 1 | 2
+  tono: TonoMonto
   section: string
+  anteriores: Record<string, number> | null
+  /** En egresos, que suban es malo */
+  inverse?: boolean
+  vs?: string
   onOpen: (o: Open) => void
 }) {
-  const open = (l: CashLine, subtitle: string) => onOpen({ title: l.label, subtitle, movs: l.movs, sign })
-  const childDepth = (depth + 1) as Depth
-  if (!line.children?.length) {
-    return (
-      <button type="button" onClick={() => open(line, section)} className={`${rowGrid} ${DEPTH[depth].row} ${divider} transition hover:bg-black/[0.02] dark:hover:bg-white/[0.03]`}>
-        <RowContent label={line.label} amount={line.amount} share={pct(line.amount, total)} currency={currency} sign={sign} depth={depth} />
-      </button>
-    )
-  }
+  const sign = tono === 'egreso' ? -1 : 1
+  const abrir = (l: CashLine, subtitle: string) => onOpen({ title: l.label, subtitle, movs: l.movs, sign })
+  const variacion = (key: string, actual: number) =>
+    anteriores ? <Variacion actual={actual} anterior={anteriores[key]} inverse={inverse} vs={vs} /> : undefined
   return (
-    <details className={`ios-disclosure group ${divider}`}>
-      <summary className={`${rowGrid} ${DEPTH[depth].row} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
-        <RowContent label={line.label} amount={line.amount} share={pct(line.amount, total)} currency={currency} sign={sign} depth={depth} leading={<Chevron />} />
-      </summary>
-      <div className="pb-1">
-        {line.children.map((c) => (
-          <button
-            key={c.label}
-            type="button"
-            onClick={() => open(c, line.label)}
-            className={`${rowGrid} ${DEPTH[childDepth].row} transition hover:bg-black/[0.02] dark:hover:bg-white/[0.03]`}
-          >
-            <RowContent label={c.label} amount={c.amount} share={pct(c.amount, total)} currency={currency} sign={sign} depth={childDepth} muted />
-          </button>
-        ))}
-      </div>
-    </details>
-  )
-}
-
-/** Título de una sección (Ingresos / Egresos) con su total */
-function SectionHeader({ label, amount, currency, sign }: { label: string; amount: number; currency: string; sign: 1 | -1 }) {
-  return (
-    <div className={`${rowGrid} pb-1.5 pt-5`}>
-      <span className="text-[12px] font-medium uppercase tracking-wide text-[#8E8E93]">{label}</span>
-      <Money value={sign * amount} currency={currency} className={`text-[15px] font-semibold ${sign > 0 ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#1C1C1E] dark:text-white'}`} />
-      <span className="hidden sm:inline" />
-    </div>
+    <TableRow
+      label={line.label}
+      amount={line.amount}
+      pct={pctDe(line.amount, total)}
+      currency={currency}
+      tono={tono}
+      variacion={variacion(line.label, line.amount)}
+      onClick={line.children?.length ? undefined : () => abrir(line, section)}
+    >
+      {line.children?.length
+        ? line.children.map((c) => (
+            <TableSubRow
+              key={c.label}
+              label={c.label}
+              amount={c.amount}
+              pct={pctDe(c.amount, total)}
+              currency={currency}
+              tono={tono}
+              variacion={variacion(`${line.label}›${c.label}`, c.amount)}
+              onClick={() => abrir(c, line.label)}
+            />
+          ))
+        : undefined}
+    </TableRow>
   )
 }
 
@@ -206,7 +163,7 @@ function CajaSelect({ accounts, selected }: { accounts: CashStatement['accounts'
 
 // ── Cuadro ──────────────────────────────────────────
 
-export default function FlujoDetail({ data, trends }: { data: CashStatement; trends: CashTrends }) {
+export default function FlujoDetail({ data, trends, previous }: { data: CashStatement; trends: CashTrends; previous: CashPrevious }) {
   const [open, setOpen] = useState<Open>(null)
   const pathname = usePathname()
   const params = useSearchParams()
@@ -219,9 +176,15 @@ export default function FlujoDetail({ data, trends }: { data: CashStatement; tre
   }
   const cur = data.currency
   const variacion = data.saldoFinal - data.saldoInicial
-  const crecio = variacion >= 0
+  const vs = previous?.label
+  const comparar = (actual: number, anterior: number | undefined, inverse = false) =>
+    previous ? <Variacion actual={actual} anterior={anterior} inverse={inverse} vs={vs} /> : undefined
+  const pctVar = (actual: number, anterior: number) => (anterior !== 0 ? ((actual - anterior) / Math.abs(anterior)) * 100 : null)
+  // Egresos sin la subclasificación (Operativos, Inversiones…): todas sus líneas directo
+  const lineasEgresos = data.egresos.flatMap((k) => k.lines)
 
   return (
+    <ModoVariacion>
     <div className="space-y-4" style={{ fontFamily: SF_FONT }}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Saldo final, con selector de caja */}
@@ -230,82 +193,91 @@ export default function FlujoDetail({ data, trends }: { data: CashStatement; tre
             label="Saldo final"
             value={<AnimatedNumber value={data.saldoFinal} format={(v) => fmtFull(v, cur)} />}
             trend={trends.saldo}
-            color={IOS.cyan}
+            color={IOS.neta}
           />
           <div className="absolute right-3 top-3">
             <CajaSelect accounts={data.accounts} selected={data.accountId} />
           </div>
         </div>
 
-        {/* Variación del período: tarjeta teñida, el número es lo principal */}
-        <div className={`flex flex-col justify-center rounded-2xl px-5 py-4 ${crecio ? 'bg-[#34C759]/[0.12] dark:bg-[#30D158]/[0.14]' : 'bg-[#FF3B30]/[0.10] dark:bg-[#FF453A]/[0.14]'}`}>
-          <p className={`text-[13px] ${crecio ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#D70015] dark:text-[#FF453A]'}`}>Variación del período</p>
-          <p className={`mt-0.5 text-[30px] font-semibold tracking-tight tabular-nums ${crecio ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#D70015] dark:text-[#FF453A]'}`}>
-            <AnimatedNumber value={variacion} format={(v) => fmtFull(v, cur, true)} />
-          </p>        </div>
+        {/* Variación del período (lo que entró − lo que salió) */}
+        <KpiCard
+          label="Variación del período"
+          value={<AnimatedNumber value={variacion} format={(v) => fmtFull(v, cur, true)} />}
+          trend={trends.variacion}
+          color={variacion >= 0 ? '#30A35A' : IOS.red}
+          delta={previous ? { pct: pctVar(variacion, previous.variacion), vs: previous.label } : undefined}
+        />
       </div>
 
       {/* Cascada: saldo inicial → ingresos → egresos → (cambio de moneda) → saldo final */}
       <Card className="overflow-hidden py-2">
-        <div className={`${rowGrid} pb-0 pt-1.5 text-[11px] text-[#AEAEB2] dark:text-[#636366]`}>
-          <span />
-          <span className="w-[8.5rem] text-right sm:w-[9.5rem]">$</span>
-          <span className="hidden text-right sm:inline">%</span>
-        </div>
-        <div className={`${rowGrid} ${DEPTH[1].row} border-b border-black/[0.06] dark:border-white/[0.08]`}>
-          <span className="font-semibold text-[#1C1C1E] dark:text-white">Saldo inicial</span>
-          <Money value={data.saldoInicial} currency={cur} signed={false} className="font-semibold text-[#1C1C1E] dark:text-white" />
-          <span className="hidden sm:inline" />
-        </div>
-
-        <SectionHeader label="Ingresos" amount={data.totalIngresos} currency={cur} sign={1} />
-        {data.ingresos.length === 0
-          ? <p className="px-5 py-2 text-[13px] text-[#8E8E93]">Sin ingresos en el período</p>
-          : data.ingresos.map((l) => (
-              <LineRow key={l.label} line={l} total={data.totalIngresos} currency={cur} sign={1} depth={1} section="Ingresos" onOpen={setOpen} />
-            ))}
-
-        <SectionHeader label="Egresos" amount={data.totalEgresos} currency={cur} sign={-1} />
-        {data.egresos.length === 0
-          ? <p className="px-5 py-2 text-[13px] text-[#8E8E93]">Sin egresos en el período</p>
-          : data.egresos.map((k) => (
-              // Cada tipo (Operativos, Inversiones, Deudas, Cambio de caja) se despliega en sus renglones
-              <details key={k.label} className={`ios-disclosure group/kind ${divider}`}>
-                <summary className={`${rowGrid} ${DEPTH[1].row} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
-                  <RowContent
-                    label={k.label} amount={k.amount} share={pct(k.amount, data.totalEgresos)} currency={cur} sign={-1} depth={1} strong
-                    leading={
-                      <svg className="h-2.5 w-2.5 shrink-0 text-[#C7C7CC] transition-transform group-open/kind:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
-                    }
-                  />
-                </summary>
-                <div className="pb-1">
-                  {k.lines.map((l) => (
-                    <LineRow key={l.label} line={l} total={data.totalEgresos} currency={cur} sign={-1} depth={2} section={k.label} onOpen={setOpen} />
-                  ))}
-                </div>
-              </details>
-            ))}
-
-        {data.cambioMoneda !== 0 && (
-          // Cambio de moneda: el detalle va a la derecha, en gris, para que la fila quede fina
-          <div className={`${rowGrid} ${DEPTH[1].row} mt-2 border-t border-black/[0.06] dark:border-white/[0.08]`}>
-            <span className="flex min-w-0 items-baseline gap-2">
-              <span className="shrink-0 text-[#1C1C1E] dark:text-white">Cambio de moneda</span>
-              <span className="truncate text-[12px] text-[#8E8E93]">{data.exchangeNotes.join(' · ')}</span>
-            </span>
-            <Money value={data.cambioMoneda} currency={cur} className="text-[#3C3C43] dark:text-[#EBEBF5]/80" />
-            <span className="hidden sm:inline" />
+        {/* Encabezado: solo la columna de variación lleva título */}
+        {previous && (
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 pb-0.5 pt-2 text-[11px] text-[#AEAEB2] sm:gap-4 sm:px-5 dark:text-[#636366]">
+            <span />
+            <EncabezadoVariacion vs={previous.label} />
           </div>
         )}
 
-        <div className="mx-4 mt-3 flex items-baseline justify-between border-t border-black/10 pb-2 pt-4 sm:mx-5 dark:border-white/15">
+        <TableRow label="Saldo inicial" amount={data.saldoInicial} currency={cur} strong tono="saldo" variacion={comparar(data.saldoInicial, previous?.saldoInicial)} />
+
+        <TableSection title="Ingresos" />
+        {data.ingresos.length === 0
+          ? <p className="px-5 py-2 text-[13px] text-[#8E8E93]">Sin ingresos en el período</p>
+          : data.ingresos.map((l) => (
+              <Linea key={l.label} line={l} total={data.totalIngresos} currency={cur} tono="ingreso" section="Ingresos" anteriores={previous?.ing ?? null} vs={vs} onOpen={setOpen} />
+            ))}
+
+        <TableSection title="Egresos" />
+        {lineasEgresos.length === 0
+          ? <p className="px-5 py-2 text-[13px] text-[#8E8E93]">Sin egresos en el período</p>
+          : lineasEgresos.map((l, i) => (
+              <Linea key={`${i}-${l.label}`} line={l} total={data.totalEgresos} currency={cur} tono="egreso" section="Egresos" anteriores={previous?.egr ?? null} inverse vs={vs} onOpen={setOpen} />
+            ))}
+
+        {data.cambioMoneda !== 0 && (
+          <TableRow
+            label="Cambio de moneda"
+            note={data.exchangeNotes.join(' · ')}
+            amount={Math.abs(data.cambioMoneda)}
+            currency={cur}
+            tono={data.cambioMoneda > 0 ? 'ingreso' : 'egreso'}
+            variacion={previous ? <span className="inline-block w-12" /> : undefined}
+          />
+        )}
+
+        {/* Saldo final: monto, debajo la variación del período, y a la derecha vs el anterior */}
+        <div className={`mx-4 mt-3 grid items-center gap-3 border-t border-black/10 pb-4 pt-4 sm:mx-5 sm:gap-4 dark:border-white/15 ${previous ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'}`}>
           <p className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">Saldo final</p>
-          <p className="text-[22px] font-semibold tracking-tight tabular-nums text-[#0071A4] dark:text-[#64D2FF]">{fmtFull(data.saldoFinal, cur)}</p>
+          <div className="relative text-right">
+            <p className={`text-[22px] font-semibold tracking-tight tabular-nums ${TONO_MONTO.neta}`}>{fmtFull(data.saldoFinal, cur)}</p>
+            <p className="absolute right-0 top-full -mt-0.5 whitespace-nowrap text-[10px] leading-none tabular-nums text-[#C7C7CC] dark:text-[#5A5A5E]">Variación {fmtFull(variacion, cur, true)}</p>
+          </div>
+          {previous && <Variacion actual={data.saldoFinal} anterior={previous.saldoFinal} vs={vs} />}
         </div>
       </Card>
+
+      {/* Resumen en 4 tarjetitas: monto y, muy sutil, la variación vs el período anterior */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {([
+          ['Saldo inicial', data.saldoInicial, 'saldo', previous?.saldoInicial, false],
+          ['Ingresos', data.totalIngresos, 'ingreso', previous?.ingresos, false],
+          ['Egresos', data.totalEgresos, 'egreso', previous?.egresos, true],
+          ['Saldo final', data.saldoFinal, 'neta', previous?.saldoFinal, false],
+        ] as const).map(([titulo, monto, tono, anterior, inverse]) => (
+          <Card key={titulo} className="px-4 py-3">
+            <p className="text-[12px] text-[#8E8E93]">{titulo}</p>
+            <p className={`mt-0.5 text-[17px] font-semibold tracking-tight tabular-nums ${TONO_MONTO[tono]}`}>{fmtFull(monto, cur)}</p>
+            {previous && (
+              <p className="mt-0.5 h-3 text-[9px] leading-3 opacity-60 [&>span:first-child]:w-auto [&>span:first-child]:text-left [&>span:first-child]:text-[9px]">
+                <Variacion actual={monto} anterior={anterior} inverse={inverse} vs={vs} />
+                <span className="ml-1 text-[#C7C7CC] dark:text-[#5A5A5E]">vs {previous.label}</span>
+              </p>
+            )}
+          </Card>
+        ))}
+      </div>
 
       {/* Por caja: inicio, cierre y variación. Tocar una caja filtra el estado */}
       {data.accounts.length > 0 && (
@@ -324,15 +296,18 @@ export default function FlujoDetail({ data, trends }: { data: CashStatement; tre
                 key={a.id}
                 href={cajaHref(activa ? null : a.id)}
                 scroll={false}
-                className={`grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 border-b border-black/[0.06] px-4 py-2.5 text-[14px] transition last:border-b-0 sm:gap-4 sm:px-5 dark:border-white/[0.08] ${
+                className={`grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 border-b border-black/[0.06] px-4 py-3 text-[14px] transition last:border-b-0 sm:gap-4 sm:px-5 dark:border-white/[0.08] ${
                   activa ? 'bg-[#007AFF]/[0.08] dark:bg-[#0A84FF]/[0.15]' : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'
                 }`}
               >
                 <span className={`truncate ${activa ? 'font-semibold text-[#007AFF] dark:text-[#0A84FF]' : 'text-[#1C1C1E] dark:text-white'}`}>{a.name}</span>
                 <span className="hidden w-28 text-right tabular-nums text-[#8E8E93] sm:inline">{fmtFull(a.inicio, cur)}</span>
                 <span className="w-24 text-right font-medium tabular-nums text-[#1C1C1E] sm:w-28 dark:text-white">{fmtFull(a.cierre, cur)}</span>
-                <span className={`w-24 text-right tabular-nums sm:w-28 ${v > 0.5 ? 'text-[#248A3D] dark:text-[#30D158]' : v < -0.5 ? 'text-[#D70015] dark:text-[#FF453A]' : 'text-[#8E8E93]'}`}>
+                <span className={`relative w-24 text-right tabular-nums sm:w-28 ${v > 0.5 ? TONO_MONTO.ingreso : v < -0.5 ? TONO_MONTO.egreso : 'text-[#8E8E93]'}`}>
                   {fmtFull(v, cur, true)}
+                  {Math.abs(a.inicio) >= 0.5 && Math.abs(v) >= 0.5 && (
+                    <span className="absolute right-0 top-full -mt-[3px] text-[9.5px] leading-none text-[#C7C7CC] dark:text-[#5A5A5E]">{fmtPctEs((v / Math.abs(a.inicio)) * 100)}</span>
+                  )}
                 </span>
               </Link>
             )
@@ -347,7 +322,12 @@ export default function FlujoDetail({ data, trends }: { data: CashStatement; tre
                 <span className="text-[#1C1C1E] dark:text-white">Total</span>
                 <span className="hidden w-28 text-right tabular-nums text-[#8E8E93] sm:inline">{fmtFull(ini, cur)}</span>
                 <span className="w-24 text-right tabular-nums text-[#1C1C1E] sm:w-28 dark:text-white">{fmtFull(cie, cur)}</span>
-                <span className={`w-24 text-right tabular-nums sm:w-28 ${v > 0.5 ? 'text-[#248A3D] dark:text-[#30D158]' : v < -0.5 ? 'text-[#D70015] dark:text-[#FF453A]' : 'text-[#8E8E93]'}`}>{fmtFull(v, cur, true)}</span>
+                <span className={`relative w-24 text-right tabular-nums sm:w-28 ${v > 0.5 ? TONO_MONTO.ingreso : v < -0.5 ? TONO_MONTO.egreso : 'text-[#8E8E93]'}`}>
+                  {fmtFull(v, cur, true)}
+                  {Math.abs(ini) >= 0.5 && Math.abs(v) >= 0.5 && (
+                    <span className="absolute right-0 top-full -mt-[3px] text-[9.5px] font-normal leading-none text-[#C7C7CC] dark:text-[#5A5A5E]">{fmtPctEs((v / Math.abs(ini)) * 100)}</span>
+                  )}
+                </span>
               </div>
             )
           })()}
@@ -356,5 +336,6 @@ export default function FlujoDetail({ data, trends }: { data: CashStatement; tre
 
       {open && <MovementsSheet {...open} currency={cur} onClose={() => setOpen(null)} />}
     </div>
+    </ModoVariacion>
   )
 }

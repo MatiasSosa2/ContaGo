@@ -47,7 +47,27 @@ export default async function ResultadosPage({
   if (prev) {
     const er = await getIncomeStatement(prev.period, prev.from, prev.to, prev.year, prev.month, undefined, undefined, 'ARS')
     const suma = (items: { amount: number }[]) => items.reduce((acc, i) => acc + i.amount, 0)
-    previous = { ventas: er.ventas, neta: er.ventas - er.cmv + suma(er.otherIncomeItems) - suma(er.expenseItems), label: prev.label }
+    // Por línea y subcategoría ("Sueldos" y "Sueldos›Vendedores"), igual que arma el cuadro
+    const porLinea = (items: { label: string; amount: number; sub: string | null }[]) => {
+      const m: Record<string, number> = {}
+      for (const i of items) {
+        m[i.label] = (m[i.label] ?? 0) + i.amount
+        const k = `${i.label}›${i.sub?.trim() || 'Sin subcategoría'}`
+        m[k] = (m[k] ?? 0) + i.amount
+      }
+      return m
+    }
+    previous = {
+      ventas: er.ventas,
+      cmv: er.cmv,
+      bruta: er.ventas - er.cmv,
+      neta: er.ventas - er.cmv + suma(er.otherIncomeItems) - suma(er.expenseItems),
+      otros: porLinea(er.otherIncomeItems),
+      ventasCat: er.ventasPorCategoria ?? {},
+      cmvCat: er.cmvPorCategoria ?? {},
+      gastos: porLinea(er.expenseItems),
+      label: prev.label,
+    }
   }
 
   return (

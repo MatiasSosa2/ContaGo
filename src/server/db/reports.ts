@@ -230,6 +230,7 @@ export async function getReportDataExtended(range?: DateRange) {
   const salidasStock = await prisma.movimientoStock.findMany({
     where: {
       tipo: 'SALIDA',
+      concepto: null,
       producto: { businessId },
       ...(range?.from || range?.to
         ? {
@@ -241,7 +242,7 @@ export async function getReportDataExtended(range?: DateRange) {
         : {}),
     },
   })
-  const cmvTotal = salidasStock.reduce((acc, m) => acc + m.cantidad * m.precio, 0)
+  const cmvTotal = salidasStock.reduce((acc, m) => acc + m.cantidad * (m.costoUnitario ?? m.precio), 0)
 
   // Stock: inventario actual
   const productosActivos = await prisma.producto.findMany({ where: { businessId, activo: true } })

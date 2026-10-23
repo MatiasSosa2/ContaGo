@@ -16,6 +16,10 @@ export type ResultsData = {
   otherIncomeTotal: number
   /** CMV: unidades vendidas × CPP del momento de la venta */
   cogs: number
+  /** Ventas, costo de lo vendido y ganancia bruta por categoría de inventario (desplegables) */
+  salesLines?: StatementLine[]
+  cogsLines?: StatementLine[]
+  grossLines?: StatementLine[]
   /** Ventas − CMV */
   grossProfit: number
   /** Ganancia bruta sobre ventas */
