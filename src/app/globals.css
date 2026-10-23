@@ -645,12 +645,13 @@ input[type=number] {
 }
 
 /* ── Registro (+): acento por tipo, hoja / ventana y confirmación ── */
-.reg-income { --reg-accent: #34C759; }
-.reg-expense { --reg-accent: #FF3B30; }
-.reg-neutral { --reg-accent: #007AFF; }
-[data-theme="dark"] .reg-income { --reg-accent: #30D158; }
-[data-theme="dark"] .reg-expense { --reg-accent: #FF453A; }
-[data-theme="dark"] .reg-neutral { --reg-accent: #0A84FF; }
+/* Registro: salvia (ingreso), terracota (egreso) y azul pizarra (transferencias/ajustes), sin flúo */
+.reg-income { --reg-accent: #4F8A6B; }
+.reg-expense { --reg-accent: #B8664F; }
+.reg-neutral { --reg-accent: #4A6F8A; }
+[data-theme="dark"] .reg-income { --reg-accent: #6FA287; }
+[data-theme="dark"] .reg-expense { --reg-accent: #D08770; }
+[data-theme="dark"] .reg-neutral { --reg-accent: #7FA3BF; }
 
 @keyframes reg-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes reg-sheet-out { from { transform: translateY(var(--reg-drag, 0px)); } to { transform: translateY(110%); } }

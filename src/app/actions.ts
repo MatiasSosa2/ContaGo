@@ -214,6 +214,18 @@ export async function deleteSubcategory(id: string) {
   return databaseActions.deleteSubcategory(id);
 }
 
+export async function renameCategory(id: string, name: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.renameCategory(id, name);
+}
+
+export async function renameSubcategory(id: string, name: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.renameSubcategory(id, name);
+}
+
 export async function getCreditAccounts(...args: CashPeriodArgs) {
   if (USE_MOCK) return [];
   const [period, ...rest] = args;

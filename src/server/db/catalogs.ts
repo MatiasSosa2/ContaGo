@@ -4,7 +4,7 @@
  */
 
 import prisma from '@/lib/prisma'
-import { revalidatePath, updateTag, unstable_cache } from 'next/cache'
+import { revalidatePath, revalidateTag, updateTag, unstable_cache } from 'next/cache'
 import { createContactSchema, createCategorySchema, createSubcategorySchema, createAccountSchema, updateAccountSchema, createAreaNegocioSchema, type ActionResult } from '@/lib/validations'
 import { createContableAccountForCategory } from '@/server/accounting/setup-contable-accounts'
 import { CASH_ACCOUNT_TYPES } from '@/server/cash/cash-flow'
@@ -169,6 +169,32 @@ export async function deleteSubcategory(id: string) {
   await prisma.subcategory.deleteMany({ where: { id, businessId } })
   updateTag(`catalogs:${businessId}`)
   revalidatePath('/')
+}
+
+/** Renombra una categoría propia. Los movimientos la siguen usando (van por id), así que los 3 estados muestran el nombre nuevo. */
+export async function renameCategory(id: string, name: string): Promise<ActionResult> {
+  const nombre = name.trim().slice(0, 100)
+  if (!nombre) return { success: false, error: 'Escribí un nombre' }
+  const businessId = await getBusinessId(true)
+  const res = await prisma.category.updateMany({ where: { id, businessId }, data: { name: nombre } })
+  if (res.count === 0) return { success: false, error: 'La categoría no existe' }
+  updateTag(`catalogs:${businessId}`)
+  revalidateTag(`dashboard:${businessId}`, 'max')
+  revalidatePath('/')
+  return { success: true }
+}
+
+/** Renombra una subcategoría */
+export async function renameSubcategory(id: string, name: string): Promise<ActionResult> {
+  const nombre = name.trim().slice(0, 100)
+  if (!nombre) return { success: false, error: 'Escribí un nombre' }
+  const businessId = await getBusinessId(true)
+  const res = await prisma.subcategory.updateMany({ where: { id, businessId }, data: { name: nombre } })
+  if (res.count === 0) return { success: false, error: 'La subcategoría no existe' }
+  updateTag(`catalogs:${businessId}`)
+  revalidateTag(`dashboard:${businessId}`, 'max')
+  revalidatePath('/')
+  return { success: true }
 }
 
 // ---- Créditos y Deudas ----

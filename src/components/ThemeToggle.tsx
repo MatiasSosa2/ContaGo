@@ -3,10 +3,12 @@
 import { useEffect } from 'react'
 import { useStoredValue } from '@/lib/useStoredValue'
 
-export default function ThemeToggle({ compact = false, circle = false, className = '' }: {
+export default function ThemeToggle({ compact = false, circle = false, plain = false, className = '' }: {
   compact?: boolean
   /** Botón redondo solo con ícono (panel izquierdo, estilo iOS) */
   circle?: boolean
+  /** Con circle: solo el ícono, sin fondo (pie del panel izquierdo) */
+  plain?: boolean
   className?: string
 }) {
   // Preferencia guardada (por defecto: claro); el layout ya la aplica antes de pintar
@@ -29,7 +31,7 @@ export default function ThemeToggle({ compact = false, circle = false, className
         role="switch"
         aria-checked={dark}
         aria-label={dark ? 'Modo claro' : 'Modo oscuro'}
-        className={`print:hidden flex h-8 w-8 items-center justify-center rounded-full bg-[#fff]/[0.08] text-[#fff]/75 transition hover:bg-[#fff]/[0.14] hover:text-[#fff] active:scale-95 ${className}`}
+        className={`print:hidden flex items-center justify-center rounded-full transition active:scale-95 ${plain ? 'h-7 w-7 text-[#fff]/45 hover:bg-[#fff]/[0.08] hover:text-[#fff]/85' : 'h-8 w-8 bg-[#fff]/[0.08] text-[#fff]/75 hover:bg-[#fff]/[0.14] hover:text-[#fff]'} ${className}`}
       >
         {dark ? (
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>

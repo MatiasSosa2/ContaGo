@@ -105,23 +105,10 @@ export default function ContactPicker({ type, contacts, value, onChange, onCreat
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={esCliente ? 'Cliente' : 'Proveedor'}
-        className={`flex max-w-full items-center gap-1 text-[13px] font-medium transition-opacity active:opacity-60 ${invalid ? 'text-[#FF3B30] dark:text-[#FF453A]' : actual ? 'text-[#1C1C1E] dark:text-white' : 'text-[#8E8E93]'}`}
+        className={`flex max-w-full items-center gap-1 text-[13px] font-medium transition-opacity active:opacity-60 ${invalid ? 'text-[#B8664F] dark:text-[#E3A592]' : 'text-[#1C1C1E] dark:text-white'}`}
       >
         <span className="max-w-[180px] truncate">{actual?.name ?? (invalid ? `Elegí ${esCliente ? 'el cliente' : 'el proveedor'}` : sinContacto)}</span>
       </button>
-      {/* Atajo visible para dar de alta uno nuevo */}
-      <button
-        type="button"
-        onClick={() => (open && nuevo ? cerrar() : abrir(true))}
-        aria-label={esCliente ? 'Nuevo cliente' : 'Nuevo proveedor'}
-        title={esCliente ? 'Nuevo cliente' : 'Nuevo proveedor'}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#007AFF]/10 text-[#007AFF] transition active:scale-90 dark:bg-[#0A84FF]/20 dark:text-[#0A84FF]"
-      >
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m7-7H5" />
-        </svg>
-      </button>
-
       {open && createPortal(
         <div
           ref={listaRef}
@@ -209,7 +196,7 @@ function Opcion({ selected, onClick, muted = false, children }: { selected: bool
       onClick={onClick}
       className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.08] ${muted ? 'text-[#8E8E93]' : 'text-[#1C1C1E] dark:text-white'}`}
     >
-      <span className="w-4 shrink-0 text-[var(--reg-accent,#34C759)]">{selected ? '✓' : ''}</span>
+      <span className="w-4 shrink-0 text-[var(--reg-accent,#4F8A6B)]">{selected ? '✓' : ''}</span>
       <span className="truncate">{children}</span>
     </button>
   )

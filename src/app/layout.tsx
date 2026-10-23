@@ -59,7 +59,7 @@ export default async function RootLayout({
         className={`${inter.variable} ${archivo.variable} ${geistMono.variable} antialiased flex`}
       >
         {isAuthenticatedWithBusiness && sessionContext?.activeBusiness && (
-          <Sidebar />
+          <Sidebar businessName={sessionContext.activeBusiness.name} />
         )}
         <main className="flex-1 w-full min-h-screen overflow-y-auto pb-16 md:pb-0">
           {children}

@@ -34,28 +34,31 @@ export function Group({ children, className = '' }: { children: ReactNode; class
 }
 
 /** Fila de 44 px: etiqueta a la izquierda, valor a la derecha */
-export function Row({ label, sub, value, onClick, chevron, className = '', children }: {
+export function Row({ label, sub, value, onClick, chevron, className = '', size = 'md', children }: {
   label?: ReactNode
   sub?: ReactNode
   value?: ReactNode
   onClick?: () => void
   chevron?: boolean
   className?: string
+  /** sm: fila fina (36 px) con etiqueta gris de 12 px, como Cliente / Empleado del carrito */
+  size?: 'sm' | 'md'
   children?: ReactNode
 }) {
+  const sm = size === 'sm'
   const content = children ?? (
     <>
       <div className="min-w-0">
-        <div className="truncate text-[15px] text-[#1C1C1E] dark:text-white">{label}</div>
-        {sub && <div className="truncate text-[12px] text-[#8E8E93]">{sub}</div>}
+        <div className={`truncate ${sm ? 'text-[12px] text-[#8E8E93]' : 'text-[15px] text-[#1C1C1E] dark:text-white'}`}>{label}</div>
+        {sub && <div className={`truncate ${sm ? 'text-[10px] text-[#AEAEB2]' : 'text-[12px] text-[#8E8E93]'}`}>{sub}</div>}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5 text-[15px] text-[#8E8E93]">
+      <div className={`flex shrink-0 items-center gap-1.5 ${sm ? 'text-[12px] text-[#1C1C1E] dark:text-white' : 'text-[15px] text-[#8E8E93]'}`}>
         {value}
         {chevron && <Chevron />}
       </div>
     </>
   )
-  const cls = `flex min-h-[44px] w-full items-center justify-between gap-3 px-4 py-2 text-left ${className}`
+  const cls = `flex w-full items-center justify-between gap-3 text-left ${sm ? 'min-h-[36px] px-3 py-1.5' : 'min-h-[44px] px-4 py-2'} ${className}`
   return onClick
     ? <button type="button" onClick={onClick} className={`${cls} transition-colors active:bg-black/[0.04] dark:active:bg-white/[0.06]`}>{content}</button>
     : <div className={cls}>{content}</div>
@@ -70,10 +73,12 @@ export function Chevron({ open }: { open?: boolean }) {
 }
 
 /** Control segmentado (Efectivo | Virtual | Crédito) */
-export function Segmented<T extends string>({ options, value, onChange }: {
+export function Segmented<T extends string>({ options, value, onChange, size = 'md' }: {
   options: { value: T; label: string }[]
   value: T
   onChange: (v: T) => void
+  /** sm: más finito y con letra de 12 px (ej. medios de pago) */
+  size?: 'sm' | 'md'
 }) {
   return (
     <div className="flex rounded-[9px] bg-[#767680]/[0.12] p-0.5 dark:bg-[#767680]/[0.24]" role="radiogroup">
@@ -84,10 +89,10 @@ export function Segmented<T extends string>({ options, value, onChange }: {
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`flex-1 rounded-[7px] py-1.5 text-[13px] transition-all ${
+          className={`flex-1 rounded-[7px] transition-all ${size === 'sm' ? 'py-1 text-[12px]' : 'py-1.5 text-[13px]'} ${
             value === o.value
               ? 'bg-[#fff] font-medium text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white'
-              : 'text-[#1C1C1E] dark:text-white'
+              : size === 'sm' ? 'text-[#3C3C43]/80 dark:text-[#EBEBF5]/70' : 'text-[#1C1C1E] dark:text-white'
           }`}
         >
           {o.label}
@@ -117,7 +122,7 @@ export function PrimaryButton({ children, onClick, disabled, color = 'green', sl
   slot?: HTMLElement | null
 }) {
   // Color del tipo de registro (verde ingreso, rojo egreso, azul cajas); el prop queda de respaldo
-  const bg = color === 'green' ? 'bg-[var(--reg-accent,#34C759)]' : color === 'red' ? 'bg-[var(--reg-accent,#FF3B30)]' : 'bg-[var(--reg-accent,#007AFF)]'
+  const bg = color === 'green' ? 'bg-[var(--reg-accent,#4F8A6B)]' : color === 'red' ? 'bg-[var(--reg-accent,#B8664F)]' : 'bg-[var(--reg-accent,#4A6F8A)]'
   const button = (
     <button
       type="button"
@@ -140,7 +145,7 @@ export function PrimaryButton({ children, onClick, disabled, color = 'green', sl
 
 /** Texto-botón discreto en el color de acento */
 export function LinkButton({ children, onClick, tone = 'accent' }: { children: ReactNode; onClick: () => void; tone?: 'accent' | 'muted' | 'danger' }) {
-  const color = tone === 'accent' ? 'text-[var(--reg-accent,#34C759)]' : tone === 'danger' ? 'text-[#FF3B30]' : 'text-[#8E8E93]'
+  const color = tone === 'accent' ? 'text-[var(--reg-accent,#4F8A6B)]' : tone === 'danger' ? 'text-[#FF3B30]' : 'text-[#8E8E93]'
   return (
     <button type="button" onClick={onClick} className={`text-[15px] ${color} transition-opacity active:opacity-60`}>
       {children}
@@ -206,7 +211,7 @@ export function MenuSelect<T extends string>({ value, options, onChange, align =
               onClick={() => { onChange(o.value); setOpen(false) }}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[#1C1C1E] transition-colors hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]"
             >
-              <span className="w-4 text-[var(--reg-accent,#34C759)]">{o.value === value ? '✓' : ''}</span>
+              <span className="w-4 text-[var(--reg-accent,#4F8A6B)]">{o.value === value ? '✓' : ''}</span>
               <span className="truncate">{o.label}</span>
             </button>
           ))}
@@ -259,15 +264,15 @@ export function DateChip({ value, onChange, label, align = 'left' }: {
               months: 'relative',
               month_caption: 'flex h-8 items-center px-1 text-[14px] font-semibold capitalize',
               nav: 'absolute right-0 top-0 flex h-8 items-center gap-1',
-              button_previous: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#34C759)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
-              button_next: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#34C759)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
+              button_previous: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#4F8A6B)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
+              button_next: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#4F8A6B)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
               weekdays: 'flex',
               weekday: 'w-8 pb-1 text-center text-[11px] font-medium uppercase text-[#8E8E93]',
               week: 'flex',
               day: 'h-8 w-8 p-0 text-center',
               day_button: 'h-8 w-8 rounded-full text-[13px] transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.08]',
-              selected: '[&>button]:bg-[var(--reg-accent,#34C759)] [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-[var(--reg-accent,#34C759)]',
-              today: 'font-semibold text-[var(--reg-accent,#34C759)]',
+              selected: '[&>button]:bg-[var(--reg-accent,#4F8A6B)] [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-[var(--reg-accent,#4F8A6B)]',
+              today: 'font-semibold text-[var(--reg-accent,#4F8A6B)]',
               outside: 'text-[#C7C7CC] dark:text-[#48484A]',
             }}
           />

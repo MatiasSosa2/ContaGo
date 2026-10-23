@@ -7,7 +7,7 @@ import CashTransferForm from './CashTransferForm'
 import CashAdjustmentForm from './CashAdjustmentForm'
 import RegistroToast from './registro/RegistroToast'
 import DatePickerField from './ui/DatePickerField'
-import { getModalCatalogs, createCategoryWithContable, deleteCategory, createSubcategory, deleteSubcategory } from '@/app/actions'
+import { getModalCatalogs, createCategoryWithContable, deleteCategory, createSubcategory, deleteSubcategory, renameCategory, renameSubcategory } from '@/app/actions'
 import type { Account, Category, Subcategory, Contact, Producto, Empleado, BienDeUso } from './TransactionForm'
 import type { Registrado } from '@/lib/registro'
 
@@ -293,6 +293,20 @@ export default function FloatingActionButton() {
     await deleteSubcategory(id)
   }
 
+  // Renombrar: devuelve un mensaje de error o null
+  const handleRenameCategory = async (id: string, name: string) => {
+    const res = await renameCategory(id, name)
+    if (!res.success) return res.error
+    setData((d) => (d ? { ...d, categories: d.categories.map((c) => (c.id === id ? { ...c, name: name.trim() } : c)) } : d))
+    return null
+  }
+  const handleRenameSubcategory = async (id: string, name: string) => {
+    const res = await renameSubcategory(id, name)
+    if (!res.success) return res.error
+    setData((d) => (d ? { ...d, subcategories: d.subcategories.map((s) => (s.id === id ? { ...s, name: name.trim() } : s)) } : d))
+    return null
+  }
+
   // Listener para abrir el modal con preset (desde Créditos, Cajas, etc.)
   useEffect(() => {
     if (isAuthRoute) return
@@ -506,6 +520,8 @@ export default function FloatingActionButton() {
                   onDeleteCategory={handleDeleteCategory}
                   onAddSubcategory={handleAddSubcategory}
                   onDeleteSubcategory={handleDeleteSubcategory}
+                  onRenameCategory={handleRenameCategory}
+                  onRenameSubcategory={handleRenameSubcategory}
                   onDone={handleDone}
                   onContactCreated={(c) => setData((d) => (d && !d.contacts.some((x) => x.id === c.id) ? { ...d, contacts: [...d.contacts, c] } : d))}
                   cartSlot={cartSlot}

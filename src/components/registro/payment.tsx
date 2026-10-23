@@ -70,11 +70,12 @@ export function MoneyField({ value, onChange, onEnter, label, align = 'left', si
   label: string
   align?: 'left' | 'right'
   /** md: monto destacado (medios combinados). lg: monto principal (fila "Monto") */
-  size?: 'sm' | 'md' | 'lg'
+  /** total: 17 px, como el Total del carrito */
+  size?: 'sm' | 'md' | 'lg' | 'total'
   placeholder?: string
 }) {
   const [editing, setEditing] = useState(false)
-  const sizeCls = size === 'lg' ? 'text-[20px] font-semibold' : size === 'md' ? 'text-[15px] font-medium' : 'text-[13px]'
+  const sizeCls = size === 'total' ? 'text-[17px] font-semibold' : size === 'lg' ? 'text-[20px] font-semibold' : size === 'md' ? 'text-[15px] font-medium' : 'text-[13px]'
   const cls = `${align === 'right' ? 'text-right' : 'text-left'} ${sizeCls}`
   if (editing) {
     return (
@@ -83,7 +84,7 @@ export function MoneyField({ value, onChange, onEnter, label, align = 'left', si
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => { if (e.key === 'Enter') { setEditing(false); onEnter?.() } }}
-        className={`ios-bare w-full border-b border-[var(--reg-accent,#34C759)] bg-transparent text-[#1C1C1E] outline-none dark:text-white tabular-nums ${cls}`}
+        className={`ios-bare w-full border-b border-[var(--reg-accent,#4F8A6B)] bg-transparent text-[#1C1C1E] outline-none dark:text-white tabular-nums ${cls}`}
         aria-label={label}
       />
     )
@@ -309,7 +310,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
         <>
           <Group>
             <div className="px-3 py-2.5">
-              <Segmented options={metodos} value={pagos[0].metodo} onChange={(m) => setMetodo(pagos[0], m)} />
+              <Segmented size="sm" options={metodos} value={pagos[0].metodo} onChange={(m) => setMetodo(pagos[0], m)} />
             </div>
             {pagos[0].metodo === 'CREDITO' ? cuotasRows(pagos[0]) : cajaRow(pagos[0])}
           </Group>
@@ -364,7 +365,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
             </div>
           </Group>
           <div className="mt-2 flex items-center justify-between px-4 text-[13px]">
-            <span className={Math.abs(falta) <= 0.01 ? 'text-[#34C759] dark:text-[#30D158]' : 'text-[#FF3B30] dark:text-[#FF453A]'}>
+            <span className={Math.abs(falta) <= 0.01 ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : 'text-[#B8664F] dark:text-[#E3A592]'}>
               {Math.abs(falta) <= 0.01 ? 'Pago completo' : falta > 0 ? `Falta asignar ${fmt(falta)}` : `Te pasaste ${fmt(-falta)}`}
             </span>
             <button type="button" onClick={noCombinar} className="text-[12px] text-[#8E8E93] transition-opacity active:opacity-60">No combinar</button>

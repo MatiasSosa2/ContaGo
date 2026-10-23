@@ -93,19 +93,19 @@ export default function CashTransferForm({ accounts, date, onDone, footerSlot }:
 
       <Caption>Cajas</Caption>
       <Group>
-        <Row label="Desde" value={<MenuSelect label="Caja de origen" value={fromId} options={opciones()} onChange={handleFromChange} />} />
-        <Row label="Hacia" value={<MenuSelect label="Caja de destino" value={toId} options={opciones(fromId)} onChange={(v) => { setToId(v); setError(null) }} />} />
+        <Row size="sm" label="Desde" value={<MenuSelect tone="strong" size="sm" label="Caja de origen" value={fromId} options={opciones()} onChange={handleFromChange} />} />
+        <Row size="sm" label="Hacia" value={<MenuSelect tone="strong" size="sm" label="Caja de destino" value={toId} options={opciones(fromId)} onChange={(v) => { setToId(v); setError(null) }} />} />
       </Group>
 
       <Group className="mt-3">
-        <div className="flex min-h-[52px] items-center justify-between gap-3 px-4">
-          <span className="text-[15px] font-medium text-[#1C1C1E] dark:text-white">Monto <span className="text-[13px] font-normal text-[#8E8E93]">{simbolo(from?.currency)}</span></span>
-          <div className="w-40"><MoneyField align="right" size="lg" value={amount} onChange={setAmount} label="Monto" /></div>
+        <div className="flex min-h-[44px] items-center justify-between gap-3 px-3">
+          <span className="text-[14px] font-medium text-[#1C1C1E] dark:text-white">Monto <span className="text-[12px] font-normal text-[#8E8E93]">{simbolo(from?.currency)}</span></span>
+          <div className="w-36"><MoneyField align="right" size="total" value={amount} onChange={setAmount} label="Monto" /></div>
         </div>
         {crossCurrency && (
           <>
-            <Row label="Cotización" sub="Pesos por dólar" value={<div className="w-32"><MoneyField align="right" size="md" value={rate} onChange={setRate} label="Cotización" /></div>} />
-            <div className="flex min-h-[36px] items-center justify-between px-4 text-[13px] text-[#8E8E93]">
+            <Row size="sm" label="Cotización" sub="Pesos por dólar" value={<div className="w-28"><MoneyField align="right" size="sm" value={rate} onChange={setRate} label="Cotización" /></div>} />
+            <div className="flex min-h-[32px] items-center justify-between px-3 text-[12px] text-[#8E8E93]">
               <span>Entra en {to?.name}</span>
               <span>{amountTo !== null ? `${simbolo(to?.currency)} ${amountTo.toLocaleString('es-AR', { maximumFractionDigits: 2 })}` : '—'}</span>
             </div>
