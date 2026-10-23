@@ -22,6 +22,10 @@ type Producto = {
   precioVenta: number; precioCosto: number; stockActual: number
   tipo?: 'MERCADERIA' | 'SERVICIO' | string
   alertaStock?: number | null
+  costoFijo?: number | null
+  stockHoy?: number
+  /** Costo promedio del sistema (hoy), antes de pasar al costo del período */
+  costoPromedio?: number
   /** Variante de un artículo (null = producto suelto) */
   articuloId?: string | null
   atributos?: string | null
@@ -62,8 +66,8 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
   // así el valorizado de la lista suma lo mismo que "Stock final" en un período pasado.
   const productos = initialProductos.map((p) =>
     p.valorFinalPeriodo != null && p.valorFinalPeriodo > 0 && p.stockActual > 0.0001
-      ? { ...p, precioCosto: p.valorFinalPeriodo / p.stockActual }
-      : p,
+      ? { ...p, costoPromedio: p.precioCosto, precioCosto: p.valorFinalPeriodo / p.stockActual }
+      : { ...p, costoPromedio: p.precioCosto },
   )
   const router = useRouter()
   const [showForm, setShowForm] = useState(false)
@@ -167,8 +171,11 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
         etiqueta: etiquetaVariante(valores, defs),
         valores,
         stockActual: p.stockActual,
+        stockHoy: p.stockHoy ?? p.stockActual,
         precioVenta: p.precioVenta,
         precioCosto: p.precioCosto,
+        costoPromedio: p.costoPromedio ?? p.precioCosto,
+        costoFijo: p.costoFijo ?? null,
         precioPropio: !!p.precioPropio,
         alertaStock: p.alertaStock ?? null,
       })
@@ -208,16 +215,20 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
     acc.inicialUnidades += inicial
     acc.compradoUnidades += entradas
     acc.vendidoUnidades += salidas
+    acc.finalValor += p.valorFinalPeriodo ?? 0
+    acc.finalUnidades += p.stockActual
     return acc
-  }, { inventarioInicial: 0, inventarioComprado: 0, inventarioVendido: 0, inicialUnidades: 0, compradoUnidades: 0, vendidoUnidades: 0 })
+  }, { inventarioInicial: 0, inventarioComprado: 0, inventarioVendido: 0, inicialUnidades: 0, compradoUnidades: 0, vendidoUnidades: 0, finalValor: 0, finalUnidades: 0 })
   const inventarioInicial = flujoPeriodo.inventarioInicial
   const inventarioVendido = flujoPeriodo.inventarioVendido
   const inventarioComprado = flujoPeriodo.inventarioComprado
-  const stockFinalPeriodo = inventarioInicial - inventarioVendido + inventarioComprado
+  // Stock final = lo que vale el stock al cierre (igual que el total de la lista). Incluye las
+  // diferencias de inventario y los cambios de costo, que no son compras ni ventas.
+  const stockFinalPeriodo = flujoPeriodo.finalValor
   const inicialUnidades = flujoPeriodo.inicialUnidades
   const vendidoUnidades = flujoPeriodo.vendidoUnidades
   const compradoUnidades = flujoPeriodo.compradoUnidades
-  const stockFinalUnidades = inicialUnidades - vendidoUnidades + compradoUnidades
+  const stockFinalUnidades = flujoPeriodo.finalUnidades
   const enUnidades = vistaInventario === 'UNIDADES'
   const formatCard = (valor: number) => enUnidades ? `${fmtUnits(valor)} u.` : `$${fmtEntero(valor)}`
   const sinStock = productos.filter(p => p.stockActual <= 0).length
@@ -701,6 +712,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
           marcas={marcasExistentes}
           valoresUsados={valoresUsados}
           onClose={() => { setShowForm(false); setEditingId(null) }}
+          onEliminar={editingArt ? () => { setShowForm(false); setEditingId(null); handleDelete(editingArt) } : undefined}
           onSaved={() => {
             const editando = !!editingId
             setShowForm(false); setEditingId(null)
@@ -718,7 +730,6 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
           varianteInicial={varianteInicial}
           onClose={() => setShowMovimientosModal(false)}
           onEdit={() => { setShowMovimientosModal(false); setEditingId(selectedArticulo.key); setShowForm(true) }}
-          onDelete={() => handleDelete(selectedArticulo)}
           onChanged={() => { void reload(); void loadMovimientos(selectedArticulo.variantes.map((v) => v.id)) }}
         />
       )}

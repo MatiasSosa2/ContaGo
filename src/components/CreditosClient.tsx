@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'next/navigation'
 import type { CreditAccount } from '@/server/credits/credit-balances'
 
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
@@ -209,12 +210,14 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
 }
 
 // ── Lista CxC (te deben) o CxP (debés): todos, los abiertos por vencimiento y los saldados al final ──
-function CreditGroupPanel({ label, isCxC, accounts }: {
+function CreditGroupPanel({ label, isCxC, accounts, abrir }: {
   label: string
   isCxC: boolean
   accounts: CreditAccount[]
+  /** Nombre del cliente o proveedor cuya ficha se abre al entrar (ej. desde el Estado patrimonial) */
+  abrir?: string | null
 }) {
-  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [openKey, setOpenKey] = useState<string | null>(() => (abrir ? accounts.find((a) => a.name === abrir)?.key ?? null : null))
   const abiertos = sortByVencimiento(accounts.filter((a) => a.saldo > 0))
   const saldados = accounts.filter((a) => a.saldo <= 0).sort((a, b) => a.name.localeCompare(b.name, 'es'))
   const abierta = accounts.find((a) => a.key === openKey) ?? null
@@ -236,6 +239,8 @@ function CreditGroupPanel({ label, isCxC, accounts }: {
 
 // ── Componente principal ──
 export default function CreditosClient({ accounts }: { accounts: CreditAccount[] }) {
+  // Ficha a abrir al entrar (?abrir=Nombre), ej. desde el Estado patrimonial
+  const abrir = useSearchParams().get('abrir')
   const cxc = accounts.filter((a) => a.type === 'INCOME')
   const cxp = accounts.filter((a) => a.type === 'EXPENSE')
   // Totales en pesos = suma de los saldos de la lista (misma regla que el Balance general)
@@ -256,8 +261,8 @@ export default function CreditosClient({ accounts }: { accounts: CreditAccount[]
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <CreditGroupPanel label="Créditos" isCxC accounts={cxc} />
-        <CreditGroupPanel label="Deudas" isCxC={false} accounts={cxp} />
+        <CreditGroupPanel label="Créditos" isCxC accounts={cxc} abrir={abrir} />
+        <CreditGroupPanel label="Deudas" isCxC={false} accounts={cxp} abrir={abrir} />
       </div>
     </div>
   )

@@ -657,6 +657,8 @@ input[type=number] {
 @keyframes reg-pop-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes reg-pop-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.96); } }
 @keyframes reg-fade-in { from { opacity: 0; } to { opacity: 1; } }
+/* Pantalla que entra de costado (navegación iOS) */
+@keyframes reg-push-in { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes reg-fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes reg-check-pop { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes reg-check-draw { to { stroke-dashoffset: 0; } }

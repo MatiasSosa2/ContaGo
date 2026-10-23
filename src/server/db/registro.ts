@@ -12,6 +12,7 @@ import { undoRegistroData } from '@/server/registro/undo'
 import type { UndoRef } from '@/lib/registro'
 import { getBusinessId, parseMovementDate, getOrCreateDefaultCategory, endOfMovementDay, round2 } from './shared'
 import { createTransaction } from './transactions'
+import { costoEfectivo } from '@/lib/stock-costos'
 
 export async function createCashTransfer(formData: FormData): Promise<ActionResult<{ undo: UndoRef }>> {
   const rateRaw = parseFloat(formData.get('exchangeRate') as string)
@@ -271,11 +272,13 @@ export async function createProductOperation(formData: FormData): Promise<Action
       for (const item of items) {
         const producto = await tx.producto.findFirst({
           where: { id: item.productoId, businessId },
-          select: { id: true, nombre: true, tipo: true, precioCosto: true, stockActual: true },
+          select: { id: true, nombre: true, tipo: true, precioCosto: true, costoFijo: true, stockActual: true },
         })
         if (!producto) throw new Error('Algún producto ya no pertenece al negocio activo')
         const esMercaderia = producto.tipo === 'MERCADERIA'
-        const costoActual = producto.precioCosto ?? 0
+        // Costo de las ventas: el fijo si lo hay, si no el promedio
+        const costoActual = costoEfectivo(producto)
+        const promedio = producto.precioCosto ?? 0
         const costoNeto = round2(item.precioUnitario * factorNeto)
         await tx.operacionItem.create({
           data: {
@@ -290,7 +293,7 @@ export async function createProductOperation(formData: FormData): Promise<Action
         if (!esMercaderia) continue
 
         if (esVenta) {
-          // Venta: sale stock a su CPP del momento
+          // Venta: sale stock a su costo del momento (fijo o promedio)
           cmv += item.cantidad * costoActual
           const stockUpdate = await tx.producto.updateMany({
             where: { id: producto.id, businessId, stockActual: { gte: item.cantidad } },
@@ -306,17 +309,18 @@ export async function createProductOperation(formData: FormData): Promise<Action
           })
           movimientoIds.push(mov.id)
         } else {
-          // Compra: entra stock y se recalcula el costo promedio ponderado
+          // Compra: entra stock y se recalcula el costo promedio ponderado (de referencia si hay
+          // costo fijo: en ese caso entra valorizado al fijo y la diferencia va al resultado)
           const stockPrevio = Math.max(0, producto.stockActual)
           const stockNuevo = stockPrevio + item.cantidad
-          const cpp = stockNuevo > 0 ? (stockPrevio * costoActual + item.cantidad * costoNeto) / stockNuevo : costoNeto
+          const cpp = stockNuevo > 0 ? (stockPrevio * promedio + item.cantidad * costoNeto) / stockNuevo : costoNeto
           await tx.producto.update({
             where: { id: producto.id },
             data: { stockActual: { increment: item.cantidad }, precioCosto: cpp },
           })
           const mov = await tx.movimientoStock.create({
             data: {
-              tipo: 'ENTRADA', cantidad: item.cantidad, precio: costoNeto,
+              tipo: 'ENTRADA', cantidad: item.cantidad, precio: costoNeto, costoUnitario: producto.costoFijo ?? null,
               motivo: baseDescription, fecha: date, producto: { connect: { id: producto.id } },
             },
             select: { id: true },
