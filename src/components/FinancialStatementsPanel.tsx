@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { ResponsiveContainer, AreaChart, Area } from 'recharts'
+import { AreaChart, Area } from 'recharts'
+import { ResponsiveChartContainer } from '@/components/ResponsiveChartContainer'
 import type { ResultsData, CashFlowData, BalanceSheetData } from './financial-statements/shared'
 import { SF_FONT, SubtleDelta, fmtFull } from './financial-statements/modern'
 
@@ -44,7 +45,7 @@ function Sparkline({ values, color, id }: { values: number[]; color: string; id:
   const data = values.map((v, i) => ({ i, v }))
   return (
     <div className="h-20 w-full">
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+      <ResponsiveChartContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <AreaChart data={data} margin={{ top: 4, right: 4, left: 4, bottom: 2 }}>
           <defs>
             <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
@@ -60,7 +61,7 @@ function Sparkline({ values, color, id }: { values: number[]; color: string; id:
             )}
           />
         </AreaChart>
-      </ResponsiveContainer>
+      </ResponsiveChartContainer>
     </div>
   )
 }

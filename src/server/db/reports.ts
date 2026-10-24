@@ -11,6 +11,28 @@ import { getBalanceSheetData } from '@/server/balance/balance-sheet'
 import { getReportInsightsData } from '@/server/reports/insights'
 import { getBusinessId, type DateRange, type DashboardPeriodKey, computePeriodRange } from './shared'
 
+type MonthlyMovement = { date: Date; amount: number; type: string; currency?: string | null }
+
+function aggregateMonthlyHistory(transactions: MonthlyMovement[]) {
+  const monthlyMap: Record<string, Record<string, { income: number; expense: number }>> = {}
+  const now = new Date()
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    monthlyMap[key] = {}
+  }
+  for (const tx of transactions) {
+    const d = new Date(tx.date)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    if (!monthlyMap[key]) continue
+    const cur = tx.currency || 'ARS'
+    if (!monthlyMap[key][cur]) monthlyMap[key][cur] = { income: 0, expense: 0 }
+    if (tx.type === 'INCOME') monthlyMap[key][cur].income += tx.amount
+    else monthlyMap[key][cur].expense += tx.amount
+  }
+  return Object.entries(monthlyMap).map(([month, byCur]) => ({ month, byCur }))
+}
+
 export async function getReportData(range?: DateRange) {
   const businessId = await getBusinessId()
   const dateFilter = range?.from || range?.to
@@ -32,23 +54,7 @@ export async function getReportData(range?: DateRange) {
   }
 
   // -- Evolución mensual últimos 12 meses por moneda --
-  const monthlyMap: Record<string, Record<string, { income: number; expense: number }>> = {}
-  const now = new Date()
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    monthlyMap[key] = {}
-  }
-  for (const tx of allTx) {
-    const d = new Date(tx.date)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    if (!monthlyMap[key]) continue
-    const cur = tx.currency || 'ARS'
-    if (!monthlyMap[key][cur]) monthlyMap[key][cur] = { income: 0, expense: 0 }
-    if (tx.type === 'INCOME') monthlyMap[key][cur].income += tx.amount
-    else monthlyMap[key][cur].expense += tx.amount
-  }
-  const monthlyHistory = Object.entries(monthlyMap).map(([month, byCur]) => ({ month, byCur }))
+  const monthlyHistory = aggregateMonthlyHistory(allTx)
 
   // -- Top categorías por gasto --
   const categoryMap: Record<string, { name: string; income: number; expense: number; currency: string }> = {}
@@ -98,6 +104,18 @@ export async function getReportData(range?: DateRange) {
   }, {} as Record<string, number>)
 
   return { allTx, totalsByCurrency, monthlyHistory, topCategories, topContacts, topAreas, accountTotalByCurrency }
+}
+
+/** Historial de los últimos 12 meses para la evolución de Informes, sin cargar el detalle completo. */
+export async function getMonthlyHistory() {
+  const businessId = await getBusinessId()
+  const now = new Date()
+  const from = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+  const transactions = await prisma.transaction.findMany({
+    where: { businessId, date: { gte: from } },
+    select: { date: true, amount: true, type: true, currency: true },
+  })
+  return aggregateMonthlyHistory(transactions)
 }
 
 /** Top clientes y productos que más ganan del período (pestaña Informes). Ver src/server/reports/insights.ts */
@@ -263,4 +281,3 @@ export async function getReportDataExtended(range?: DateRange) {
 }
 
 // ---- Dashboard: datos del día ----
-

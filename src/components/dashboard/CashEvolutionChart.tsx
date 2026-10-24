@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts'
+import { ResponsiveChartContainer } from '@/components/ResponsiveChartContainer'
 import type { DashboardChartTx } from '@/app/actions.database'
 
 type Bucket = { label: string; income: number; expense: number; txIdx: number[] }
@@ -352,7 +353,7 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
         <div className="flex items-center justify-center text-[13px] text-[#8E8E93]" style={{ height }}>Sin movimientos en el período</div>
       ) : (
         <div style={{ height }} className="[&_.recharts-surface]:outline-none">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveChartContainer width="100%" height="100%">
             <BarChart
               data={data}
               margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
@@ -381,7 +382,7 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
                 </Bar>
               )}
             </BarChart>
-          </ResponsiveContainer>
+          </ResponsiveChartContainer>
         </div>
       )}
 

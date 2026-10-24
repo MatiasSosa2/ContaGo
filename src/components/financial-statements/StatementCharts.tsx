@@ -3,8 +3,9 @@
 import { useState, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
-  ResponsiveContainer, BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Cell, PieChart, Pie, ComposedChart, Line,
+  BarChart, Bar, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine, Cell, PieChart, Pie, ComposedChart, Line,
 } from 'recharts'
+import { ResponsiveChartContainer } from '@/components/ResponsiveChartContainer'
 import type { YearlySeries } from '@/server/reports/yearly-series'
 import { fmtAmount, type ResultsData } from './shared'
 import type { BalanceSheet } from '@/server/balance/balance-sheet'
@@ -208,7 +209,7 @@ export function ResultadosCharts({ series, results, activeMonth }: { series: Yea
         legend={[{ label: 'Ventas', color: COLORES.ventas }, { label: 'Ganancia bruta', color: COLORES.bruta }, { label: 'Ganancia neta', color: COLORES.neta }]}
       >
         {empty ? <Empty text="Sin ventas en el año." /> : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveChartContainer width="100%" height="100%">
             <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="rgba(120,120,128,0.12)" />
               <XAxis dataKey="label" {...modernAxis} />
@@ -223,7 +224,7 @@ export function ResultadosCharts({ series, results, activeMonth }: { series: Yea
               <Line type="linear" dataKey="brutaEnCurso" stroke={COLORES.bruta} strokeWidth={2} strokeDasharray="4 4" connectNulls={false} isAnimationActive={false} dot={false} activeDot={false} legendType="none" />
               <Line type="linear" dataKey="netaEnCurso" stroke={COLORES.neta} strokeWidth={2} strokeDasharray="4 4" connectNulls={false} isAnimationActive={false} dot={false} activeDot={false} legendType="none" />
             </ComposedChart>
-          </ResponsiveContainer>
+          </ResponsiveChartContainer>
         )}
       </ChartCard>
 
@@ -232,7 +233,7 @@ export function ResultadosCharts({ series, results, activeMonth }: { series: Yea
           <div className="flex h-full items-center gap-5">
             {/* Dona fina con el total en el centro */}
             <div className="relative aspect-square h-full max-h-[220px] shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveChartContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={porciones} dataKey="amount" nameKey="label" innerRadius="80%" outerRadius="96%"
@@ -244,7 +245,7 @@ export function ResultadosCharts({ series, results, activeMonth }: { series: Yea
                     ))}
                   </Pie>
                 </PieChart>
-              </ResponsiveContainer>
+              </ResponsiveChartContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center" style={{ fontFamily: MODERN_FONT }}>
                 {/* En el centro: el total, o el gasto resaltado */}
                 <span className="max-w-[70%] truncate text-[11px] text-[#8E8E93]">{elegido ? elegido.label : 'Total'}</span>
@@ -309,7 +310,7 @@ export function FlujoCharts({ series, currency, activeMonth }: { series: YearlyS
         legend={[{ label: 'Ingresos', color: K.green }, { label: 'Egresos', color: K.red }]}
       >
         {empty ? <Empty text="Sin movimientos de caja en el año." /> : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveChartContainer width="100%" height="100%">
             <BarChart
               data={data}
               margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
@@ -329,13 +330,13 @@ export function FlujoCharts({ series, currency, activeMonth }: { series: YearlyS
                 {data.map((_, i) => <Cell key={i} fillOpacity={dim(i)} />)}
               </Bar>
             </BarChart>
-          </ResponsiveContainer>
+          </ResponsiveChartContainer>
         )}
       </ChartCard>
 
       <ChartCard modern title="Saldo de caja">
         {empty ? <Empty text="Sin cajas en esta moneda." /> : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveChartContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="saldo-ios-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -357,7 +358,7 @@ export function FlujoCharts({ series, currency, activeMonth }: { series: YearlyS
                 }}
               />
             </AreaChart>
-          </ResponsiveContainer>
+          </ResponsiveChartContainer>
         )}
       </ChartCard>
     </>
@@ -439,7 +440,7 @@ export function PatrimonioCharts({ series, balance, currency, activeMonth }: { s
     <>
       <ChartCard modern title="Patrimonio neto">
         {empty ? <Empty text="Sin datos en el año." /> : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveChartContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="pn-ios-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -459,7 +460,7 @@ export function PatrimonioCharts({ series, balance, currency, activeMonth }: { s
                 }}
               />
             </AreaChart>
-          </ResponsiveContainer>
+          </ResponsiveChartContainer>
         )}
       </ChartCard>
 

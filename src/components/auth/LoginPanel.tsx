@@ -71,7 +71,11 @@ export default function LoginPanel({
   temporaryAccessEnabled: boolean
 }) {
   const searchParams = useSearchParams()
-  const [error, setError] = useState<string | null>(searchParams.get('error'))
+  const [error, setError] = useState<string | null>(
+    searchParams.get('error') === 'SessionInUse'
+      ? 'Ya hay una sesión abierta para esta cuenta. Cierra esa sesión antes de iniciar otra.'
+      : searchParams.get('error'),
+  )
   const [message, setMessage] = useState<string | null>(
     searchParams.get('verified') === '1' ? 'Codigo validado. Inicia sesion para continuar.' : null,
   )

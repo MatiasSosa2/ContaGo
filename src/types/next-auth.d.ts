@@ -27,5 +27,6 @@ declare module 'next-auth/jwt' {
     challengeSatisfied?: boolean
     emailVerified?: boolean
     isTemporaryAccess?: boolean
+    authSessionId?: string
   }
 }

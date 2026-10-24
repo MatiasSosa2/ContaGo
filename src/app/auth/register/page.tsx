@@ -5,7 +5,7 @@ export default function RegisterPage() {
   return (
     <AuthShell
       title="Crea tu cuenta"
-      subtitle="Registra tu negocio, define una contraseña y valida tu email con codigo."
+      subtitle="Empieza con tus datos básicos. Confirmaremos tu email antes de iniciar."
     >
       <RegisterPanel />
     </AuthShell>

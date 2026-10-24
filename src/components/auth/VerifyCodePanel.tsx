@@ -86,27 +86,30 @@ export default function VerifyCodePanel({
         setError(result.error)
         return
       }
-      setMessage('Enviamos un nuevo codigo a tu email.')
+      setMessage('Si tu cuenta necesita verificación, enviaremos un nuevo código a ese email.')
     })
   }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-        Email destino: <span className="font-medium text-gray-800">{email}</span>
+      <div className="space-y-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+        <p>Enviamos un código a <span className="font-medium text-gray-800">{email}</span>, si la cuenta necesita verificación.</p>
+        {purpose === 'SIGNUP_VERIFY' && (
+          <p>Si ya tienes una cuenta, puedes <Link href="/auth/login" className="font-medium text-brand-military hover:text-brand-military-dark">iniciar sesión</Link> o <Link href="/auth/forgot-password" className="font-medium text-brand-military hover:text-brand-military-dark">recuperar tu contraseña</Link>.</p>
+        )}
       </div>
 
       <form action={handleVerify} className="space-y-4">
         <div className="space-y-1.5">
-          <label htmlFor="code" className="text-xs font-medium text-gray-500">Codigo de 6 digitos</label>
-          <input id="code" name="code" type="text" inputMode="numeric" pattern="[0-9]{6}" required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-lg tracking-[0.45em] text-gray-900 outline-none transition focus:border-brand-military" />
+          <label htmlFor="code" className="text-xs font-medium text-gray-500">Código de 6 dígitos</label>
+          <input id="code" name="code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-lg tracking-[0.45em] text-gray-900 outline-none transition focus:border-brand-military" />
         </div>
 
         {error && <div className="rounded-2xl border border-ds-red-100 bg-ds-red-50 px-4 py-3 text-sm text-ds-red-600">{error}</div>}
         {message && <div className="rounded-2xl border border-ds-green-200 bg-ds-green-50 px-4 py-3 text-sm text-ds-green-700">{message}</div>}
 
         <button type="submit" disabled={isPending} className="w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
-          {isPending ? 'Validando...' : 'Validar codigo'}
+          {isPending ? 'Validando...' : 'Validar código'}
         </button>
       </form>
 

@@ -22,6 +22,8 @@ model User {
   lastLoginAt    DateTime?
   lastSecurityChallengeAt DateTime?
   passwordChangedAt DateTime?
+  activeSessionId String?
+  activeSessionExpiresAt DateTime?
   
   accounts      AccountAuth[]
   sessions      Session[]
@@ -648,4 +650,3 @@ model JournalLine {
   @@index([accountId])
   @@index([journalEntryId])
 }
-

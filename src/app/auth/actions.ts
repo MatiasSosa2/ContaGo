@@ -31,6 +31,28 @@ const USE_MOCK =
 const EMAIL_CODE_WINDOW_MS = 10 * 60 * 1000
 const EMAIL_CODE_MAX_PER_WINDOW = 3
 
+async function sendSignupVerification(email: string, userId: string): Promise<boolean> {
+  const windowStart = new Date(Date.now() - EMAIL_CODE_WINDOW_MS)
+  const recentCount = await prisma.emailChallenge.count({
+    where: { email, createdAt: { gte: windowStart } },
+  })
+  if (recentCount >= EMAIL_CODE_MAX_PER_WINDOW) return true
+
+  const { code } = await createEmailChallenge({
+    userId,
+    email,
+    purpose: 'SIGNUP_VERIFY',
+  })
+
+  try {
+    await sendAuthCodeEmail({ email, code, purpose: 'SIGNUP_VERIFY' })
+    return true
+  } catch (error) {
+    console.error('[registerWithCredentials] verification email failed', error)
+    return false
+  }
+}
+
 export async function registerWithCredentials(formData: FormData): Promise<ActionResult<{ email: string }>> {
   if (USE_MOCK) {
     return { success: true, data: { email: 'demo@finarg.com' } }
@@ -56,7 +78,14 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
   })
 
   if (existingUser) {
-    // Respuesta uniforme: no revelamos si el email ya tiene cuenta.
+    // Reintentar el alta puede recuperar un registro que quedó sin verificar,
+    // sin revelar si la dirección existe ni reemplazar su contraseña.
+    if (!existingUser.emailVerified) {
+      const sent = await sendSignupVerification(email, existingUser.id)
+      if (!sent) {
+        return { success: false, error: 'No pudimos enviar el código ahora. Inténtalo nuevamente en unos minutos.' }
+      }
+    }
     return { success: true, data: { email } }
   }
 
@@ -116,13 +145,10 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
     return user
   })
 
-  const { code } = await createEmailChallenge({
-    userId: createdUser.id,
-    email,
-    purpose: 'SIGNUP_VERIFY',
-  })
-
-  await sendAuthCodeEmail({ email, code, purpose: 'SIGNUP_VERIFY' })
+  const sent = await sendSignupVerification(email, createdUser.id)
+  if (!sent) {
+    return { success: false, error: 'No pudimos enviar el código ahora. Inténtalo nuevamente en unos minutos con el mismo email.' }
+  }
 
   return { success: true, data: { email } }
 }

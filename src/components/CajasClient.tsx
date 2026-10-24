@@ -7,7 +7,6 @@ import { useStoredValue } from '@/lib/useStoredValue'
 import { useSearchParams } from 'next/navigation'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import {
-  ResponsiveContainer,
   ComposedChart,
   Line,
   Bar,
@@ -18,6 +17,7 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts'
+import { ResponsiveChartContainer } from '@/components/ResponsiveChartContainer'
 
 // ── Paleta del gráfico Historial ──────────────────────────────────────────
 const CHART_COLORS = {
@@ -506,7 +506,7 @@ function HistorialModal({
             <div className="flex flex-1 items-center justify-center text-sm text-gray-400">Sin datos para este período</div>
           ) : (
             <div className="min-h-0 flex-1">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveChartContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 12, right: 16, left: 4, bottom: 4 }} barCategoryGap="22%" barGap={2}>
                   <defs>
                     <linearGradient id="modalIngFill" x1="0" y1="0" x2="0" y2="1">
@@ -548,7 +548,7 @@ function HistorialModal({
                   <Bar yAxisId="left" dataKey="egresos" fill="url(#modalEgrFill)" radius={[4, 4, 0, 0] as [number, number, number, number]} maxBarSize={28} />
                   <Line yAxisId="right" type="monotone" dataKey="saldo" stroke={saldoColor} strokeWidth={2.25} dot={false} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: saldoColor }} />
                 </ComposedChart>
-              </ResponsiveContainer>
+              </ResponsiveChartContainer>
             </div>
           )}
         </div>
@@ -613,7 +613,7 @@ function HistorialCard(props: HistorialProps) {
           ) : (
             <div className="relative min-h-[180px] w-full flex-1">
               <div className="absolute inset-0">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveChartContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 30, right: 6, left: 6, bottom: 0 }} barCategoryGap="22%" barGap={1}>
                   <defs>
                     <linearGradient id="histIngFill" x1="0" y1="0" x2="0" y2="1">
@@ -633,7 +633,7 @@ function HistorialCard(props: HistorialProps) {
                   <Bar yAxisId="left" dataKey="egresos" fill="url(#histEgrFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={8} />
                   <Line yAxisId="right" type="monotone" dataKey="saldo" stroke={saldoColor} strokeWidth={2.25} dot={false} activeDot={{ r: 3.5, stroke: '#fff', strokeWidth: 1.5, fill: saldoColor }} />
                 </ComposedChart>
-              </ResponsiveContainer>
+              </ResponsiveChartContainer>
               </div>
             </div>
           )}

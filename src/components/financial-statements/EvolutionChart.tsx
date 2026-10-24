@@ -1,6 +1,7 @@
 'use client'
 
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts'
+import { ResponsiveChartContainer } from '@/components/ResponsiveChartContainer'
 import { fmtAmount } from './shared'
 
 type MonthlyPoint = { label: string; net: number }
@@ -16,7 +17,7 @@ export default function EvolutionChart({ points }: { points: MonthlyPoint[] }) {
 
   return (
     <div className="h-[360px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveChartContainer width="100%" height="100%">
         <AreaChart data={points} margin={{ top: 12, right: 12, left: 0, bottom: 8 }}>
           <defs>
             <linearGradient id="evolution-detail-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -33,7 +34,7 @@ export default function EvolutionChart({ points }: { points: MonthlyPoint[] }) {
           />
           <Area type="monotone" dataKey="net" stroke="#4B5563" strokeWidth={2.5} fill="url(#evolution-detail-gradient)" isAnimationActive={false} />
         </AreaChart>
-      </ResponsiveContainer>
+      </ResponsiveChartContainer>
     </div>
   )
 }

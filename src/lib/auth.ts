@@ -5,6 +5,7 @@ import AzureADProvider from "next-auth/providers/azure-ad";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { randomUUID } from 'node:crypto'
 
 import prismaClient from '@/lib/prisma'
 import type { EmailChallengePurpose } from '@/server/auth/challenges'
@@ -36,6 +37,37 @@ type CredentialsAuthUser = {
   emailVerified: Date | null
   lastSecurityChallengeAt: Date | null
   isTemporaryAccess?: boolean
+}
+
+type SingleSessionAuthUser = {
+  authSessionId?: string
+}
+
+const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+
+async function claimSingleSession(user: { id: string } & SingleSessionAuthUser) {
+  if (!prisma) return false
+
+  const now = new Date()
+  const sessionId = randomUUID()
+  const result = await prisma.user.updateMany({
+    where: {
+      id: user.id,
+      OR: [
+        { activeSessionId: null },
+        { activeSessionExpiresAt: { lte: now } },
+      ],
+    },
+    data: {
+      activeSessionId: sessionId,
+      activeSessionExpiresAt: new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000),
+    },
+  })
+
+  if (result.count !== 1) return false
+
+  user.authSessionId = sessionId
+  return true
 }
 
 function getTemporaryAccessAdminEmail() {
@@ -292,10 +324,16 @@ function buildVerifyCodeRedirect(
   return `${origin}/auth/verify-code?${params.toString()}`
 }
 
+function buildSessionInUseRedirect() {
+  const origin = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '')
+  return `${origin}/auth/login?error=SessionInUse`
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: useMockAuth || !prisma ? undefined : PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
+    maxAge: SESSION_MAX_AGE_SECONDS,
   },
   pages: {
     signIn: "/auth/login",
@@ -332,21 +370,49 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async jwt({ token, user, account, trigger, session }) {
-      // Revoca sesiones emitidas antes del último cambio de contraseña.
+      // Revoca tokens por cambio de contraseña o por reemplazo/expiración de la sesión activa.
       const issuedAt = typeof token.iat === 'number' ? token.iat : null
-      if (!user && token.sub && issuedAt !== null && prismaClient) {
+      if (!useMockAuth && !user && token.sub && prismaClient) {
+        const now = new Date()
         const passwordState = await prismaClient.user.findUnique({
           where: { id: token.sub },
-          select: { passwordChangedAt: true },
+          select: {
+            passwordChangedAt: true,
+            activeSessionId: true,
+            activeSessionExpiresAt: true,
+          },
         })
         const changedAt = passwordState?.passwordChangedAt
-        if (changedAt && Math.floor(changedAt.getTime() / 1000) > issuedAt) {
+        if (changedAt && issuedAt !== null && Math.floor(changedAt.getTime() / 1000) > issuedAt) {
+          return {} as JWT
+        }
+        if (
+          !token.authSessionId ||
+          passwordState?.activeSessionId !== token.authSessionId ||
+          !passwordState.activeSessionExpiresAt ||
+          passwordState.activeSessionExpiresAt <= now
+        ) {
+          return {} as JWT
+        }
+
+        const refreshedSession = await prismaClient.user.updateMany({
+          where: {
+            id: token.sub,
+            activeSessionId: token.authSessionId,
+            activeSessionExpiresAt: { gt: now },
+          },
+          data: {
+            activeSessionExpiresAt: new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000),
+          },
+        })
+        if (refreshedSession.count !== 1) {
           return {} as JWT
         }
       }
 
       if (user) {
         token.sub = user.id;
+        token.authSessionId = (user as typeof user & SingleSessionAuthUser).authSessionId
         const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
         if (credentialsUser.isTemporaryAccess === true) {
           token.isTemporaryAccess = true
@@ -379,13 +445,17 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async signIn({ user, account }) {
-      if (!useMockAuth && prisma && user.id && user.email && account?.provider) {
+      if (!useMockAuth && prisma && user.id && account?.provider) {
         const provider = toAuthProvider(account.provider)
 
         const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
         const isTemporaryAccess = credentialsUser.isTemporaryAccess === true
 
         if (isTemporaryAccess) {
+          if (!(await claimSingleSession(user))) {
+            return buildSessionInUseRedirect()
+          }
+
           void prisma.user.update({
             where: { id: user.id },
             data: { lastLoginAt: new Date() },
@@ -433,6 +503,10 @@ export const authOptions: NextAuthOptions = {
           return buildVerifyCodeRedirect(dbUser.email, challengePurpose)
         }
 
+        if (!(await claimSingleSession(user))) {
+          return buildSessionInUseRedirect()
+        }
+
         // Fire-and-forget: no bloqueamos el login esperando un update cosmético.
         void prisma.user.update({
           where: { id: user.id },
@@ -441,6 +515,22 @@ export const authOptions: NextAuthOptions = {
       }
 
       return true
+    },
+  },
+  events: {
+    async signOut({ token }) {
+      if (!useMockAuth && prisma && token?.sub && token.authSessionId) {
+        await prisma.user.updateMany({
+          where: {
+            id: token.sub,
+            activeSessionId: token.authSessionId,
+          },
+          data: {
+            activeSessionId: null,
+            activeSessionExpiresAt: null,
+          },
+        })
+      }
     },
   },
 };
