@@ -7,6 +7,7 @@ import prisma from '@/lib/prisma'
 import { unstable_cache } from 'next/cache'
 import { CASH_ACCOUNT_TYPES } from '@/server/cash/cash-flow'
 import { getBusinessId, type DashboardPeriodKey, computePeriodRange } from './shared'
+import { costoEfectivo } from '@/lib/stock-costos'
 
 const DASHBOARD_MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
@@ -466,7 +467,7 @@ export async function getAssetSnapshotAsOf(
       }),
       prisma.producto.findMany({
         where: { businessId, activo: true, tipo: 'MERCADERIA' },
-        select: { id: true, stockActual: true, precioCosto: true },
+        select: { id: true, stockActual: true, precioCosto: true, costoFijo: true },
       }),
       prisma.bienDeUso.aggregate({
         where: { businessId, activo: true, fechaAdquisicion: { lte: end } },
@@ -475,10 +476,12 @@ export async function getAssetSnapshotAsOf(
       prisma.movimientoStock.findMany({
         where: {
           tipo: 'SALIDA',
+          // Solo ventas (los faltantes cargados a mano no son costo de lo vendido)
+          concepto: null,
           producto: { businessId },
           fecha: { gte: start, lte: end },
         },
-        select: { cantidad: true, precio: true },
+        select: { cantidad: true, precio: true, costoUnitario: true },
       }),
     ])
 
@@ -528,11 +531,12 @@ export async function getAssetSnapshotAsOf(
     let stockTotal = 0
     for (const p of productos) {
       const stockAt = p.stockActual - (deltaPostPorProducto.get(p.id) ?? 0)
-      stockTotal += stockAt * p.precioCosto
+      stockTotal += stockAt * costoEfectivo(p)
     }
 
     const bienesTotal = bienesAggregate._sum.valorAdquisicion ?? 0
-    const cmvPeriod = salidasPeriodo.reduce((acc, m) => acc + m.cantidad * m.precio, 0)
+    // Costo de lo vendido (al costo de cada venta; salidas viejas sin costo: el precio)
+    const cmvPeriod = salidasPeriodo.reduce((acc, m) => acc + m.cantidad * (m.costoUnitario ?? m.precio), 0)
 
     return { cajaTotal, totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod }
   }

@@ -11,54 +11,16 @@ import { getBalanceSheetData } from '@/server/balance/balance-sheet'
 import { getReportInsightsData } from '@/server/reports/insights'
 import { getBusinessId, type DateRange, type DashboardPeriodKey, computePeriodRange } from './shared'
 
-type MonthlyTx = { date: Date; type: string; amount: number; currency: string | null }
-
-/** Ingresos y egresos de cada uno de los últimos 12 meses (incluido el actual), por moneda */
-function buildMonthlyHistory(txs: MonthlyTx[]) {
-  const monthlyMap: Record<string, Record<string, { income: number; expense: number }>> = {}
-  const now = new Date()
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    monthlyMap[key] = {}
-  }
-  for (const tx of txs) {
-    const d = new Date(tx.date)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    if (!monthlyMap[key]) continue
-    const cur = tx.currency || 'ARS'
-    if (!monthlyMap[key][cur]) monthlyMap[key][cur] = { income: 0, expense: 0 }
-    if (tx.type === 'INCOME') monthlyMap[key][cur].income += tx.amount
-    else monthlyMap[key][cur].expense += tx.amount
-  }
-  return Object.entries(monthlyMap).map(([month, byCur]) => ({ month, byCur }))
-}
-
-/** Evolución mensual de los últimos 12 meses. Lee solo esos movimientos, no el histórico completo. */
-export async function getMonthlyHistory() {
-  const businessId = await getBusinessId()
-  const now = new Date()
-  const start = new Date(now.getFullYear(), now.getMonth() - 11, 1)
-  const txs = await prisma.transaction.findMany({
-    where: { businessId, date: { gte: start } },
-    select: { date: true, type: true, amount: true, currency: true },
-  })
-  return buildMonthlyHistory(txs)
-}
-
 export async function getReportData(range?: DateRange) {
   const businessId = await getBusinessId()
   const dateFilter = range?.from || range?.to
     ? { date: { ...(range.from ? { gte: range.from } : {}), ...(range.to ? { lte: range.to } : {}) } }
     : {}
-  const [allTx, accounts] = await Promise.all([
-    prisma.transaction.findMany({
-      where: { businessId, ...dateFilter },
-      orderBy: { date: 'desc' },
-      include: { category: true, subcategory: { select: { name: true } }, account: true, contact: true, areaNegocio: true },
-    }),
-    prisma.account.findMany({ where: { businessId } }),
-  ])
+  const allTx = await prisma.transaction.findMany({
+    where: { businessId, ...dateFilter },
+    orderBy: { date: 'desc' },
+    include: { category: true, subcategory: { select: { name: true } }, account: true, contact: true, areaNegocio: true },
+  })
 
   // -- Totales por moneda --
   const totalsByCurrency: Record<string, { income: number; expense: number }> = {}
@@ -70,7 +32,23 @@ export async function getReportData(range?: DateRange) {
   }
 
   // -- Evolución mensual últimos 12 meses por moneda --
-  const monthlyHistory = buildMonthlyHistory(allTx)
+  const monthlyMap: Record<string, Record<string, { income: number; expense: number }>> = {}
+  const now = new Date()
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    monthlyMap[key] = {}
+  }
+  for (const tx of allTx) {
+    const d = new Date(tx.date)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    if (!monthlyMap[key]) continue
+    const cur = tx.currency || 'ARS'
+    if (!monthlyMap[key][cur]) monthlyMap[key][cur] = { income: 0, expense: 0 }
+    if (tx.type === 'INCOME') monthlyMap[key][cur].income += tx.amount
+    else monthlyMap[key][cur].expense += tx.amount
+  }
+  const monthlyHistory = Object.entries(monthlyMap).map(([month, byCur]) => ({ month, byCur }))
 
   // -- Top categorías por gasto --
   const categoryMap: Record<string, { name: string; income: number; expense: number; currency: string }> = {}
@@ -112,6 +90,7 @@ export async function getReportData(range?: DateRange) {
     .sort((a, b) => (b.income + b.expense) - (a.income + a.expense))
 
   // -- Balance real de cuentas (para Runway) --
+  const accounts = await prisma.account.findMany({ where: { businessId } })
   const accountTotalByCurrency = accounts.reduce((acc, a) => {
     const c = a.currency || 'ARS'
     acc[c] = (acc[c] || 0) + a.currentBalance
@@ -190,34 +169,18 @@ export async function getYearlySeries(year: number, cashCurrency = 'ARS', accoun
 
 export async function getReportDataExtended(range?: DateRange) {
   const businessId = await getBusinessId()
-  const [base, creditosPendientes, salidasStock, productosActivos, bienesActivos] = await Promise.all([
-    getReportData(range),
-    prisma.transaction.findMany({
-      where: { businessId, esCredito: true, estado: { in: ['PENDIENTE', 'VENCIDO'] } },
-    }),
-    // CMV: Costo de Mercadería Vendida = suma de salidas de stock * precio
-    prisma.movimientoStock.findMany({
-      where: {
-        tipo: 'SALIDA',
-        producto: { businessId },
-        ...(range?.from || range?.to
-          ? {
-              fecha: {
-                ...(range.from ? { gte: range.from } : {}),
-                ...(range.to ? { lte: range.to } : {}),
-              },
-            }
-          : {}),
-      },
-    }),
-    // Stock: inventario actual
-    prisma.producto.findMany({ where: { businessId, activo: true } }),
-    // Bienes de uso en el activo: valor de compra menos amortización, de los que siguen en uso
-    prisma.bienDeUso.findMany({ where: { businessId, activo: true }, select: { valorAdquisicion: true, depreciacionAcumulada: true } }),
-  ])
+  const base = await getReportData(range)
   
   // Estado Patrimonial: cuentas como activos, créditos PENDIENTE como pasivos
-  const activosPorMoneda = base.accountTotalByCurrency
+  const cuentas = await prisma.account.findMany({ where: { businessId } })
+  const creditosPendientes = await prisma.transaction.findMany({
+    where: { businessId, esCredito: true, estado: { in: ['PENDIENTE', 'VENCIDO'] } },
+  })
+  const activosPorMoneda = cuentas.reduce((acc, c) => {
+    const cur = c.currency || 'ARS'
+    acc[cur] = (acc[cur] || 0) + c.currentBalance
+    return acc
+  }, {} as Record<string, number>)
   const pasivosPorMoneda = creditosPendientes.reduce((acc, t) => {
     const cur = t.currency || 'ARS'
     // CxP (debemos pagar) = EXPENSE pendiente
@@ -263,9 +226,26 @@ export async function getReportDataExtended(range?: DateRange) {
     else anualMap[yr][cur].expense += tx.amount
   }
 
-  const cmvTotal = salidasStock.reduce((acc, m) => acc + m.cantidad * m.precio, 0)
+  // CMV: Costo de Mercadería Vendida = suma de salidas de stock * precio
+  const salidasStock = await prisma.movimientoStock.findMany({
+    where: {
+      tipo: 'SALIDA',
+      concepto: null,
+      producto: { businessId },
+      ...(range?.from || range?.to
+        ? {
+            fecha: {
+              ...(range.from ? { gte: range.from } : {}),
+              ...(range.to ? { lte: range.to } : {}),
+            },
+          }
+        : {}),
+    },
+  })
+  const cmvTotal = salidasStock.reduce((acc, m) => acc + m.cantidad * (m.costoUnitario ?? m.precio), 0)
 
   // Stock: inventario actual
+  const productosActivos = await prisma.producto.findMany({ where: { businessId, activo: true } })
   const valorInventario = productosActivos.reduce((acc, p) => acc + p.stockActual * p.precioCosto, 0)
   const valorInventarioVenta = productosActivos.reduce((acc, p) => acc + p.stockActual * p.precioVenta, 0)
   const margenBrutoInventario = valorInventarioVenta - valorInventario
@@ -275,6 +255,8 @@ export async function getReportDataExtended(range?: DateRange) {
     .slice(0, 5)
     .map(p => ({ nombre: p.nombre, marca: p.marca, stockActual: p.stockActual, precioCosto: p.precioCosto, valorTotal: p.stockActual * p.precioCosto }))
 
+  // Bienes de uso en el activo: valor de compra menos amortización, de los que siguen en uso
+  const bienesActivos = await prisma.bienDeUso.findMany({ where: { businessId, activo: true }, select: { valorAdquisicion: true, depreciacionAcumulada: true } })
   const valorBienesUso = bienesActivos.reduce((acc, b) => acc + Math.max(0, b.valorAdquisicion - b.depreciacionAcumulada), 0)
 
   return { ...base, activosPorMoneda, pasivosPorMoneda, cxcPorMoneda, flujo, anualMap, cmvTotal, valorInventario, valorInventarioVenta, margenBrutoInventario, topProductosPorStock, valorBienesUso }

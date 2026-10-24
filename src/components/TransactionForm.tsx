@@ -54,6 +54,9 @@ type Props = {
   /** Alta/baja de subcategorías. onAddSubcategory devuelve el id creado o un error. */
   onAddSubcategory?: (categoryId: string, name: string) => Promise<{ id: string } | { error: string }>
   onDeleteSubcategory?: (id: string) => void
+  /** Renombrar categoría / subcategoría propia: devuelve error o null */
+  onRenameCategory?: (id: string, name: string) => Promise<string | null>
+  onRenameSubcategory?: (id: string, name: string) => Promise<string | null>
   /** Registro hecho: el modal muestra la confirmación y el aviso con Deshacer */
   onDone: (registrado?: Registrado) => void
   /** Cliente/proveedor agregado desde el registro */
@@ -95,6 +98,8 @@ export default function TransactionForm({
   onDeleteCategory,
   onAddSubcategory,
   onDeleteSubcategory,
+  onRenameCategory,
+  onRenameSubcategory,
   onDone,
   onContactCreated,
   cartSlot,
@@ -164,16 +169,12 @@ export default function TransactionForm({
 
   const handleDeleteSubcategory = (id: string) => {
     if (!onDeleteSubcategory) return
-    const sub = subcategories.find((s) => s.id === id)
-    if (!window.confirm(`¿Eliminar la subcategoría "${sub?.name ?? ''}"? Los movimientos que la usan quedan solo con la categoría.`)) return
     if (subcategoryId === id) setSubcategoryId('')
     onDeleteSubcategory(id)
   }
 
   const handleDeleteCategory = (id: string) => {
     if (!onDeleteCategory) return
-    const cat = customCategories.find((c) => c.id === id)
-    if (!window.confirm(`¿Eliminar la categoría "${cat?.name ?? ''}"? Los movimientos que la usan quedan sin categoría.`)) return
     if (categoryId === id) handleSubTypeChange(defaultSubType(type))
     onDeleteCategory(id)
   }
@@ -203,6 +204,8 @@ export default function TransactionForm({
         onDeleteCustom={onDeleteCategory ? handleDeleteCategory : undefined}
         onAddSubcategory={onAddSubcategory ? handleAddSubcategory : undefined}
         onDeleteSubcategory={onDeleteSubcategory ? handleDeleteSubcategory : undefined}
+        onRenameCustom={onRenameCategory}
+        onRenameSubcategory={onRenameSubcategory}
       />
       {isSaleProduct || isPurchaseProduct ? (
         <ProductOperationForm

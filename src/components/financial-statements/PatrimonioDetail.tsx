@@ -1,7 +1,9 @@
 'use client'
 
-import type { BalanceItem, BalanceRubro, BalanceSheet } from '@/server/balance/balance-sheet'
-import { Card, IOS, KpiCard, SF_FONT, SubtleDelta, fmtFull, fmtPctEs } from './modern'
+import { useRouter } from 'next/navigation'
+import type { BalanceRubro, BalanceSheet } from '@/server/balance/balance-sheet'
+import { Card, IOS, KpiCard, SF_FONT, TONO_MONTO, TableRow, TableSection, TableSubRow, fmtFull, type TonoMonto } from './modern'
+import { EncabezadoVariacion, ModoVariacion, Variacion } from './VariacionCol'
 import AnimatedNumber from './AnimatedNumber'
 
 export type BalanceTrends = { activo: number[]; pasivo: number[] }
@@ -10,73 +12,53 @@ type View = { currency: 'ARS' | 'USD'; rate: number | null; prevRate: number | n
 
 const variacionPct = (actual: number, anterior: number) => (anterior !== 0 ? ((actual - anterior) / Math.abs(anterior)) * 100 : null)
 
-// Columnas: nombre | $ | % del activo | vs cierre anterior
-const rowGrid = 'grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 text-left sm:grid-cols-[minmax(0,1fr)_auto_44px_64px] sm:px-5'
-const divider = 'border-b border-black/[0.06] last:border-b-0 dark:border-white/[0.08]'
 
-/** Columna "vs": variación sutil en millones (se oculta en celular) */
-function Delta({ value, inverse = false }: { value: number; currency?: string; className?: string; inverse?: boolean }) {
-  return <SubtleDelta value={value} inverse={inverse} className="hidden sm:inline-flex" />
-}
-
-function Rubro({ rubro, previo, base, view, inverse = false }: { rubro: BalanceRubro; previo?: BalanceRubro; base: number; view: View; inverse?: boolean }) {
+/**
+ * Un rubro (Caja y bancos, Créditos a cobrar, Mercadería, Bienes de uso, Deudas): se despliega
+ * con sus renglones. En créditos y deudas, tocar un cliente o proveedor abre su ficha en Créditos.
+ */
+function Rubro({ rubro, previo, base, view, tono, inverse = false, onAbrir }: {
+  rubro: BalanceRubro
+  previo?: BalanceRubro
+  base: number
+  view: View
+  tono: TonoMonto
+  inverse?: boolean
+  onAbrir?: (nombre: string) => void
+}) {
   const conv = (v: number, rate: number | null) => (view.currency === 'USD' ? (rate ? v / rate : 0) : v)
   const monto = conv(rubro.amount, view.rate)
-  const delta = monto - conv(previo?.amount ?? 0, view.prevRate)
-  const share = base > 0 ? fmtPctEs((rubro.amount / base) * 100) : ''
+  const pct = (v: number) => (base > 0 ? (v / base) * 100 : undefined)
   const cur = view.currency
-  // Renglones menores al 1% del activo se agrupan en "Otros" (si son 2 o más)
-  const chicos = base > 0 ? rubro.items.filter((i) => i.amount / base < 0.01) : []
-  type Fila = BalanceItem & { grupo?: string[] }
-  const items: Fila[] = chicos.length >= 2
-    ? [...rubro.items.filter((i) => !chicos.includes(i)), { label: 'Otros', amount: chicos.reduce((acc, i) => acc + i.amount, 0), note: `${chicos.length} más`, grupo: chicos.map((i) => i.label) }]
-    : rubro.items
-
+  const abrible = rubro.key === 'creditos' || rubro.key === 'deudas'
   return (
-    <details className={`ios-disclosure group ${divider}`}>
-      <summary className={`${rowGrid} cursor-pointer list-none py-2.5 text-[14px] [&::-webkit-details-marker]:hidden`}>
-        <span className="flex min-w-0 items-center gap-1.5 pl-4">
-          <svg className="h-2.5 w-2.5 shrink-0 text-[var(--ds-gray-300)] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-          <span className="truncate text-[var(--ds-gray-900)] dark:text-white">{rubro.label}</span>
-        </span>
-        <span className="w-[8.5rem] text-right tabular-nums text-[var(--ds-gray-900)] sm:w-[9.5rem] dark:text-white">{fmtFull(monto, cur)}</span>
-        <span className="hidden text-right text-[12px] tabular-nums text-[var(--ds-gray-400)] sm:inline dark:text-[var(--ds-gray-600)]">{share}</span>
-        <Delta value={delta} currency={cur} className="text-[12px]" inverse={inverse} />
-      </summary>
-      <div className="pb-1">
-        {rubro.items.length === 0 && <p className="py-1.5 pl-14 text-[12px] text-[var(--ds-gray-500)]">Sin saldo</p>}
-        {items.map((it) => {
-          // Valor anterior del renglón (de "Otros": la suma de los mismos renglones)
-          const anteriores = previo?.items.filter((p) => (it.grupo ? it.grupo.includes(p.label) : p.label === it.label)) ?? []
-          const antes = { amount: anteriores.reduce((acc, p) => acc + p.amount, 0) }
-          const m = conv(it.amount, view.rate)
-          return (
-            <div key={it.label} className={`${rowGrid} py-2 text-[13px]`}>
-              <span className="flex min-w-0 items-baseline gap-2 pl-9">
-                <span className="truncate text-[var(--ds-gray-500)]">{it.label}</span>
-                {it.note && <span className="shrink-0 text-[11px] text-[var(--ds-gray-400)]">{it.note}</span>}
-              </span>
-              <span className="w-[8.5rem] text-right tabular-nums text-[var(--ds-gray-500)] sm:w-[9.5rem]">{fmtFull(m, cur)}</span>
-              <span className="hidden text-right text-[11px] tabular-nums text-[var(--ds-gray-400)] sm:inline dark:text-[var(--ds-gray-600)]">{base > 0 ? fmtPctEs((it.amount / base) * 100) : ''}</span>
-              <Delta value={m - conv(antes?.amount ?? 0, view.prevRate)} currency={cur} className="text-[11px]" inverse={inverse} />
-            </div>
-          )
-        })}
-      </div>
-    </details>
-  )
-}
-
-function SectionHeader({ label, amount, delta, currency, inverse = false }: { label: string; amount: number; delta: number; currency: string; inverse?: boolean }) {
-  return (
-    <div className={`${rowGrid} pb-1.5 pt-5`}>
-      <span className="text-[12px] font-medium uppercase tracking-wide text-[var(--ds-gray-500)]">{label}</span>
-      <span className="w-[8.5rem] text-right text-[15px] font-semibold tabular-nums text-[var(--ds-gray-900)] sm:w-[9.5rem] dark:text-white">{fmtFull(amount, currency)}</span>
-      <span className="hidden sm:inline" />
-      <Delta value={delta} currency={currency} className="text-[12px]" inverse={inverse} />
-    </div>
+    <TableRow
+      label={rubro.label}
+      amount={monto}
+      pct={pct(rubro.amount)}
+      currency={cur}
+      tono={tono}
+      variacion={<Variacion actual={monto} anterior={previo ? conv(previo.amount, view.prevRate) : undefined} inverse={inverse} />}
+    >
+      {rubro.items.length === 0
+        ? <p className="px-4 py-1.5 text-[12px] text-[#AEAEB2] sm:px-5">Sin saldo</p>
+        : rubro.items.map((it) => {
+            const m = conv(it.amount, view.rate)
+            const antes = previo?.items.find((p) => p.label === it.label)?.amount
+            return (
+              <TableSubRow
+                key={it.label}
+                label={it.note ? `${it.label} · ${it.note}` : it.label}
+                amount={m}
+                pct={pct(it.amount)}
+                currency={cur}
+                tono={tono}
+                variacion={<Variacion actual={m} anterior={antes !== undefined ? conv(antes, view.prevRate) : undefined} inverse={inverse} />}
+                onClick={abrible && onAbrir ? () => onAbrir(it.label) : undefined}
+              />
+            )
+          })}
+    </TableRow>
   )
 }
 
@@ -95,17 +77,22 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
   const patrimonio = conv(data.patrimonio, data.rate)
   const activoPrev = conv(previous.totalActivo, previous.rate)
   const pasivoPrev = conv(previous.totalPasivo, previous.rate)
+  const patrimonioPrev = conv(previous.patrimonio, previous.rate)
+  const router = useRouter()
+  // Ficha del cliente o proveedor en Créditos
+  const abrirCredito = (nombre: string) => router.push(`/creditos?abrir=${encodeURIComponent(nombre)}`)
 
   if (sinCotizacion) {
     return (
       <Card className="px-5 py-8 text-center" >
-        <p className="text-[15px] text-[var(--ds-gray-900)] dark:text-white" style={{ fontFamily: SF_FONT }}>Todavía no hay una cotización registrada</p>
-        <p className="mt-1 text-[13px] text-[var(--ds-gray-500)]" style={{ fontFamily: SF_FONT }}>Registrá una compra o venta de dólares (cambio de caja) para ver el patrimonio en dólares.</p>
+        <p className="text-[15px] text-[#1C1C1E] dark:text-white" style={{ fontFamily: SF_FONT }}>Todavía no hay una cotización registrada</p>
+        <p className="mt-1 text-[13px] text-[#8E8E93]" style={{ fontFamily: SF_FONT }}>Registrá una compra o venta de dólares (cambio de caja) para ver el patrimonio en dólares.</p>
       </Card>
     )
   }
 
   return (
+    <ModoVariacion>
     <div className="space-y-4" style={{ fontFamily: SF_FONT }}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <KpiCard
@@ -125,35 +112,57 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
       </div>
 
       <Card className="overflow-hidden py-2">
-        {/* Encabezado de columnas */}
-        <div className={`${rowGrid} pb-0 pt-1.5 text-[11px] text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]`}>
+        {/* Encabezado: solo la columna de variación lleva título */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 pb-0.5 pt-2 text-[11px] text-[#AEAEB2] sm:gap-4 sm:px-5 dark:text-[#636366]">
           <span />
-          <span className="w-[8.5rem] text-right sm:w-[9.5rem]">$</span>
-          <span className="hidden text-right sm:inline">%</span>
-          <span className="hidden text-right sm:inline">vs {prevLabel}</span>
+          <EncabezadoVariacion vs={prevLabel} />
         </div>
 
-        <SectionHeader label="Activo" amount={activo} delta={activo - activoPrev} currency={currency} />
+        <TableSection title="Activo" />
         {data.activo.map((r) => (
-          <Rubro key={r.key} rubro={r} previo={previous.activo.find((p) => p.key === r.key)} base={data.totalActivo} view={view} />
+          <Rubro key={r.key} rubro={r} previo={previous.activo.find((p) => p.key === r.key)} base={data.totalActivo} view={view} tono="ingreso" onAbrir={abrirCredito} />
         ))}
 
-        <SectionHeader label="Pasivo" amount={pasivo} delta={pasivo - pasivoPrev} currency={currency} inverse />
+        <TableSection title="Pasivo" />
         {data.pasivo.map((r) => (
-          <Rubro key={r.key} rubro={r} previo={previous.pasivo.find((p) => p.key === r.key)} base={data.totalActivo} view={view} inverse />
+          <Rubro key={r.key} rubro={r} previo={previous.pasivo.find((p) => p.key === r.key)} base={data.totalActivo} view={view} tono="egreso" inverse onAbrir={abrirCredito} />
         ))}
 
-        <div className="mx-4 mt-3 flex items-baseline justify-between border-t border-black/10 pb-2 pt-4 sm:mx-5 dark:border-white/15">
-          <p className="text-[17px] font-semibold text-[var(--ds-gray-900)] dark:text-white">Patrimonio neto</p>
-          <p className="text-[22px] font-semibold tracking-tight tabular-nums text-[#1B4332] dark:text-[var(--ds-sky)]">
-            <AnimatedNumber value={patrimonio} format={(v) => fmtFull(v, currency)} />
-          </p>
+        {/* Patrimonio neto: monto, debajo cómo se forma, y a la derecha la variación */}
+        <div className="mx-4 mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-black/10 pb-4 pt-4 sm:mx-5 sm:gap-4 dark:border-white/15">
+          <p className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">Patrimonio neto</p>
+          <div className="relative text-right">
+            <p className={`text-[22px] font-semibold tracking-tight tabular-nums ${TONO_MONTO.neta}`}>
+              <AnimatedNumber value={patrimonio} format={(v) => fmtFull(v, currency)} />
+            </p>
+            <p className="absolute right-0 top-full -mt-0.5 whitespace-nowrap text-[10px] leading-none text-[#C7C7CC] dark:text-[#5A5A5E]">Activo − Pasivo</p>
+          </div>
+          <Variacion actual={patrimonio} anterior={patrimonioPrev} vs={prevLabel} />
         </div>
       </Card>
 
+      {/* Resumen en 3 tarjetitas: monto y, muy sutil, la variación vs el cierre anterior */}
+      <div className="grid grid-cols-3 gap-3">
+        {([
+          ['Activo', activo, activoPrev, 'ingreso', false],
+          ['Pasivo', pasivo, pasivoPrev, 'egreso', true],
+          ['Patrimonio neto', patrimonio, patrimonioPrev, 'neta', false],
+        ] as const).map(([titulo, monto, antes, tono, inverse]) => (
+          <Card key={titulo} className="px-4 py-3">
+            <p className="truncate text-[12px] text-[#8E8E93]">{titulo}</p>
+            <p className={`mt-0.5 truncate text-[15px] font-semibold tracking-tight tabular-nums sm:text-[17px] ${TONO_MONTO[tono]}`}>{fmtFull(monto, currency)}</p>
+            <p className="mt-0.5 flex h-3 items-center gap-1 text-[9px] leading-3 opacity-60">
+              <Variacion actual={monto} anterior={antes} inverse={inverse} vs={prevLabel} className="!w-auto !text-left !text-[9px]" />
+              <span className="text-[#C7C7CC] dark:text-[#5A5A5E]">vs {prevLabel}</span>
+            </p>
+          </Card>
+        ))}
+      </div>
+
       {currency === 'USD' && data.rate && (
-        <p className="px-1 text-[12px] text-[var(--ds-gray-500)]">Convertido a US$1 = ${data.rate.toLocaleString('es-AR')} (última cotización registrada)</p>
+        <p className="px-1 text-[12px] text-[#8E8E93]">Convertido a US$1 = ${data.rate.toLocaleString('es-AR')} (última cotización registrada)</p>
       )}
     </div>
+    </ModoVariacion>
   )
 }

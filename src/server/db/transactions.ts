@@ -8,6 +8,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import type { ActionResult } from '@/lib/validations'
 import { generateJournalLines } from '@/server/accounting/journal-engine'
 import { getBusinessId, parseMovementDate, getScopedAccount, getOrCreateDefaultCategory, type DashboardPeriodKey, computePeriodRange } from './shared'
+import { costoEfectivo } from '@/lib/stock-costos'
 
 export async function createTransaction(formData: FormData): Promise<ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string; transactionId?: string }>> {
   const esCreditoRaw = formData.get('esCredito') as string
@@ -514,14 +515,14 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
       ])
 
       let costoMercaderia = 0
-      let producto: { id: string; tipo: string; stockActual: number; precioCosto: number } | null = null
+      let producto: { id: string; tipo: string; stockActual: number; precioCosto: number; costoFijo: number | null } | null = null
       if ((isSaleProduct || isPurchaseProduct) && productoId && cantidad && cantidad > 0) {
         producto = await tx.producto.findFirst({
           where: { id: productoId, businessId },
-          select: { id: true, tipo: true, stockActual: true, precioCosto: true },
+          select: { id: true, tipo: true, stockActual: true, precioCosto: true, costoFijo: true },
         })
         if (producto && producto.tipo === 'MERCADERIA' && isSaleProduct) {
-          costoMercaderia = cantidad * (producto.precioCosto ?? 0)
+          costoMercaderia = cantidad * costoEfectivo(producto)
         }
         // Compra de mercadería con costeo PROMEDIO: actualizar precioCosto del producto
         if (producto && producto.tipo === 'MERCADERIA' && isPurchaseProduct && precioUnitario && precioUnitario > 0) {
@@ -578,8 +579,9 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
               tipo: tipoMov,
               cantidad,
               precio: precioUnitario ?? 0,
-              // CPP del momento de la venta (se leyó antes de cualquier recálculo): base del CMV
-              costoUnitario: tipoMov === 'SALIDA' ? (producto.precioCosto ?? 0) : null,
+              // Venta: costo del momento (fijo o promedio, leído antes de cualquier recálculo): base
+              // del CMV. Compra con costo fijo: entra valorizada al fijo (la diferencia va al resultado)
+              costoUnitario: tipoMov === 'SALIDA' ? costoEfectivo(producto) : (producto.costoFijo ?? null),
               motivo: description,
               fecha: date,
               producto: { connect: { id: productoId } },

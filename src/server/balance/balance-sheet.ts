@@ -13,6 +13,7 @@
  */
 
 import prisma from '@/lib/prisma'
+import { aplicarMovimiento, costoEfectivo } from '@/lib/stock-costos'
 import { CASH_ACCOUNT_TYPES, getCashBalancesAt } from '@/server/cash/cash-flow'
 import { getCreditAccountsData } from '@/server/credits/credit-balances'
 
@@ -35,20 +36,18 @@ const byAmount = (a: BalanceItem, b: BalanceItem) => b.amount - a.amount
 
 /** Valor de la mercadería de cada producto a la fecha (reproduciendo compras y ventas) */
 async function mercaderiaAt(businessId: string, asOf: Date): Promise<BalanceItem[]> {
-  const productos = await prisma.producto.findMany({ where: { businessId, activo: true }, select: { id: true, nombre: true, precioCosto: true } })
+  const productos = await prisma.producto.findMany({ where: { businessId, activo: true }, select: { id: true, nombre: true, precioCosto: true, costoFijo: true } })
   const movs = await prisma.movimientoStock.findMany({
     where: { producto: { businessId, activo: true }, fecha: { lte: asOf } },
     orderBy: [{ fecha: 'asc' }, { createdAt: 'asc' }],
-    select: { productoId: true, tipo: true, cantidad: true, precio: true, costoUnitario: true },
+    select: { productoId: true, tipo: true, concepto: true, cantidad: true, precio: true, costoUnitario: true },
   })
   const estado = new Map<string, { stock: number; valor: number }>()
-  const costoActual = new Map(productos.map((p) => [p.id, p.precioCosto ?? 0]))
+  const costoActual = new Map(productos.map((p) => [p.id, costoEfectivo(p)]))
   for (const m of movs) {
     const e = estado.get(m.productoId) ?? { stock: 0, valor: 0 }
-    const cpp = e.stock > 0 ? e.valor / e.stock : costoActual.get(m.productoId) ?? 0
-    if (m.tipo === 'ENTRADA') { e.stock += m.cantidad; e.valor += m.cantidad * (m.precio > 0 ? m.precio : cpp) }
-    else if (m.tipo === 'SALIDA') { e.stock -= m.cantidad; e.valor -= m.cantidad * (m.costoUnitario ?? cpp) }
-    else { e.stock = m.cantidad; e.valor = m.cantidad * cpp }
+    // Mismo cálculo que Inventario (costo promedio o fijo de cada momento)
+    aplicarMovimiento(e, m, costoActual.get(m.productoId) ?? 0)
     estado.set(m.productoId, e)
   }
   return productos

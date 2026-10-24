@@ -7,6 +7,9 @@ import prisma from '@/lib/prisma'
 import { revalidatePath, revalidateTag, updateTag } from 'next/cache'
 import { createProductoSchema, createMovimientoStockSchema, type ActionResult } from '@/lib/validations'
 import { getBusinessId, parseMovementDate, type DashboardPeriodKey, computePeriodRange } from './shared'
+import {
+  aplicarMovimiento, costoEfectivo, deltaUnidades, DIF_INVENTARIO, REVALUACION, type EstadoStock,
+} from '@/lib/stock-costos'
 
 export async function getProductos(
   period?: DashboardPeriodKey,
@@ -28,6 +31,10 @@ export async function getProductos(
   if (!period) {
     return productos.map(p => ({
       ...p,
+      stockHoy: p.stockActual ?? 0,
+      diferenciaUnidadesPeriodo: 0,
+      diferenciaValorPeriodo: 0,
+      revaluacionPeriodo: 0,
       stockInicialPeriodo: 0,
       entradasPeriodo: 0,
       salidasPeriodo: 0,
@@ -46,45 +53,39 @@ export async function getProductos(
   })
   const delta: Record<string, number> = {}
   for (const m of movsPosteriores) {
-    const signed = m.tipo === 'ENTRADA' ? m.cantidad : m.tipo === 'SALIDA' ? -m.cantidad : m.cantidad
+    // Ajustes viejos (tipo AJUSTE) se contaban como entrada; las revaluaciones no mueven unidades
+    const signed = m.tipo === 'AJUSTE' ? m.cantidad : deltaUnidades(m)
     delta[m.productoId] = (delta[m.productoId] || 0) + signed
   }
 
-  // Movimientos hasta el cierre del período, en orden: se "reproducen" para saber
-  // unidades y valor (al costo promedio ponderado de cada momento) al inicio y al cierre.
-  // Así Inicial + Comprado − Vendido = Final, siempre, y valorizado a lo que realmente costó.
+  // Movimientos hasta el cierre del período, en orden: se "reproducen" para saber unidades
+  // y valor (al costo de cada momento: promedio o fijo) al inicio y al cierre.
+  // Inicial + Comprado − Vendido ± Diferencias ± Cambios de costo = Final.
   const movs = await prisma.movimientoStock.findMany({
     where: { producto: { businessId }, fecha: { lte: to } },
     orderBy: [{ fecha: 'asc' }, { createdAt: 'asc' }],
-    select: { productoId: true, tipo: true, cantidad: true, precio: true, costoUnitario: true, fecha: true },
+    select: { productoId: true, tipo: true, concepto: true, cantidad: true, precio: true, costoUnitario: true, fecha: true },
   })
-  type Flujo = { stock: number; valor: number; valorInicial: number; entradas: number; salidas: number; ajuste: number; comprado: number; cmv: number; abierto: boolean }
-  const costoActual = Object.fromEntries(productos.map((p) => [p.id, p.precioCosto ?? 0]))
+  type Flujo = EstadoStock & {
+    valorInicial: number; entradas: number; salidas: number; ajuste: number; comprado: number; cmv: number
+    difU: number; dif$: number; reval$: number; abierto: boolean
+  }
+  const costoActual = Object.fromEntries(productos.map((p) => [p.id, costoEfectivo(p)]))
   const flujo: Record<string, Flujo> = {}
   const cerrarInicio = (f: Flujo) => { if (!f.abierto) { f.valorInicial = f.valor; f.abierto = true } }
   for (const m of movs) {
-    const f = (flujo[m.productoId] ??= { stock: 0, valor: 0, valorInicial: 0, entradas: 0, salidas: 0, ajuste: 0, comprado: 0, cmv: 0, abierto: false })
+    const f = (flujo[m.productoId] ??= {
+      stock: 0, valor: 0, valorInicial: 0, entradas: 0, salidas: 0, ajuste: 0, comprado: 0, cmv: 0,
+      difU: 0, dif$: 0, reval$: 0, abierto: false,
+    })
     const enPeriodo = m.fecha >= from
     if (enPeriodo) cerrarInicio(f)
-    const cpp = f.stock > 0 ? f.valor / f.stock : costoActual[m.productoId] ?? 0
-    if (m.tipo === 'ENTRADA') {
-      const costo = m.precio > 0 ? m.precio : cpp
-      f.stock += m.cantidad
-      f.valor += m.cantidad * costo
-      if (enPeriodo) { f.entradas += m.cantidad; f.comprado += m.cantidad * costo }
-    } else if (m.tipo === 'SALIDA') {
-      // CMV: cada salida a su CPP del momento (salidas viejas sin costo guardado: el del momento)
-      const costo = m.costoUnitario ?? cpp
-      f.stock -= m.cantidad
-      f.valor -= m.cantidad * costo
-      if (enPeriodo) { f.salidas += m.cantidad; f.cmv += m.cantidad * costo }
-    } else {
-      // Ajuste: la cantidad es el stock resultante
-      const antes = f.stock
-      f.stock = m.cantidad
-      f.valor = m.cantidad * cpp
-      if (enPeriodo) f.ajuste += m.cantidad - antes
-    }
+    const ef = aplicarMovimiento(f, m, costoActual[m.productoId] ?? 0)
+    if (!enPeriodo) continue
+    f.entradas += ef.compraU; f.comprado += ef.compra$
+    f.salidas += ef.ventaU; f.cmv += ef.venta$
+    f.difU += ef.difU; f.dif$ += ef.dif$
+    f.reval$ += ef.reval$; f.ajuste += ef.ajusteU
   }
 
   return productos.map(p => {
@@ -94,10 +95,13 @@ export async function getProductos(
     const ent = f?.entradas ?? 0
     const sal = f?.salidas ?? 0
     const aj = f?.ajuste ?? 0
-    const stockInicial = stockFinal - ent + sal - aj
+    const difU = f?.difU ?? 0
+    const stockInicial = stockFinal - ent + sal - difU - aj
     return {
       ...p,
       stockActual: stockFinal,
+      // Stock de hoy (para corregirlo desde la ficha aunque se mire un período pasado)
+      stockHoy: p.stockActual ?? 0,
       stockInicialPeriodo: stockInicial,
       entradasPeriodo: ent,
       salidasPeriodo: sal,
@@ -105,6 +109,10 @@ export async function getProductos(
       valorInicialPeriodo: f?.valorInicial ?? 0,
       valorCompradoPeriodo: f?.comprado ?? 0,
       valorFinalPeriodo: f?.valor ?? 0,
+      // Sobrantes/faltantes cargados a mano y cambios de costo del período
+      diferenciaUnidadesPeriodo: difU,
+      diferenciaValorPeriodo: f?.dif$ ?? 0,
+      revaluacionPeriodo: f?.reval$ ?? 0,
     }
   })
 }
@@ -225,39 +233,101 @@ export async function getMovimientosStock(productoId: string | string[]) {
 }
 
 /**
- * Ajuste de stock desde la ficha (conteo, rotura, pérdida): se carga el stock contado y se
- * registra solo la diferencia como entrada o salida al costo promedio, así Inventario,
- * CMV y Balance lo toman igual que cualquier otro movimiento.
+ * Diferencia de inventario desde la ficha (conteo, rotura, robo, vencido…): se carga el stock
+ * nuevo y se registra la diferencia como sobrante (ganancia) o faltante (pérdida), valorizada
+ * al costo unitario de hoy. No mueve la caja ni va al costo de lo vendido.
+ * La fecha (yyyy-mm-dd, hoy por defecto) define en qué período cae el resultado.
  */
-export async function ajustarStock(productoId: string, contado: number, motivo: string): Promise<ActionResult> {
-  if (!Number.isFinite(contado) || contado < 0) return { success: false, error: 'Ingresá el stock contado' }
-  const businessId = await getBusinessId()
+export async function ajustarStock(productoId: string, contado: number, motivo: string, fecha?: string): Promise<ActionResult> {
+  if (!Number.isFinite(contado) || contado < 0) return { success: false, error: 'Ingresá el stock nuevo' }
+  const cuando = parseMovementDate(fecha)
+  if (Number.isNaN(cuando.getTime())) return { success: false, error: 'Fecha inválida' }
+  if (cuando.getTime() > Date.now() + 60_000) return { success: false, error: 'La fecha no puede ser futura' }
+  const businessId = await getBusinessId(true)
   const producto = await prisma.producto.findFirst({
     where: { id: productoId, businessId },
-    select: { id: true, stockActual: true, precioCosto: true },
+    select: { id: true, stockActual: true, precioCosto: true, costoFijo: true },
   })
   if (!producto) return { success: false, error: 'Producto no encontrado' }
   const diferencia = Math.round((contado - producto.stockActual) * 100) / 100
-  if (Math.abs(diferencia) < 0.001) return { success: false, error: 'El stock contado es igual al actual' }
+  if (Math.abs(diferencia) < 0.001) return { success: false, error: 'El stock nuevo es igual al actual' }
 
   const entra = diferencia > 0
+  const costo = costoEfectivo(producto)
+  const detalle = motivo.trim().slice(0, 150)
   await prisma.$transaction([
     prisma.movimientoStock.create({
       data: {
         productoId,
         tipo: entra ? 'ENTRADA' : 'SALIDA',
+        concepto: DIF_INVENTARIO,
         cantidad: Math.abs(diferencia),
-        precio: entra ? producto.precioCosto : 0,
-        // La salida por ajuste (merma, rotura) va al costo de lo vendido con el CPP actual
-        costoUnitario: entra ? null : producto.precioCosto,
-        motivo: `Ajuste de stock${motivo.trim() ? `: ${motivo.trim().slice(0, 150)}` : ''}`,
-        fecha: new Date(),
+        precio: costo,
+        costoUnitario: costo,
+        motivo: `${entra ? 'Sobrante' : 'Faltante'} de inventario${detalle ? `: ${detalle}` : ''}`,
+        fecha: cuando,
       },
     }),
     prisma.producto.update({ where: { id: productoId }, data: { stockActual: contado } }),
   ])
   revalidateTag(`dashboard:${businessId}`, 'max')
   revalidatePath('/stock')
+  return { success: true }
+}
+
+/**
+ * Costo unitario fijo (o volver al promedio con null). Vale desde ahora: el stock que hay se
+ * valoriza al costo nuevo (sin resultado) y las ventas de ahora en más salen a ese costo.
+ * Lo anterior no cambia. Queda un movimiento REVALUACION como historial.
+ */
+export async function fijarCostoUnitario(productoId: string, costo: number | null): Promise<ActionResult> {
+  if (costo !== null && (!Number.isFinite(costo) || costo < 0)) return { success: false, error: 'Ingresá un costo válido' }
+  const businessId = await getBusinessId(true)
+  const producto = await prisma.producto.findFirst({
+    where: { id: productoId, businessId },
+    select: { id: true, precioCosto: true, costoFijo: true },
+  })
+  if (!producto) return { success: false, error: 'Producto no encontrado' }
+  const nuevo = costo === null ? null : Math.round(costo * 100) / 100
+  if (nuevo === producto.costoFijo) return { success: true }
+  const costoNuevo = nuevo ?? producto.precioCosto ?? 0
+  await prisma.$transaction([
+    prisma.movimientoStock.create({
+      data: {
+        productoId,
+        tipo: REVALUACION,
+        cantidad: 0,
+        precio: costoNuevo,
+        costoUnitario: costoNuevo,
+        motivo: nuevo === null ? 'Vuelve al costo promedio' : 'Costo unitario fijo',
+        fecha: new Date(),
+      },
+    }),
+    prisma.producto.update({ where: { id: productoId }, data: { costoFijo: nuevo } }),
+  ])
+  revalidateTag(`dashboard:${businessId}`, 'max')
+  revalidatePath('/stock')
+  return { success: true }
+}
+
+/** Cambia la unidad de medida (solo el nombre: el número de stock queda igual) */
+export async function cambiarUnidad(ref: { articuloId?: string | null; productoId?: string | null }, unidad: string): Promise<ActionResult> {
+  const u = unidad.trim().slice(0, 30)
+  if (!u) return { success: false, error: 'Elegí una unidad' }
+  const businessId = await getBusinessId(true)
+  if (ref.articuloId) {
+    await prisma.$transaction([
+      prisma.articulo.updateMany({ where: { id: ref.articuloId, businessId }, data: { unidad: u } }),
+      prisma.producto.updateMany({ where: { articuloId: ref.articuloId, businessId }, data: { unidad: u } }),
+    ])
+  } else if (ref.productoId) {
+    await prisma.producto.updateMany({ where: { id: ref.productoId, businessId }, data: { unidad: u } })
+  } else {
+    return { success: false, error: 'Falta el producto' }
+  }
+  revalidateTag(`dashboard:${businessId}`, 'max')
+  revalidatePath('/stock')
+  updateTag(`catalogs:${businessId}`)
   return { success: true }
 }
 

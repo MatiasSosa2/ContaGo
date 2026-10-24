@@ -2,11 +2,12 @@ import Link from 'next/link'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import PrintButton from '@/components/PrintButton'
-import FlujoDetail, { type CashTrends } from '@/components/financial-statements/FlujoDetail'
+import FlujoDetail, { type CashPrevious, type CashTrends } from '@/components/financial-statements/FlujoDetail'
 import { FlujoCharts } from '@/components/financial-statements/StatementCharts'
 import { SF_FONT, StatementHeader } from '@/components/financial-statements/modern'
 import { getCashStatement, getYearlySeries } from '@/app/actions'
-import { getReportsViewData, type ReportsSearchParams } from '../reportsData'
+import { getReportsViewData, previousPeriodArgs, type ReportsSearchParams } from '../reportsData'
+import type { CashLine } from '@/server/cash/cash-statement'
 import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
@@ -37,7 +38,32 @@ export default async function FlujoCajaPage({
   // Tendencia de la tarjeta de saldo: los meses del año con datos (hasta el mes elegido)
   const upTo = seriesActiveMonth ?? 11
   const meses = series.flujo.slice(0, upTo + 1).filter((m): m is NonNullable<typeof m> => m !== null)
-  const trends: CashTrends = { saldo: meses.map((m) => m.saldoFinal) }
+  const trends: CashTrends = { saldo: meses.map((m) => m.saldoFinal), variacion: meses.map((m) => m.ingresos - m.egresos) }
+
+  // Mismo cuadro del mes (o año) anterior: montos por línea y "línea›detalle"
+  let previous: CashPrevious = null
+  const prev = previousPeriodArgs(periodo, selectedYear, selectedMonth)
+  if (prev) {
+    const st = await getCashStatement(prev.period, prev.from, prev.to, prev.year, prev.month, undefined, undefined, cashCurrency, params?.caja ?? null)
+    const porLinea = (lines: CashLine[]) => {
+      const m: Record<string, number> = {}
+      for (const l of lines) {
+        m[l.label] = (m[l.label] ?? 0) + l.amount
+        for (const c of l.children ?? []) m[`${l.label}›${c.label}`] = (m[`${l.label}›${c.label}`] ?? 0) + c.amount
+      }
+      return m
+    }
+    previous = {
+      label: prev.label,
+      saldoInicial: st.saldoInicial,
+      saldoFinal: st.saldoFinal,
+      ingresos: st.totalIngresos,
+      egresos: st.totalEgresos,
+      variacion: st.saldoFinal - st.saldoInicial,
+      ing: porLinea(st.ingresos),
+      egr: porLinea(st.egresos.flatMap((k) => k.lines)),
+    }
+  }
 
   const monedaHref = (moneda: 'ARS' | 'USD') => {
     const sp = new URLSearchParams(queryString)
@@ -105,7 +131,7 @@ export default async function FlujoCajaPage({
       {/* Cuadro con números a la izquierda (60%); los dos gráficos a la derecha (40%) */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <div className="min-w-0">
-          <FlujoDetail data={statement} trends={trends} />
+          <FlujoDetail data={statement} trends={trends} previous={previous} />
         </div>
         <div className="flex min-w-0 flex-col gap-4">
           <FlujoCharts series={series} currency={cashCurrency} activeMonth={seriesActiveMonth} />

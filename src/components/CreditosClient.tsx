@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'next/navigation'
 import type { CreditAccount } from '@/server/credits/credit-balances'
 
 const CURRENCY_SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
@@ -15,10 +16,10 @@ function fmtDate(d: Date | string | null) {
   return new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }).replace('.', '')
 }
 
-// Créditos en verde (te deben), deudas en rojo (debés)
+// Colores (los mismos que Cajas): créditos índigo, deudas ámbar
 const COLOR = {
-  cxc: { text: 'text-[#2D6A4F] dark:text-[#5B9A78]', soft: 'bg-[#2D6A4F]/12 text-[#2D6A4F] dark:bg-[#5B9A78]/20 dark:text-[#8FBFA5]', btn: 'bg-[#2D6A4F] hover:bg-[#2D6A4F]' },
-  cxp: { text: 'text-[#B42318] dark:text-[#F97066]', soft: 'bg-[var(--ds-orange-dark)]/15 text-[#B42318] dark:bg-[var(--ds-orange-dark)]/20 dark:text-[#F97066]', btn: 'bg-[var(--ds-orange-dark)] hover:bg-[#912018]' },
+  cxc: { text: 'text-[#5E5CE6] dark:text-[#7D7AFF]', soft: 'bg-[#5E5CE6]/12 text-[#4B49C8] dark:bg-[#7D7AFF]/20 dark:text-[#A5A3FF]', btn: 'bg-[#5E5CE6] hover:bg-[#4B49C8]' },
+  cxp: { text: 'text-[#C77700] dark:text-[#FFB340]', soft: 'bg-[#FF9F0A]/15 text-[#B86E00] dark:bg-[#FF9F0A]/20 dark:text-[#FFB340]', btn: 'bg-[#FF9F0A] hover:bg-[#E58E00]' },
 }
 
 /** "Arq. Paula Martínez" → "AP" */
@@ -34,32 +35,17 @@ function sortByVencimiento(items: CreditAccount[]) {
     (b.proximoVencimiento ? new Date(b.proximoVencimiento).getTime() : Infinity))
 }
 
-type Filtro = 'todos' | 'vencidos' | 'alDia' | 'saldados'
-
-const FILTROS: { id: Filtro; label: string }[] = [
-  { id: 'todos', label: 'Todos' },
-  { id: 'vencidos', label: 'Vencidos' },
-  { id: 'alDia', label: 'Al día' },
-  { id: 'saldados', label: 'Saldados' },
-]
-
-function cumpleFiltro(a: CreditAccount, f: Filtro) {
-  if (f === 'todos') return true
-  if (f === 'saldados') return a.saldo <= 0
-  if (a.saldo <= 0) return false
-  return f === 'vencidos' ? a.vencido : !a.vencido
-}
-
-/** Estado de cada cuenta: vencida en rojo, próxima fecha en verde, saldada en gris */
-function EstadoChip({ account }: { account: CreditAccount }) {
-  if (account.saldo <= 0) return <span className="text-[12px] text-[var(--ds-gray-500)]">Saldado</span>
-  if (account.vencido) {
-    return <span className="inline-flex rounded-full bg-[#B42318]/10 px-2 py-0.5 text-[11px] font-semibold text-[#B42318] dark:bg-[#F97066]/15 dark:text-[#F97066]">Vencido</span>
-  }
-  if (account.proximoVencimiento) {
-    return <span className="inline-flex rounded-full bg-[#2D6A4F]/10 px-2 py-0.5 text-[11px] font-medium text-[#2D6A4F] dark:bg-[#5B9A78]/20 dark:text-[#8FBFA5]">Vence {fmtDate(account.proximoVencimiento)}</span>
-  }
-  return null
+/** Tarjeta de resumen arriba: Te deben / Debés / Balance neto */
+function ResumenCard({ titulo, monto, detalle, tono }: { titulo: string; monto: number; detalle?: string; tono: string }) {
+  return (
+    <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] dark:bg-[#1C1C1E] dark:shadow-none">
+      <p className="text-[13px] font-medium text-[#8E8E93]">{titulo}</p>
+      <p className={`mt-1 text-[30px] font-semibold leading-tight tracking-tight tabular-nums ${tono}`}>
+        {monto < 0 ? '−' : ''}{fmt(monto)}
+      </p>
+      {detalle && <p className="mt-0.5 text-[13px] text-[#8E8E93]">{detalle}</p>}
+    </div>
+  )
 }
 
 // ── Fila iOS: iniciales, nombre y saldo. Toda la fila abre la ficha ──
@@ -74,17 +60,14 @@ function CreditAccountRow({ account, onOpen }: { account: CreditAccount; onOpen:
       onClick={onOpen}
       className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03] active:bg-black/[0.05] dark:hover:bg-white/[0.04] ${saldado ? 'opacity-55' : ''}`}
     >
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${saldado ? 'bg-black/[0.06] text-[var(--ds-gray-500)] dark:bg-white/10' : c.soft}`}>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${saldado ? 'bg-black/[0.06] text-[#8E8E93] dark:bg-white/10' : c.soft}`}>
         {iniciales(account.name)}
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] text-[var(--ds-gray-900)] dark:text-white">{account.name}</span>
-        <span className="mt-0.5 block"><EstadoChip account={account} /></span>
-      </span>
+      <span className="min-w-0 flex-1 truncate text-[15px] text-[#1C1C1E] dark:text-white">{account.name}</span>
       {!saldado && (
-        <span className="shrink-0 text-[15px] font-medium tabular-nums text-[var(--ds-gray-900)] dark:text-white">{fmt(account.saldo, account.currency)}</span>
+        <span className="shrink-0 text-[15px] font-medium tabular-nums text-[#1C1C1E] dark:text-white">{fmt(account.saldo, account.currency)}</span>
       )}
-      <svg className="h-3.5 w-3.5 shrink-0 text-[var(--ds-gray-300)] dark:text-[var(--ds-gray-650)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+      <svg className="h-3.5 w-3.5 shrink-0 text-[#C7C7CC] dark:text-[#48484A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
       </svg>
     </button>
@@ -124,7 +107,7 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end justify-center md:items-center" role="dialog" aria-modal="true" aria-label={account.name}>
       <div className="reg-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="reg-sheet relative flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-[var(--ds-gray-100)] shadow-2xl dark:bg-black md:rounded-3xl">
+      <div className="reg-sheet relative flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-[#F2F2F7] shadow-2xl dark:bg-black md:rounded-3xl">
         <div className="flex justify-center pt-2 md:hidden" aria-hidden>
           <span className="h-[5px] w-9 rounded-full bg-black/15 dark:bg-white/20" />
         </div>
@@ -132,7 +115,7 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.06] text-[var(--ds-gray-500)] transition active:scale-90 dark:bg-white/10"
+          className="absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.06] text-[#8E8E93] transition active:scale-90 dark:bg-white/10"
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
@@ -141,15 +124,15 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
           {/* Encabezado: iniciales, nombre, saldo y progreso */}
           <div className="flex flex-col items-center pt-5 text-center">
             <span className={`flex h-14 w-14 items-center justify-center rounded-full text-[18px] font-semibold ${c.soft}`}>{iniciales(account.name)}</span>
-            <p className="mt-2 text-[17px] font-semibold text-[var(--ds-gray-900)] dark:text-white">{account.name}</p>
+            <p className="mt-2 text-[17px] font-semibold text-[#1C1C1E] dark:text-white">{account.name}</p>
             <p className={`mt-1 text-[34px] font-semibold tracking-tight tabular-nums ${c.text}`}>{fmt(account.saldo, cur)}</p>
-            <p className="text-[13px] text-[var(--ds-gray-500)]">{account.saldo > 0 ? (isCxC ? 'te debe' : 'le debés') : 'Saldado'}</p>
+            <p className="text-[13px] text-[#8E8E93]">{account.saldo > 0 ? (isCxC ? 'te debe' : 'le debés') : 'Saldado'}</p>
             {account.total > 0 && (
               <div className="mt-4 w-full max-w-[260px]">
                 <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
-                  <div className={`h-full rounded-full ${isCxC ? 'bg-[#2D6A4F]' : 'bg-[var(--ds-orange-dark)]'}`} style={{ width: `${progreso}%` }} />
+                  <div className={`h-full rounded-full ${isCxC ? 'bg-[#5E5CE6]' : 'bg-[#FF9F0A]'}`} style={{ width: `${progreso}%` }} />
                 </div>
-                <p className="mt-1.5 text-[12px] text-[var(--ds-gray-500)]">
+                <p className="mt-1.5 text-[12px] text-[#8E8E93]">
                   {isCxC ? 'Cobrado' : 'Pagado'} {progreso}% · {fmt(account.aplicado, cur)} de {fmt(account.total, cur)}
                 </p>
               </div>
@@ -159,8 +142,8 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
           {/* Operaciones: venta/compra a crédito; al tocar se despliegan sus cuotas */}
           {account.operaciones.length > 0 && (
             <section className="mt-6">
-              <p className="mb-1.5 px-4 text-[13px] text-[var(--ds-gray-500)]">Operaciones</p>
-              <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[var(--ds-gray-900)]">
+              <p className="mb-1.5 px-4 text-[13px] text-[#8E8E93]">Operaciones</p>
+              <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[#1C1C1E]">
                 {account.operaciones.map((op) => {
                   const saldada = op.resta <= 0.009
                   const n = op.cuotas.length
@@ -168,15 +151,15 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
                     <details key={op.id} className="ios-disclosure group">
                       <summary className={`flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden ${saldada ? 'opacity-60' : ''}`}>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[15px] text-[var(--ds-gray-900)] dark:text-white">
+                          <p className="truncate text-[15px] text-[#1C1C1E] dark:text-white">
                             {fmtDate(op.date)} · {isCxC ? 'Venta' : 'Compra'}
                           </p>
-                          <p className="truncate text-[12px] text-[var(--ds-gray-500)]">
+                          <p className="truncate text-[12px] text-[#8E8E93]">
                             {n} {n === 1 ? 'cuota' : 'cuotas'} · {saldada ? (isCxC ? 'Cobrada' : 'Pagada') : `resta ${fmt(op.resta, cur)}`}
                           </p>
                         </div>
-                        <span className="shrink-0 text-[15px] tabular-nums text-[var(--ds-gray-900)] dark:text-white">{fmt(op.total, cur)}</span>
-                        <svg className="h-3.5 w-3.5 shrink-0 text-[var(--ds-gray-300)] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                        <span className="shrink-0 text-[15px] tabular-nums text-[#1C1C1E] dark:text-white">{fmt(op.total, cur)}</span>
+                        <svg className="h-3.5 w-3.5 shrink-0 text-[#C7C7CC] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                         </svg>
                       </summary>
@@ -188,16 +171,16 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
                             <li key={q.id} className="flex items-center gap-2 py-1 text-[12px] tabular-nums">
                               <span className="flex w-3 shrink-0 justify-center" aria-hidden>
                                 {pagada ? (
-                                  <svg className="h-3 w-3 text-[var(--ds-gray-400)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+                                  <svg className="h-3 w-3 text-[#AEAEB2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.5 4.5L19 7.5" /></svg>
                                 ) : q.vencida ? (
-                                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--ds-orange-dark)]" />
+                                  <span className="h-1.5 w-1.5 rounded-full bg-[#FF9F0A]" />
                                 ) : null}
                               </span>
-                              <span className={`min-w-0 flex-1 truncate ${pagada ? 'text-[var(--ds-gray-400)] line-through decoration-black/15 dark:text-[var(--ds-gray-600)] dark:decoration-white/15' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80'}`}>
+                              <span className={`min-w-0 flex-1 truncate ${pagada ? 'text-[#AEAEB2] line-through decoration-black/15 dark:text-[#636366] dark:decoration-white/15' : 'text-[#3C3C43] dark:text-[#EBEBF5]/80'}`}>
                                 {q.cuotasTotal ? `Cuota ${q.cuotaNumero}/${q.cuotasTotal}` : 'Cuota única'} · {fmtDate(q.fechaVencimiento)}
-                                {q.estado === 'PARCIAL' && <span className="text-[var(--ds-gray-500)] no-underline"> · resta {fmt(q.resta, cur)}</span>}
+                                {q.estado === 'PARCIAL' && <span className="text-[#8E8E93] no-underline"> · resta {fmt(q.resta, cur)}</span>}
                               </span>
-                              <span className={`shrink-0 ${pagada ? 'text-[var(--ds-gray-400)] line-through decoration-black/15 dark:text-[var(--ds-gray-600)] dark:decoration-white/15' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80'}`}>
+                              <span className={`shrink-0 ${pagada ? 'text-[#AEAEB2] line-through decoration-black/15 dark:text-[#636366] dark:decoration-white/15' : 'text-[#3C3C43] dark:text-[#EBEBF5]/80'}`}>
                                 {fmt(q.monto, cur)}
                               </span>
                             </li>
@@ -227,31 +210,24 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
 }
 
 // ── Lista CxC (te deben) o CxP (debés): todos, los abiertos por vencimiento y los saldados al final ──
-function CreditGroupPanel({ label, isCxC, accounts, filtro }: {
+function CreditGroupPanel({ label, isCxC, accounts, abrir }: {
   label: string
   isCxC: boolean
   accounts: CreditAccount[]
-  filtro: Filtro
+  /** Nombre del cliente o proveedor cuya ficha se abre al entrar (ej. desde el Estado patrimonial) */
+  abrir?: string | null
 }) {
-  const [openKey, setOpenKey] = useState<string | null>(null)
-  const visibles = accounts.filter((a) => cumpleFiltro(a, filtro))
-  const abiertos = sortByVencimiento(visibles.filter((a) => a.saldo > 0))
-  const saldados = visibles.filter((a) => a.saldo <= 0).sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  const [openKey, setOpenKey] = useState<string | null>(() => (abrir ? accounts.find((a) => a.name === abrir)?.key ?? null : null))
+  const abiertos = sortByVencimiento(accounts.filter((a) => a.saldo > 0))
+  const saldados = accounts.filter((a) => a.saldo <= 0).sort((a, b) => a.name.localeCompare(b.name, 'es'))
   const abierta = accounts.find((a) => a.key === openKey) ?? null
-
-  const vacio = filtro !== 'todos'
-    ? 'Sin cuentas en este filtro'
-    : `${isCxC ? 'Nadie te debe' : 'No debés nada'} por ahora`
 
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between px-1">
-        <h2 className="ds-label">{label}</h2>
-        <span className="text-[12px] tabular-nums text-[var(--ds-gray-500)]">{visibles.length}</span>
-      </div>
-      <div className="ds-panel divide-y divide-black/[0.06] overflow-hidden dark:divide-white/[0.08]">
-        {visibles.length === 0 ? (
-          <p className="py-8 text-center text-[14px] text-[var(--ds-gray-500)]">{vacio}</p>
+      <h2 className="mb-2 px-1 text-[13px] font-medium text-[#8E8E93]">{label}</h2>
+      <div className="divide-y divide-black/[0.06] overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:divide-white/[0.08] dark:bg-[#1C1C1E] dark:shadow-none">
+        {abiertos.length === 0 && saldados.length === 0 ? (
+          <p className="py-8 text-center text-[14px] text-[#8E8E93]">{isCxC ? 'Nadie te debe' : 'No debés nada'} por ahora</p>
         ) : (
           [...abiertos, ...saldados].map((a) => <CreditAccountRow key={a.key} account={a} onOpen={() => setOpenKey(a.key)} />)
         )}
@@ -263,83 +239,30 @@ function CreditGroupPanel({ label, isCxC, accounts, filtro }: {
 
 // ── Componente principal ──
 export default function CreditosClient({ accounts }: { accounts: CreditAccount[] }) {
-  const [filtro, setFiltro] = useState<Filtro>('todos')
+  // Ficha a abrir al entrar (?abrir=Nombre), ej. desde el Estado patrimonial
+  const abrir = useSearchParams().get('abrir')
   const cxc = accounts.filter((a) => a.type === 'INCOME')
   const cxp = accounts.filter((a) => a.type === 'EXPENSE')
   // Totales en pesos = suma de los saldos de la lista (misma regla que el Balance general)
   const sumArs = (list: CreditAccount[]) => list.filter((a) => a.currency === 'ARS').reduce((s, a) => s + a.saldo, 0)
   const totalPorCobrar = sumArs(cxc)
   const totalPorPagar = sumArs(cxp)
-  const neto = totalPorCobrar - totalPorPagar
-  const totalBruto = totalPorCobrar + totalPorPagar
-  const pctCobrar = totalBruto > 0 ? Math.round((totalPorCobrar / totalBruto) * 100) : 0
 
   const abiertos = (list: CreditAccount[]) => list.filter((a) => a.saldo > 0).length
   const nCxc = abiertos(cxc)
   const nCxp = abiertos(cxp)
-  const nVencidos = accounts.filter((a) => a.vencido).length
-  const conteo = (f: Filtro) => accounts.filter((a) => cumpleFiltro(a, f)).length
 
   return (
     <div className="space-y-6">
-      {/* Panel destacado: balance neto, cobrar vs pagar y alertas */}
-      <section className="ds-hero p-5 md:p-6">
-        <p className="ds-label">Balance de créditos</p>
-        <p className="mt-2 text-[36px] font-semibold leading-none tracking-tight tabular-nums">
-          {neto < 0 ? '−' : ''}{fmt(neto)}
-        </p>
-        <p className="mt-2 text-[13px] text-white/60">
-          {neto >= 0 ? 'Te deben más de lo que debés' : 'Debés más de lo que te deben'}
-          {nVencidos > 0 && (
-            <>
-              {' · '}
-              <span className="font-medium text-[#FCA5A5]">{nVencidos} {nVencidos === 1 ? 'vencido' : 'vencidos'}</span>
-            </>
-          )}
-        </p>
-
-        <div className="mt-5 flex h-1.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
-          <div className="h-full bg-[#6DA47A]" style={{ width: `${pctCobrar}%` }} />
-          <div className="h-full bg-[#F97066]" style={{ width: `${totalBruto > 0 ? 100 - pctCobrar : 0}%` }} />
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-white/[0.06] p-3">
-            <p className="ds-label">Por cobrar</p>
-            <p className="mt-1 text-[18px] font-semibold tabular-nums text-[#F0FDF4]">{fmt(totalPorCobrar)}</p>
-            <p className="text-[12px] text-white/50">{nCxc} {nCxc === 1 ? 'cliente' : 'clientes'}</p>
-          </div>
-          <div className="rounded-xl bg-white/[0.06] p-3">
-            <p className="ds-label">Por pagar</p>
-            <p className="mt-1 text-[18px] font-semibold tabular-nums text-[#FCA5A5]">{fmt(totalPorPagar)}</p>
-            <p className="text-[12px] text-white/50">{nCxp} {nCxp === 1 ? 'proveedor' : 'proveedores'}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Filtro por estado: el mismo lenguaje de la barra lateral */}
-      <div role="tablist" aria-label="Filtrar cuentas" className="scrollbar-hide flex gap-1 overflow-x-auto rounded-xl bg-black/[0.05] p-1 dark:bg-white/[0.06]">
-        {FILTROS.map((f) => {
-          const activo = filtro === f.id
-          return (
-            <button
-              key={f.id}
-              type="button"
-              role="tab"
-              aria-selected={activo}
-              onClick={() => setFiltro(f.id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${activo ? 'ds-item-active' : 'text-[var(--ds-gray-500)] hover:text-[var(--ds-gray-900)] dark:hover:text-white'}`}
-            >
-              {f.label}
-              <span className="text-[11px] tabular-nums opacity-70">{conteo(f.id)}</span>
-            </button>
-          )
-        })}
+      {/* Resumen: créditos (te deben) y deudas (debés) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <ResumenCard titulo="Créditos" monto={totalPorCobrar} detalle={`${nCxc} ${nCxc === 1 ? 'cliente' : 'clientes'}`} tono={COLOR.cxc.text} />
+        <ResumenCard titulo="Deudas" monto={totalPorPagar} detalle={`${nCxp} ${nCxp === 1 ? 'proveedor' : 'proveedores'}`} tono={COLOR.cxp.text} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <CreditGroupPanel label="Créditos" isCxC accounts={cxc} filtro={filtro} />
-        <CreditGroupPanel label="Deudas" isCxC={false} accounts={cxp} filtro={filtro} />
+        <CreditGroupPanel label="Créditos" isCxC accounts={cxc} abrir={abrir} />
+        <CreditGroupPanel label="Deudas" isCxC={false} accounts={cxp} abrir={abrir} />
       </div>
     </div>
   )

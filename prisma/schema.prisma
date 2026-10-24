@@ -467,6 +467,9 @@ model Producto {
   // true = precio propio de la variante; false = sigue el precio del artículo
   precioPropio  Boolean           @default(false)
   codigoBarras  String?
+  // Costo unitario fijado a mano (desde que se fija vale para stock y ventas); null = promedio.
+  // precioCosto sigue siendo el costo promedio que calcula el sistema (de referencia).
+  costoFijo     Float?
   activo        Boolean           @default(true)
   movimientos   MovimientoStock[]
   transactions  Transaction[]
@@ -533,7 +536,9 @@ model Articulo {
 
 model MovimientoStock {
   id         String   @id @default(uuid())
-  tipo       String   // ENTRADA | SALIDA | AJUSTE
+  tipo       String   // ENTRADA | SALIDA | AJUSTE | REVALUACION (cambio de costo: cantidad 0, precio = costo nuevo)
+  // DIFERENCIA_INVENTARIO = sobrante/faltante cargado a mano (va al resultado, no al costo de lo vendido)
+  concepto   String?
   cantidad   Float
   precio     Float    @default(0)
   // SALIDA: costo promedio ponderado (CPP) del producto al momento de la salida.

@@ -38,11 +38,13 @@ export type CashStatement = {
 
 /** Agrupa movimientos en renglones (y sub-renglones) sumando montos */
 class Lines {
-  private map = new Map<string, { amount: number; movs: CashMov[]; children: Map<string, { amount: number; movs: CashMov[] }> }>()
+  private map = new Map<string, { amount: number; movs: CashMov[]; sueltos: CashMov[]; children: Map<string, { amount: number; movs: CashMov[] }> }>()
   add(label: string, mov: CashMov, child?: string | null) {
-    const line = this.map.get(label) ?? { amount: 0, movs: [] as CashMov[], children: new Map<string, { amount: number; movs: CashMov[] }>() }
+    const line = this.map.get(label) ?? { amount: 0, movs: [] as CashMov[], sueltos: [] as CashMov[], children: new Map<string, { amount: number; movs: CashMov[] }>() }
     line.amount += mov.amount
     line.movs.push(mov)
+    // Sin detalle (ej. un gasto sin subcategoría): si la línea tiene otros con detalle, va a "Sin subcategoría"
+    if (!child) line.sueltos.push(mov)
     if (child) {
       const c = line.children.get(child) ?? { amount: 0, movs: [] }
       c.amount += mov.amount
@@ -54,14 +56,19 @@ class Lines {
   build(): CashLine[] {
     const byDate = (m: CashMov[]) => [...m].sort((a, b) => b.date.getTime() - a.date.getTime())
     return [...this.map.entries()]
-      .map(([label, l]) => ({
-        label,
-        amount: l.amount,
-        movs: byDate(l.movs),
-        children: l.children.size > 0
-          ? [...l.children.entries()].map(([cl, c]) => ({ label: cl, amount: c.amount, movs: byDate(c.movs) })).sort((a, b) => b.amount - a.amount)
-          : undefined,
-      }))
+      .map(([label, l]) => {
+        if (l.children.size > 0 && l.sueltos.length > 0) {
+          l.children.set('Sin subcategoría', { amount: l.sueltos.reduce((acc, m) => acc + m.amount, 0), movs: l.sueltos })
+        }
+        return {
+          label,
+          amount: l.amount,
+          movs: byDate(l.movs),
+          children: l.children.size > 0
+            ? [...l.children.entries()].map(([cl, c]) => ({ label: cl, amount: c.amount, movs: byDate(c.movs) })).sort((a, b) => b.amount - a.amount)
+            : undefined,
+        }
+      })
       .sort((a, b) => b.amount - a.amount)
   }
 }

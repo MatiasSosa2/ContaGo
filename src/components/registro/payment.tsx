@@ -70,11 +70,12 @@ export function MoneyField({ value, onChange, onEnter, label, align = 'left', si
   label: string
   align?: 'left' | 'right'
   /** md: monto destacado (medios combinados). lg: monto principal (fila "Monto") */
-  size?: 'sm' | 'md' | 'lg'
+  /** total: 17 px, como el Total del carrito */
+  size?: 'sm' | 'md' | 'lg' | 'total'
   placeholder?: string
 }) {
   const [editing, setEditing] = useState(false)
-  const sizeCls = size === 'lg' ? 'text-[20px] font-semibold' : size === 'md' ? 'text-[15px] font-medium' : 'text-[13px]'
+  const sizeCls = size === 'total' ? 'text-[17px] font-semibold' : size === 'lg' ? 'text-[20px] font-semibold' : size === 'md' ? 'text-[15px] font-medium' : 'text-[13px]'
   const cls = `${align === 'right' ? 'text-right' : 'text-left'} ${sizeCls}`
   if (editing) {
     return (
@@ -83,15 +84,15 @@ export function MoneyField({ value, onChange, onEnter, label, align = 'left', si
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => { if (e.key === 'Enter') { setEditing(false); onEnter?.() } }}
-        className={`ios-bare w-full border-b border-[var(--reg-accent,#2D6A4F)] bg-transparent text-[var(--ds-gray-900)] outline-none dark:text-white tabular-nums ${cls}`}
+        className={`ios-bare w-full border-b border-[var(--reg-accent,#4F8A6B)] bg-transparent text-[#1C1C1E] outline-none dark:text-white tabular-nums ${cls}`}
         aria-label={label}
       />
     )
   }
   return (
     <button type="button" onClick={() => setEditing(true)} aria-label={`Editar ${label.toLowerCase()}`}
-      className={`w-full border-b border-transparent text-[var(--ds-gray-900)] transition-colors hover:border-black/10 dark:text-white dark:hover:border-white/15 ${cls}`}>
-      {value === '' ? <span className="text-[var(--ds-gray-300)]">{placeholder}</span> : fmt(num(value))}
+      className={`w-full border-b border-transparent text-[#1C1C1E] transition-colors hover:border-black/10 dark:text-white dark:hover:border-white/15 ${cls}`}>
+      {value === '' ? <span className="text-[#C7C7CC]">{placeholder}</span> : fmt(num(value))}
     </button>
   )
 }
@@ -251,7 +252,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
             type="button"
             onClick={() => setCuotasOpen(open ? null : p.key)}
             aria-expanded={open}
-            className="flex w-full items-center justify-between gap-2 px-4 pb-2 text-[12px] text-[var(--ds-gray-500)] transition-opacity active:opacity-60"
+            className="flex w-full items-center justify-between gap-2 px-4 pb-2 text-[12px] text-[#8E8E93] transition-opacity active:opacity-60"
           >
             <span>Cuotas</span>
             <span className="flex items-center gap-1">{resumen}<Chevron open={open} /></span>
@@ -262,7 +263,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
         {open && (
           <div className="bg-[#F9F9FB] px-4 py-2 dark:bg-white/[0.03]">
             <div className="flex items-center justify-between py-1.5 text-[15px]">
-              <span className="text-[var(--ds-gray-900)] dark:text-white">Cantidad</span>
+              <span className="text-[#1C1C1E] dark:text-white">Cantidad</span>
               <input
                 type="number" min={1} max={60} value={p.cuotasCount}
                 onChange={(e) => updatePago(p.key, { cuotasCount: Math.min(60, Math.max(1, parseInt(e.target.value) || 1)), overrides: {} })}
@@ -274,7 +275,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
             <div className="mt-1 border-t border-black/[0.06] pt-1 dark:border-white/[0.06]">
               {cuotas.map((c, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 py-1 text-[13px]">
-                  <span className="w-8 text-[var(--ds-gray-500)]">{i + 1}/{cuotas.length}</span>
+                  <span className="w-8 text-[#8E8E93]">{i + 1}/{cuotas.length}</span>
                   <div className="flex-1">
                     <DateChip
                       value={c.fecha}
@@ -294,7 +295,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
               ))}
             </div>
             {Math.abs(suma - monto) > 0.01 && (
-              <p className="py-1 text-[12px] text-[var(--ds-red)]">Suman {fmt(suma)} · deberían sumar {fmt(monto)}</p>
+              <p className="py-1 text-[12px] text-[#FF3B30]">Suman {fmt(suma)} · deberían sumar {fmt(monto)}</p>
             )}
           </div>
         )}
@@ -304,17 +305,17 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
 
   return (
     <div className={IOS_FONT}>
-      <div className="mb-1.5 px-4 text-[13px] text-[var(--ds-gray-500)]">{title}</div>
+      <div className="mb-1.5 px-4 text-[13px] text-[#8E8E93]">{title}</div>
       {!combinado ? (
         <>
           <Group>
             <div className="px-3 py-2.5">
-              <Segmented options={metodos} value={pagos[0].metodo} onChange={(m) => setMetodo(pagos[0], m)} />
+              <Segmented size="sm" options={metodos} value={pagos[0].metodo} onChange={(m) => setMetodo(pagos[0], m)} />
             </div>
             {pagos[0].metodo === 'CREDITO' ? cuotasRows(pagos[0]) : cajaRow(pagos[0])}
           </Group>
           <div className="mt-1.5 px-4">
-            <button type="button" onClick={combinar} className="text-[12px] text-[var(--ds-gray-500)] transition-opacity active:opacity-60">
+            <button type="button" onClick={combinar} className="text-[12px] text-[#8E8E93] transition-opacity active:opacity-60">
               Combinar medios de pago
             </button>
           </div>
@@ -349,7 +350,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
                         type="button"
                         onClick={() => quitarPago(p.key)}
                         aria-label="Quitar medio de pago"
-                        className="text-[var(--ds-gray-300)] transition-colors hover:text-[var(--ds-red)]"
+                        className="text-[#C7C7CC] transition-colors hover:text-[#FF3B30]"
                       >
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
@@ -360,14 +361,14 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
               )
             })}
             <div className="px-4 py-2">
-              <button type="button" onClick={agregarMedio} className="text-[12px] text-[var(--ds-gray-500)] transition-opacity active:opacity-60">+ Agregar medio</button>
+              <button type="button" onClick={agregarMedio} className="text-[12px] text-[#8E8E93] transition-opacity active:opacity-60">+ Agregar medio</button>
             </div>
           </Group>
           <div className="mt-2 flex items-center justify-between px-4 text-[13px]">
-            <span className={Math.abs(falta) <= 0.01 ? 'text-[var(--ds-green)] dark:text-[var(--ds-green-dark)]' : 'text-[var(--ds-red)] dark:text-[var(--ds-red-dark)]'}>
+            <span className={Math.abs(falta) <= 0.01 ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : 'text-[#B8664F] dark:text-[#E3A592]'}>
               {Math.abs(falta) <= 0.01 ? 'Pago completo' : falta > 0 ? `Falta asignar ${fmt(falta)}` : `Te pasaste ${fmt(-falta)}`}
             </span>
-            <button type="button" onClick={noCombinar} className="text-[12px] text-[var(--ds-gray-500)] transition-opacity active:opacity-60">No combinar</button>
+            <button type="button" onClick={noCombinar} className="text-[12px] text-[#8E8E93] transition-opacity active:opacity-60">No combinar</button>
           </div>
         </>
       )}

@@ -209,6 +209,15 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
   const otherIncomeTotal = er.otherIncomeItems.reduce((sum, item) => sum + item.amount, 0)
   const totalIncome = er.ventas + otherIncomeTotal
   const grossProfit = er.ventas - er.cmv
+  // Por categoría de inventario: ventas, costo y ganancia bruta (ordenadas por ventas)
+  const categoriasER = Array.from(new Set([...Object.keys(er.ventasPorCategoria ?? {}), ...Object.keys(er.cmvPorCategoria ?? {})]))
+    .sort((a, b) => (er.ventasPorCategoria?.[b] ?? 0) - (er.ventasPorCategoria?.[a] ?? 0))
+  const lineaCat = (amount: number, label: string) => ({ label, amount, pct: pctOf(amount, er.ventas) })
+  const salesLines = categoriasER.map((c) => lineaCat(er.ventasPorCategoria?.[c] ?? 0, c)).filter((l) => Math.abs(l.amount) >= 0.5)
+  const cogsLines = categoriasER.map((c) => lineaCat(er.cmvPorCategoria?.[c] ?? 0, c)).filter((l) => Math.abs(l.amount) >= 0.5)
+  const grossLines = categoriasER
+    .map((c) => lineaCat((er.ventasPorCategoria?.[c] ?? 0) - (er.cmvPorCategoria?.[c] ?? 0), c))
+    .filter((l) => Math.abs(l.amount) >= 0.5)
 
   const operatingExpenseLines = groupStatementLines(er.expenseItems, totalIncome)
   const operatingExpensesTotal = er.expenseItems.reduce((sum, item) => sum + item.amount, 0)
@@ -313,6 +322,9 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
       otherIncome: otherIncomeLines,
       otherIncomeTotal,
       cogs: er.cmv,
+      salesLines,
+      cogsLines,
+      grossLines,
       grossProfit,
       grossMargin: pctOf(grossProfit, er.ventas),
       operatingExpenses: operatingExpenseLines,

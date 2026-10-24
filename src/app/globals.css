@@ -4,25 +4,6 @@
 @variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  /* ── Paleta oficial ─────────────────────────────────────────────
-     Verde (marca), neutros fríos (superficies y texto) y un único rojo
-     reservado para negativos, alertas y errores. No usar otros tonos. */
-  --ds-green-50: #F2F8F4;
-  --ds-green-100: #E3F1E8;
-  --ds-green-200: #C5E3CF;
-  --ds-green-300: #9AC7A8;
-  --ds-green-400: #5B9A78;
-  --ds-green-500: #3E7F5F;
-  --ds-green-600: #2D6A4F;
-  --ds-green-700: #1B4332;
-  --ds-green-800: #14301F;
-  --ds-green-900: #0E2418;
-  --ds-red-50: #FEF3F2;
-  --ds-red-100: #FEE4E2;
-  --ds-red-300: #F97066;
-  --ds-red-600: #B42318;
-  --ds-red-800: #912018;
-
   --background: #F7F8F9;
   --foreground: #111827;
   --bg: #F7F8F9;
@@ -30,120 +11,44 @@
   --border: #E5E7EB;
   --text-primary: #111827;
   --text-secondary: #6B7280;
-  --success: #2D6A4F;
-  --danger: #B42318;
+  --success: #15803D;
+  --danger: #B91C1C;
   --neutral: #374151;
-  --sidebar: #14301F;
-  --sidebar-hover: #1B4332;
+  --sidebar: #1F3D2B;
+  --sidebar-hover: #2A4D38;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 8px 24px rgba(0,0,0,0.06);
   --radius: 14px;
+  
+  /* Brand Colors — Tactical Executive Warmth */
+  --color-military: #3A4D39;       /* Deep Olive Green — Authority */
+  --color-military-dark: #2A3D29;  /* Darkest olive — text on light */
+  --color-military-light: #EBF0EA; /* Ultra light olive — hover surfaces */
+  --color-military-mid: #5A7A57;   /* Mid olive — chart accent */
+  
+  --color-gold: #C5A065;           /* Matte Gold — Value & Accent */
+  --color-gold-dark: #A07842;      /* Deep gold for text */
+  --color-gold-light: #FAF6EE;     /* Warm cream for gold backgrounds */
 
-  /* Marca: verde. Los nombres históricos (military/gold/oxide) se mantienen
-     para no tocar cientos de clases, pero resuelven a la paleta oficial. */
-  --color-military: #1B4332;
-  --color-military-dark: #14301F;
-  --color-military-light: #E3F1E8;
-  --color-military-mid: #2D6A4F;
+  /* Structural palette — stepped depth hierarchy */
+  --color-bone: #C8C3BB;           /* Canvas — warm stone, visible contrast vs white cards */
+  --color-sand: #B8B2A9;           /* Secondary surface — slightly darker than bone */
+  --color-oxide: #A65D57;          /* Oxide Red — risk/alerts */
 
-  --color-gold: #2D6A4F;
-  --color-gold-dark: #1B4332;
-  --color-gold-light: #E3F1E8;
+  /* Deep structure */
+  --color-carbon: #1A1A1A;
+  --color-carbon-mid: #2A2A2A;
+  --color-slate: #D4CFC7;          /* Tertiary bg — slightly lighter than bone */
 
-  /* Neutros fríos de superficie */
-  --color-bone: #E5E7EB;
-  --color-sand: #D1D5DB;
-  --color-oxide: #B42318;
-
-  /* Estructura oscura */
-  --color-carbon: #111827;
-  --color-carbon-mid: #1F2937;
-  --color-slate: #F3F4F6;
-
-  /* Verdes de énfasis */
-  --color-forest: #1B4332;
-  --color-emerald: #2D6A4F;
-  --color-emerald-light: #E3F1E8;
-
-  /* Superficies y texto de la capa UI compartida (registro, selects, calendario).
-     Valores claros y oscuros en un solo lugar; no usar hex sueltos en componentes. */
-  --ui-surface: #FFFFFF;
-  --ui-popover: rgb(255 255 255 / 0.95);
-  --ui-segment-active: #FFFFFF;
-  --ui-label: #1C1C1E;
-  --ui-secondary: #8E8E93;
-  --ui-placeholder: #C7C7CC;
-  --ui-tertiary: #C7C7CC;
-  --ui-fill: rgb(118 118 128 / 0.12);
-  --ui-danger: #B42318;
-  --ui-header: rgb(255 255 255 / 0.9);
-  --ui-border: rgb(231 229 228 / 0.8);
-  --ui-accent-soft: #F1F5F2;
-  --ui-accent-text: #1B4332;
-  --ui-avatar-bg: #1B4332;
-  --ui-avatar-text: #D8F3DC;
-
-  /* Paleta semántica de referencia: colores de uso frecuente en componentes.
-     Mismos valores en claro y oscuro; los `dark:` existentes siguen mandando. */
-  --ds-gray-100: #F2F2F7;
-  --ds-gray-200: #EBEBF5;
-  --ds-gray-300: #C7C7CC;
-  --ds-gray-400: #AEAEB2;
-  --ds-gray-500: #8E8E93;
-  --ds-gray-600: #636366;
-  --ds-gray-650: #48484A;
-  --ds-gray-700: #3C3C43;
-  --ds-gray-800: #2C2C2E;
-  --ds-gray-900: #1C1C1E;
-  --ds-ink: #141414;
-  --ds-line: #E8E8E8;
-  --ds-white: #FFFFFF;
-  --ds-neutral-200: #E5E7EB;
-  --ds-neutral-300: #D1D5DB;
-  --ds-neutral-400: #9CA3AF;
-  --ds-neutral-500: #6B7280;
-  --ds-neutral-600: #4B5563;
-  --ds-neutral-700: #374151;
-  --ds-neutral-800: #1F2937;
-  --ds-blue: #2D6A4F;
-  --ds-blue-dark: #2D6A4F;
-  --ds-red: #B42318;
-  --ds-red-dark: #F97066;
-  --ds-red-strong: #912018;
-  --ds-green: #2D6A4F;
-  --ds-green-dark: #5B9A78;
-  --ds-green-strong: #1B4332;
-  --ds-orange: #B42318;
-  --ds-orange-dark: #B42318;
-  --ds-amber: #B42318;
-  --ds-violet: #1B4332;
-  --ds-violet-light: #5B9A78;
-  --ds-sky: #5B9A78;
-  --ds-sand-warm: #F3F4F6;
-  --ds-clay: #B42318;
-  --ds-coral: #F97066;
-  --ds-terracotta: #B42318;
+  /* Pro palette — institutional green tones */
+  --color-forest: #1B4332;         /* Deep forest green — sidebar authority */
+  --color-emerald: #2D6A4F;        /* Vibrant emerald — profit indicators */
+   --color-emerald-light: #D8F3DC;  /* Soft emerald — positive backgrounds */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-
-  --color-ds-green-50: var(--ds-green-50);
-  --color-ds-green-100: var(--ds-green-100);
-  --color-ds-green-200: var(--ds-green-200);
-  --color-ds-green-300: var(--ds-green-300);
-  --color-ds-green-400: var(--ds-green-400);
-  --color-ds-green-500: var(--ds-green-500);
-  --color-ds-green-600: var(--ds-green-600);
-  --color-ds-green-700: var(--ds-green-700);
-  --color-ds-green-800: var(--ds-green-800);
-  --color-ds-green-900: var(--ds-green-900);
-  --color-ds-red-50: var(--ds-red-50);
-  --color-ds-red-100: var(--ds-red-100);
-  --color-ds-red-300: var(--ds-red-300);
-  --color-ds-red-600: var(--ds-red-600);
-  --color-ds-red-800: var(--ds-red-800);
   --font-sans: var(--font-inter), 'Inter', var(--font-archivo), 'Archivo', system-ui, sans-serif;
   --font-archivo: var(--font-archivo), 'Archivo', system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), 'Courier New', monospace;
@@ -238,15 +143,15 @@ input[type=number] {
   background: var(--card);
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  border-left: 3px solid #1B4332;
+  border-left: 3px solid #3A4D39;
   box-shadow: var(--shadow-sm);
 }
 
 /* Acento lateral — colores semánticos */
 .accent-left-income  { border-left: 3px solid rgba(5,150,105,0.65) !important; }
 .accent-left-expense { border-left: 3px solid rgba(107,114,128,0.45) !important; }
-.accent-left-gold    { border-left: 3px solid #2D6A4F !important; }
-.accent-left-military{ border-left: 3px solid #1B4332 !important; }
+.accent-left-gold    { border-left: 3px solid #C5A065 !important; }
+.accent-left-military{ border-left: 3px solid #3A4D39 !important; }
 
 /* Header strip para secciones dentro de tarjetas */
 .card-section-header {
@@ -277,64 +182,6 @@ input[type=number] {
 /* Sistema de bordes corporativos */
 .card-border {
   border: 0.5px solid rgba(0,0,0,0.10);
-}
-
-/* ── Sistema de cuadros (lógica de la barra lateral verde) ─────
-   .ds-panel  → cuadro de datos: blanco / gris oscuro, borde hairline
-   .ds-hero   → cuadro destacado: gradiente verde fijo en ambos temas
-   .ds-label  → etiqueta de sección: mayúsculas con tracking amplio
-   .ds-item-active → estado seleccionado con anillo y tinte verde */
-.ds-panel {
-  background: var(--card);
-  border: 1px solid rgba(15,23,42,0.07);
-  border-radius: 20px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-}
-
-[data-theme="dark"] .ds-panel {
-  background: var(--ds-gray-900);
-  border-color: rgba(255,255,255,0.08);
-  box-shadow: none;
-}
-
-.ds-hero {
-  background: linear-gradient(180deg, #1A3424 0%, #16281D 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
-  color: #F0FDF4;
-  box-shadow: 0 10px 30px rgba(10,24,16,0.18);
-}
-
-.ds-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ds-gray-500, #6B7280);
-}
-
-.ds-hero .ds-label {
-  color: rgba(255,255,255,0.45);
-}
-
-.ds-divider {
-  border-color: rgba(15,23,42,0.07);
-}
-
-[data-theme="dark"] .ds-divider {
-  border-color: rgba(255,255,255,0.08);
-}
-
-.ds-item-active {
-  background: rgba(45,106,79,0.12);
-  color: #1B4332;
-  box-shadow: inset 0 0 0 1px rgba(45,106,79,0.22);
-}
-
-[data-theme="dark"] .ds-item-active {
-  background: rgba(109,164,122,0.22);
-  color: #F0FDF4;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
 }
 
 /* Ocultar scrollbar — scroll invisible pero funcional */
@@ -397,7 +244,7 @@ input[type=number] {
 }
 
 .kpi-card-value-expense {
-  color: #B42318;
+  color: #8A6118;
 }
 
 .kpi-card-value-profit-positive {
@@ -405,7 +252,7 @@ input[type=number] {
 }
 
 .kpi-card-value-profit-negative {
-  color: #B42318;
+  color: #9A3412;
 }
 
 .kpi-card-variation-positive {
@@ -413,7 +260,7 @@ input[type=number] {
 }
 
 .kpi-card-variation-negative {
-  color: #B42318;
+  color: #9A3412;
 }
 
 .kpi-card-variation-neutral {
@@ -430,18 +277,18 @@ input[type=number] {
 }
 
 .kpi-card-expense {
-  background: #FEF3F2;
-  border-color: #FEE4E2;
+  background: #FFF8EC;
+  border-color: #E6D6B8;
 }
 
 .kpi-card-expense .kpi-card-label {
-  color: #B42318;
+  color: #8A6118;
 }
 
 .kpi-card-profit-positive,
 .kpi-card-profit-negative {
   background: #FAFBFC;
-  border-color: #F3F4F6;
+  border-color: #ECE7E1;
 }
 
 .kpi-card-profit-positive .kpi-card-label,
@@ -458,29 +305,18 @@ input[type=number] {
   --background: #000000;
   --color-bone:           #000000;
 
-  --ui-surface: #1C1C1E;
-  --ui-popover: rgb(44 44 46 / 0.95);
-  --ui-segment-active: #636366;
-  --ui-label: #FFFFFF;
-  --ui-tertiary: #48484A;
-  --ui-fill: rgb(118 118 128 / 0.24);
-  --ui-header: rgb(13 14 16 / 0.95);
-  --ui-border: rgb(255 255 255 / 0.06);
-  --ui-accent-soft: rgb(255 255 255 / 0.06);
-  --ui-accent-text: #9AC7A8;
-
   /* Tokens de marca — verde solo como acento */
-  --color-military:       #3E7F5F;
+  --color-military:       #5A8A55;
   --color-military-dark:  #8FC486;
   --color-military-light: #1E2A1E;
   --color-military-mid:   #6A9B63;
 
-  --color-gold:           #5B9A78;
-  --color-gold-dark:      #5B9A78;
-  --color-gold-light:     #1F1514;
+  --color-gold:           #C8A96E;
+  --color-gold-dark:      #C8A96E;
+  --color-gold-light:     #231B0E;
 
   --color-sand:           #1A1A1A;
-  --color-oxide:          #F97066;
+  --color-oxide:          #C47570;
 
   --color-carbon:         #070707;
   --color-carbon-mid:     #101010;
@@ -575,12 +411,12 @@ input[type=number] {
 }
 
 [data-theme="dark"] .kpi-card-expense {
-  background: #1f1514;
-  border-color: #5a2a24;
+  background: #21180f;
+  border-color: #5b4a2f;
 }
 
 [data-theme="dark"] .kpi-card-expense .kpi-card-label {
-  color: #F97066;
+  color: #d7b36b;
 }
 
 [data-theme="dark"] .kpi-card-profit-positive,
@@ -601,10 +437,10 @@ input[type=number] {
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26) !important;
 }
 
-[data-theme="dark"] .home-dashboard-panel .bg-gray-50,
+[data-theme="dark"] .home-dashboard-panel .bg-slate-50,
 [data-theme="dark"] .home-dashboard-panel .bg-gray-50,
 [data-theme="dark"] .home-dashboard-panel .bg-gray-100,
-[data-theme="dark"] .home-dashboard-panel .bg-gray-100 {
+[data-theme="dark"] .home-dashboard-panel .bg-slate-100 {
   background-color: #181a1d !important;
 }
 
@@ -618,11 +454,11 @@ input[type=number] {
 }
 
 [data-theme="dark"] .kpi-card-value-expense {
-  color: #F97066;
+  color: #f2d59b;
 }
 
 [data-theme="dark"] .kpi-card-value-profit-negative {
-  color: #F97066;
+  color: #ffd2cc;
 }
 
 [data-theme="dark"] .kpi-card-variation-positive {
@@ -630,7 +466,7 @@ input[type=number] {
 }
 
 [data-theme="dark"] .kpi-card-variation-negative {
-  color: #F97066;
+  color: #f3b7b0;
 }
 
 [data-theme="dark"] .kpi-card-variation-neutral {
@@ -651,8 +487,8 @@ input[type=number] {
 }
 
 /* ── Fondos slate/gray claros → oscuros ── */
-[data-theme="dark"] .bg-gray-50,
-[data-theme="dark"] .bg-gray-100,
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-slate-100,
 [data-theme="dark"] .bg-gray-50,
 [data-theme="dark"] .bg-gray-100 {
   background-color: #182028 !important;
@@ -809,18 +645,21 @@ input[type=number] {
 }
 
 /* ── Registro (+): acento por tipo, hoja / ventana y confirmación ── */
-.reg-income { --reg-accent: #2D6A4F; }
-.reg-expense { --reg-accent: #B42318; }
-.reg-neutral { --reg-accent: #2D6A4F; }
-[data-theme="dark"] .reg-income { --reg-accent: #5B9A78; }
-[data-theme="dark"] .reg-expense { --reg-accent: #F97066; }
-[data-theme="dark"] .reg-neutral { --reg-accent: #2D6A4F; }
+/* Registro: salvia (ingreso), terracota (egreso) y azul pizarra (transferencias/ajustes), sin flúo */
+.reg-income { --reg-accent: #4F8A6B; }
+.reg-expense { --reg-accent: #B8664F; }
+.reg-neutral { --reg-accent: #4A6F8A; }
+[data-theme="dark"] .reg-income { --reg-accent: #6FA287; }
+[data-theme="dark"] .reg-expense { --reg-accent: #D08770; }
+[data-theme="dark"] .reg-neutral { --reg-accent: #7FA3BF; }
 
 @keyframes reg-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes reg-sheet-out { from { transform: translateY(var(--reg-drag, 0px)); } to { transform: translateY(110%); } }
 @keyframes reg-pop-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes reg-pop-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.96); } }
 @keyframes reg-fade-in { from { opacity: 0; } to { opacity: 1; } }
+/* Pantalla que entra de costado (navegación iOS) */
+@keyframes reg-push-in { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes reg-fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes reg-check-pop { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes reg-check-draw { to { stroke-dashoffset: 0; } }
@@ -907,8 +746,8 @@ input[type=number] {
       border-top: 2px solid #111 !important;
       border-bottom: 2px solid #111 !important;
     }
-    body.printing-inventario #inventario-tabla .text-ds-green-400,
-    body.printing-inventario #inventario-tabla .text-ds-green-400 {
+    body.printing-inventario #inventario-tabla .text-emerald-400,
+    body.printing-inventario #inventario-tabla .text-sky-400 {
       color: #111 !important;
     }
     body.printing-inventario tr { page-break-inside: avoid !important; }
