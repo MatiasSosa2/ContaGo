@@ -46,7 +46,19 @@ function getEmailHtml({ code, purpose }: { code: string; purpose: EmailChallenge
 }
 
 export async function sendAuthCodeEmail({ email, code, purpose }: SendAuthCodeEmailInput) {
-  const provider = (process.env.AUTH_EMAIL_PROVIDER || 'console').toLowerCase()
+  const provider = (process.env.AUTH_EMAIL_PROVIDER || 'console').trim().toLowerCase()
+
+  if (provider === 'console') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('AUTH_EMAIL_PROVIDER debe ser "resend" en producción.')
+    }
+
+    return sendAuthCodeToConsole({ email, code, purpose })
+  }
+
+  if (provider !== 'resend') {
+    throw new Error('AUTH_EMAIL_PROVIDER debe ser "console" o "resend".')
+  }
 
   if (provider === 'resend') {
     const apiKey = process.env.RESEND_API_KEY
@@ -86,6 +98,4 @@ export async function sendAuthCodeEmail({ email, code, purpose }: SendAuthCodeEm
 
     return { provider: 'resend' as const }
   }
-
-  return sendAuthCodeToConsole({ email, code, purpose })
 }

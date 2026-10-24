@@ -15,7 +15,6 @@ export async function GET() {
 
   let dbOk = false
   let dbLatencyMs: number | null = null
-  let dbError: string | null = null
 
   try {
     const dbStart = Date.now()
@@ -24,9 +23,11 @@ export async function GET() {
     dbLatencyMs = Date.now() - dbStart
     dbOk = true
   } catch (err) {
-    dbError = err instanceof Error ? err.message : 'unknown database error'
+    // El detalle del error queda en logs del servidor, no en la respuesta pública.
+    console.error('[health] database check failed', err)
   }
 
+  // Respuesta pública mínima: sin versión, entorno ni mensajes internos.
   const body = {
     status: dbOk ? ('ok' as const) : ('degraded' as const),
     timestamp: new Date().toISOString(),
@@ -36,11 +37,8 @@ export async function GET() {
       database: {
         ok: dbOk,
         latencyMs: dbLatencyMs,
-        error: dbError,
       },
     },
-    version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev',
-    environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? 'unknown',
   }
 
   return NextResponse.json(body, {

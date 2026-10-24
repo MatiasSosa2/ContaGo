@@ -1,4 +1,4 @@
-import { getReportDataExtended, getCashFlowByCurrency, getIncomeStatement, getCashAccountsSnapshot, getCashTransfers, getBalanceSheet } from '@/app/actions'
+import { getReportDataExtended, getMonthlyHistory, getCashFlowByCurrency, getIncomeStatement, getCashAccountsSnapshot, getCashTransfers, getBalanceSheet } from '@/app/actions'
 import type { DateRange } from '@/lib/validations'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
@@ -175,12 +175,28 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     periodLabel = `${MONTH_NAMES[m - 1]} ${y}`
   }
 
-  const { allTx } = await getReportDataExtended(range)
   const cur = 'ARS'
+  const cashCur = params?.moneda === 'USD' ? 'USD' : 'ARS'
+  const periodArgs = [periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart] as const
 
-  // Evolución mensual: siempre últimos 6 meses reales, independiente del período elegido arriba.
-  const { monthlyHistory } = await getReportDataExtended()
-  const monthlyEvolution = monthlyHistory.slice(-6).map(({ month, byCur }: { month: string; byCur: Record<string, { income: number; expense: number }> }) => {
+  // Todas las consultas son independientes entre sí: van en paralelo para no sumar latencia de base remota.
+  const [{ allTx }, monthlyHistory, er, cashFlowByCurrency, cashAccountsSnapshot, transfers, balanceBoth] = await Promise.all([
+    getReportDataExtended(range),
+    // Evolución mensual: siempre últimos 12 meses reales, independiente del período elegido arriba.
+    getMonthlyHistory(),
+    // Estado de resultados: ventas y CMV de Inventario, el resto de lo registrado (src/server/results/income-statement.ts)
+    getIncomeStatement(periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart, cur),
+    // Flujo de efectivo: mismos números que la pantalla de Cajas (src/server/cash/cash-flow.ts)
+    getCashFlowByCurrency(periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    // Saldo de cada caja al inicio y al cierre
+    getCashAccountsSnapshot(...periodArgs, cashCur),
+    // Detalle de los cambios de moneda
+    getCashTransfers(...periodArgs),
+    // Patrimonio: al cierre del período y al cierre anterior
+    getBalanceSheet(periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+  ])
+
+  const monthlyEvolution = monthlyHistory.slice(-6).map(({ month, byCur }) => {
     const data = byCur[cur] || { income: 0, expense: 0 }
     const [y, m] = month.split('-')
     return {
@@ -189,11 +205,6 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     }
   })
 
-  // ── Estado de resultados: ventas y CMV de Inventario, el resto de lo registrado ──
-  // (reglas en src/server/results/income-statement.ts)
-  const er = await getIncomeStatement(
-    periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart, cur,
-  )
   const otherIncomeLines = groupStatementLines(er.otherIncomeItems, er.ventas)
   const otherIncomeTotal = er.otherIncomeItems.reduce((sum, item) => sum + item.amount, 0)
   const totalIncome = er.ventas + otherIncomeTotal
@@ -203,11 +214,6 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
   const operatingExpensesTotal = er.expenseItems.reduce((sum, item) => sum + item.amount, 0)
   const netProfit = grossProfit + otherIncomeTotal - operatingExpensesTotal
 
-  // ── Flujo de efectivo: mismos números que la pantalla de Cajas (src/server/cash/cash-flow.ts) ──
-  const cashCur = params?.moneda === 'USD' ? 'USD' : 'ARS'
-  const cashFlowByCurrency = await getCashFlowByCurrency(
-    periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
-  )
   const flow = cashFlowByCurrency[cashCur]
   const flowFrom = new Date(cashFlowByCurrency.from).getTime()
   const flowTo = new Date(cashFlowByCurrency.to).getTime()
@@ -247,12 +253,6 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     flow.ingresos > 0 ? flow.ingresos : 1,
   )
 
-  // Saldo de cada caja al inicio y al cierre, y detalle de los cambios de moneda
-  const periodArgs = [periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart] as const
-  const [cashAccountsSnapshot, transfers] = await Promise.all([
-    getCashAccountsSnapshot(...periodArgs, cashCur),
-    getCashTransfers(...periodArgs),
-  ])
   const fmtUsd = (v: number) => `US$${Math.round(v).toLocaleString('es-AR')}`
   const exchangeNotes = transfers
     .filter((t) => t.fromAccount.currency !== t.toAccount.currency && (t.fromAccount.currency === cashCur || t.toAccount.currency === cashCur))
@@ -264,9 +264,7 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     })
 
   // Patrimonio: mismo cálculo que el Estado patrimonial (todo al cierre del período)
-  const { current: balance } = await getBalanceSheet(
-    periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
-  )
+  const balance = balanceBoth.current
   const totalAssets = balance.totalActivo
   const totalLiabilities = balance.totalPasivo
   const assetLines = groupStatementLines(
@@ -307,6 +305,7 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
     periodLabel,
     queryString,
     monthlyEvolution,
+    balance: balanceBoth,
     results: {
       currency: cur,
       income: totalIncome,

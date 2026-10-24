@@ -74,13 +74,13 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
   }
 
   if (accounts.length === 0) {
-    return <p className={`py-8 text-center text-[13px] text-[#8E8E93] ${IOS_FONT}`}>No hay cajas cargadas.</p>
+    return <p className={`py-8 text-center text-[13px] text-[var(--ds-gray-500)] ${IOS_FONT}`}>No hay cajas cargadas.</p>
   }
 
   return (
     <div className={`flex flex-col ${IOS_FONT}`}>
       {error && (
-        <div className="mb-3 flex items-center justify-between rounded-xl bg-[#FF3B30]/10 px-4 py-2.5 text-[13px] text-[#D70015] dark:text-[#FF6961]">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-[var(--ds-red)]/10 px-4 py-2.5 text-[13px] text-[var(--ds-red-strong)] dark:text-[var(--ds-coral)]">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar aviso" className="ml-3 opacity-60">×</button>
         </div>
@@ -96,20 +96,20 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
             onChange={(v) => { setAccountId(v); setError(null) }}
           />
         } />
-        <div className="flex min-h-[36px] items-center justify-between px-4 text-[13px] text-[#8E8E93]">
+        <div className="flex min-h-[36px] items-center justify-between px-4 text-[13px] text-[var(--ds-gray-500)]">
           <span>Saldo en sistema</span>
           <span>{loadingBalance ? '…' : systemBalance !== null ? `${systemBalance < 0 ? '−' : ''}${fmtCur(systemBalance, currency)}` : '—'}</span>
         </div>
         <div className="flex min-h-[52px] items-center justify-between gap-3 px-4">
-          <span className="text-[15px] font-medium text-[#1C1C1E] dark:text-white">Contado</span>
+          <span className="text-[15px] font-medium text-[var(--ds-gray-900)] dark:text-white">Contado</span>
           <div className="w-40"><MoneyField align="right" size="lg" value={counted} onChange={(v) => { setCounted(v); setError(null) }} label="Contado" /></div>
         </div>
         {difference !== null && (
           <div className="flex min-h-[40px] items-center justify-between px-4 text-[13px]">
-            <span className="text-[#8E8E93]">Diferencia</span>
-            <span className={difference > 0 ? 'font-medium text-[#34C759] dark:text-[#30D158]' : difference < 0 ? 'font-medium text-[#FF3B30] dark:text-[#FF453A]' : 'text-[#8E8E93]'}>
+            <span className="text-[var(--ds-gray-500)]">Diferencia</span>
+            <span className={difference > 0 ? 'font-medium text-[var(--ds-green)] dark:text-[var(--ds-green-dark)]' : difference < 0 ? 'font-medium text-[var(--ds-red)] dark:text-[var(--ds-red-dark)]' : 'text-[var(--ds-gray-500)]'}>
               {difference > 0 ? '+' : difference < 0 ? '−' : ''}{fmtCur(difference, currency)}
-              <span className="ml-1.5 text-[11px] font-normal text-[#8E8E93]">{difference > 0 ? 'sobrante' : difference < 0 ? 'faltante' : 'sin diferencia'}</span>
+              <span className="ml-1.5 text-[11px] font-normal text-[var(--ds-gray-500)]">{difference > 0 ? 'sobrante' : difference < 0 ? 'faltante' : 'sin diferencia'}</span>
             </span>
           </div>
         )}

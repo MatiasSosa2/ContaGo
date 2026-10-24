@@ -18,7 +18,7 @@ export type SessionContext = {
   activeBusiness: ActiveBusinessContext | null
   businesses: ActiveBusinessContext[]
   auth: {
-    provider: 'google' | 'apple' | 'credentials' | 'mock'
+    provider: 'google' | 'apple' | 'azure-ad' | 'credentials' | 'mock'
     challengeSatisfied: boolean
   }
 }

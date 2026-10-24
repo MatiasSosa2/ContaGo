@@ -12,10 +12,18 @@ import { apiRateLimiter, authRateLimiter, rateLimitEnabled } from '@/lib/rate-li
  * El health check queda excluido para no interferir con el monitoreo externo.
  */
 
+// El primer valor de x-forwarded-for lo controla el cliente; el último lo agrega
+// el proxy de confianza. x-real-ip, cuando existe, lo fija la plataforma.
 function getClientIp(req: NextRequest): string {
+  const realIp = req.headers.get('x-real-ip')?.trim()
+  if (realIp) return realIp
   const xff = req.headers.get('x-forwarded-for')
-  if (xff) return xff.split(',')[0]!.trim()
-  return req.headers.get('x-real-ip')?.trim() ?? '127.0.0.1'
+  if (xff) {
+    const parts = xff.split(',').map((part) => part.trim()).filter(Boolean)
+    const last = parts[parts.length - 1]
+    if (last) return last
+  }
+  return '127.0.0.1'
 }
 
 export async function middleware(req: NextRequest) {

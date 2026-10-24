@@ -22,7 +22,7 @@ export default async function AuthErrorPage({
       title="No pudimos completar el acceso"
       subtitle={ERROR_COPY[error] || ERROR_COPY.Default}
     >
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+      <div className="rounded-2xl border border-ds-red-100 bg-ds-red-50 px-4 py-4 text-sm text-ds-red-800">
         Codigo de error: <span className="font-medium">{error}</span>
       </div>
     </AuthShell>

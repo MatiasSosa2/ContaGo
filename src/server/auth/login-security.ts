@@ -1,6 +1,6 @@
 import type { EmailChallengePurpose } from './challenges'
 
-type SupportedLoginProvider = 'credentials' | 'google' | 'apple'
+type SupportedLoginProvider = 'credentials' | 'google' | 'apple' | 'azure-ad'
 
 type LoginChallengeDecisionInput = {
   provider: SupportedLoginProvider

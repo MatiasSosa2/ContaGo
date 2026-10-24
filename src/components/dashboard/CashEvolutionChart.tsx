@@ -10,8 +10,8 @@ type Kind = 'INCOME' | 'EXPENSE'
 
 // Colores y tipografía estilo iOS
 // Paleta sobria (salvia + terracota): menos saturada que el verde/rojo de iOS
-const GREEN = '#6FA287'
-const RED = '#D08770'
+const GREEN = '#5B9A78'
+const RED = '#F97066'
 const SF = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'
 
 const fmt = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(Math.round(v)).toLocaleString('es-AR')}`
@@ -92,7 +92,7 @@ function GlassTooltip({ active, payload, label, both, detalle }: {
       {both && (
         <p className="mt-1 flex justify-between gap-4 border-t border-black/5 pt-1 text-[12px] leading-5 dark:border-white/10">
           <span className="text-[#8E8E93]">Resultado</span>
-          <span className={`font-semibold tabular-nums ${(p.income ?? 0) - (p.expense ?? 0) >= 0 ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : 'text-[#B8664F] dark:text-[#E3A592]'}`}>
+          <span className={`font-semibold tabular-nums ${(p.income ?? 0) - (p.expense ?? 0) >= 0 ? 'text-[#3E7F5F] dark:text-[#8FC0A4]' : 'text-[#B42318] dark:text-[#F97066]'}`}>
             {(p.income ?? 0) - (p.expense ?? 0) >= 0 ? '+' : ''}{fmtM((p.income ?? 0) - (p.expense ?? 0))}
           </span>
         </p>
@@ -193,13 +193,13 @@ function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: Dashboar
             {kinds.includes('INCOME') && (
               <div className="rounded-xl bg-white px-3 py-2.5 dark:bg-[#2C2C2E]">
                 <p className="text-[11px] text-[#8E8E93]">Ingresos</p>
-                <p className="text-[15px] font-semibold tabular-nums text-[#4F8A6B] dark:text-[#8FC0A4]">{fmtShort(totalInc)}</p>
+                <p className="text-[15px] font-semibold tabular-nums text-[#3E7F5F] dark:text-[#8FC0A4]">{fmtShort(totalInc)}</p>
               </div>
             )}
             {kinds.includes('EXPENSE') && (
               <div className="rounded-xl bg-white px-3 py-2.5 dark:bg-[#2C2C2E]">
                 <p className="text-[11px] text-[#8E8E93]">Egresos</p>
-                <p className="text-[15px] font-semibold tabular-nums text-[#B8664F] dark:text-[#E3A592]">{fmtShort(totalExp)}</p>
+                <p className="text-[15px] font-semibold tabular-nums text-[#B42318] dark:text-[#F97066]">{fmtShort(totalExp)}</p>
               </div>
             )}
             {both && (
@@ -216,7 +216,7 @@ function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: Dashboar
           {both && (
             <div className="mt-5 flex items-center justify-between rounded-xl bg-white px-4 py-3 dark:bg-[#2C2C2E]">
               <span className="text-[14px] font-medium text-[#1C1C1E] dark:text-white">Resultado de caja</span>
-              <span className={`text-[16px] font-semibold tabular-nums ${resultado >= 0 ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : 'text-[#B8664F] dark:text-[#E3A592]'}`}>
+              <span className={`text-[16px] font-semibold tabular-nums ${resultado >= 0 ? 'text-[#3E7F5F] dark:text-[#8FC0A4]' : 'text-[#B42318] dark:text-[#F97066]'}`}>
                 {resultado >= 0 ? '+' : ''}{fmt(resultado)}
               </span>
             </div>
@@ -394,8 +394,8 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
       {/* Con un solo tipo: categorías como texto con separadores (sin elegir ninguna = todas) */}
       {single && catTotals.length > 0 && (() => {
         const onCls = single === 'INCOME'
-          ? 'text-[#4F8A6B] underline decoration-[#6FA287]/60 underline-offset-[3px] dark:text-[#8FC0A4]'
-          : 'text-[#B8664F] underline decoration-[#D08770]/60 underline-offset-[3px] dark:text-[#E3A592]'
+          ? 'text-[#3E7F5F] underline decoration-[#5B9A78]/60 underline-offset-[3px] dark:text-[#8FC0A4]'
+          : 'text-[#B42318] underline decoration-[#F97066]/60 underline-offset-[3px] dark:text-[#F97066]'
         const offCls = 'text-[#8E8E93] hover:text-[#3C3C43] dark:hover:text-[#EBEBF5]'
         const fila = (items: [string, number][], elegidos: string[], onToggle: (n: string) => void, size: string) => (
           <div className={`flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 ${size}`}>

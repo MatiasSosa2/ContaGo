@@ -49,7 +49,7 @@ export default async function FlujoCajaPage({
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F2F2F7] dark:bg-black">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[var(--ds-neutral-800)] dark:text-gray-100 min-h-screen bg-[var(--ds-gray-100)] dark:bg-black">
       <AppHeader
         title="Estado de Flujo de Efectivo"
         showRoleBadge={false}
@@ -89,8 +89,8 @@ export default async function FlujoCajaPage({
                   aria-current={cashCurrency === moneda ? 'true' : undefined}
                   className={`rounded-[7px] px-3 py-1 text-[13px] font-medium transition ${
                     cashCurrency === moneda
-                      ? 'bg-white text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white'
-                      : 'text-[#3C3C43] hover:opacity-70 dark:text-[#EBEBF5]/80'
+                      ? 'bg-white text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[var(--ds-gray-600)] dark:text-white'
+                      : 'text-[var(--ds-gray-700)] hover:opacity-70 dark:text-[var(--ds-gray-200)]/80'
                   }`}
                 >
                   {moneda === 'ARS' ? 'Pesos' : 'Dólares'}

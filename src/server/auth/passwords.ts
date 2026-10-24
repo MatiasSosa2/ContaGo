@@ -69,6 +69,7 @@ export async function resetPasswordWithCodeFlow(input: {
     data: {
       password: await hashPassword(input.password),
       lastSecurityChallengeAt: new Date(),
+      passwordChangedAt: new Date(),
     },
   })
 

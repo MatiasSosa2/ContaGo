@@ -21,6 +21,7 @@ model User {
   defaultBusinessId String?
   lastLoginAt    DateTime?
   lastSecurityChallengeAt DateTime?
+  passwordChangedAt DateTime?
   
   accounts      AccountAuth[]
   sessions      Session[]
@@ -89,6 +90,7 @@ model EmailChallenge {
   codeHash   String
   expiresAt  DateTime
   consumedAt DateTime?
+  loginConsumedAt DateTime?
   attempts   Int      @default(0)
   maxAttempts Int     @default(5)
   ipAddress  String?
@@ -146,9 +148,57 @@ model Business {
   journalEntries JournalEntry[]
   bienesDeUso    BienDeUso[]
   defaultUsers   User[] @relation("UserDefaultBusiness")
+  mercadoPagoConnection MercadoPagoConnection?
+  mercadoPagoPayments   MercadoPagoPayment[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// --- MERCADO PAGO (integración por negocio) ---
+
+// Una cuenta de Mercado Pago vinculada a un negocio. Los tokens se guardan cifrados.
+model MercadoPagoConnection {
+  id              String   @id @default(uuid())
+  mpUserId        String
+  accessTokenEnc  String
+  refreshTokenEnc String
+  expiresAt       DateTime
+  lastSyncAt      DateTime?
+  connectedByUserId String
+
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Pagos aprobados traídos de Mercado Pago, pendientes de revisión antes de importarse.
+model MercadoPagoPayment {
+  id             String   @id @default(uuid())
+  mpPaymentId    String
+  amountGross    Float
+  feeAmount      Float    @default(0)
+  amountNet      Float
+  currency       String   @default("ARS")
+  dateApproved   DateTime
+  description    String?
+  paymentMethod  String?
+  payerEmail     String?
+  importStatus   String   @default("PENDING") // PENDING | IMPORTED | IGNORED
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([businessId, mpPaymentId])
+  @@index([businessId, importStatus])
 }
 
 model BusinessMember {
@@ -372,6 +422,9 @@ model Transaction {
   linkedCreditoId String?
   linkedCredito   Transaction?  @relation("CreditoCobros", fields: [linkedCreditoId], references: [id])
   cobrosAplicados Transaction[] @relation("CreditoCobros")
+
+  // Pago de Mercado Pago importado como movimiento
+  mercadoPagoPayment MercadoPagoPayment?
 
   // Empleado (tracking de rendimiento)
   empleadoId String?

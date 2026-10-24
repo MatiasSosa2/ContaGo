@@ -25,11 +25,11 @@ const C = {
   incomeFill: 'rgba(45,106,79,0.15)',
   expense:    '#6b7280',
   expenseFill:'rgba(107,114,128,0.10)',
-  net:        '#C5A065',
+  net:        '#2D6A4F',
   netFill:    'rgba(197,160,101,0.12)',
   red:        '#EF4444',
-  amber:      '#F59E0B',
-  green:      '#10B981',
+  amber:      '#B42318',
+  green:      '#3E7F5F',
   axis:       '#d1d5db',
   label:      '#9ca3af',
   tooltip:    '#1A1A1A',
@@ -271,7 +271,7 @@ interface EvolutionTabsProps {
 function EmptyChart({ message = 'Sin datos históricos aún' }: { message?: string }) {
   return (
     <div className="flex h-[280px] items-center justify-center">
-      <p className="text-sm text-stone-400 dark:text-stone-500">{message}</p>
+      <p className="text-sm text-gray-400 dark:text-gray-500">{message}</p>
     </div>
   )
 }
@@ -336,14 +336,14 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
         smooth: true,
         showSymbol: true,
         symbolSize: 5,
-        lineStyle: { color: '#38BDF8', width: 2 },
-        itemStyle: { color: '#38BDF8' },
+        lineStyle: { color: '#5B9A78', width: 2 },
+        itemStyle: { color: '#5B9A78' },
         areaStyle: {
           color: {
             type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
-              { offset: 0, color: '#38BDF840' },
-              { offset: 1, color: '#38BDF800' },
+              { offset: 0, color: '#2D6A4F40' },
+              { offset: 1, color: '#2D6A4F00' },
             ],
           },
         },

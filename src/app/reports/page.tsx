@@ -56,7 +56,7 @@ export default async function ReportsPage({
     : null
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[#1F2937] dark:text-gray-100 min-h-screen bg-[#F2F2F7] dark:bg-black">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[var(--ds-neutral-800)] dark:text-gray-100 min-h-screen bg-[var(--ds-gray-100)] dark:bg-black">
       <AppHeader
         title="Informes"
         showRoleBadge={false}
@@ -87,7 +87,7 @@ export default async function ReportsPage({
               target="_blank"
               title="Exportar informe completo (PDF)"
               aria-label="Exportar informe completo (PDF)"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#007AFF] transition hover:bg-[#007AFF]/[0.1] dark:text-[#0A84FF] print:hidden"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--ds-blue)] transition hover:bg-[var(--ds-blue)]/[0.1] dark:text-[var(--ds-blue-dark)] print:hidden"
             >
               <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15" />

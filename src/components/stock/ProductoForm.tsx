@@ -91,35 +91,35 @@ function Selector({ label, value, opciones, onChange, placeholder, vacio }: {
         type="button"
         onClick={() => (open ? cerrar() : abrir())}
         aria-label={label}
-        className={`flex max-w-[60%] items-center gap-1 truncate text-[15px] transition-opacity active:opacity-60 ${value ? 'text-[#1C1C1E] dark:text-white' : 'text-[#C7C7CC]'}`}
+        className={`flex max-w-[60%] items-center gap-1 truncate text-[15px] transition-opacity active:opacity-60 ${value ? 'text-[var(--ds-gray-900)] dark:text-white' : 'text-[var(--ds-gray-300)]'}`}
       >
         <span className="truncate">{value || vacio}</span>
-        <svg className="h-3 w-3 shrink-0 text-[#C7C7CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+        <svg className="h-3 w-3 shrink-0 text-[var(--ds-gray-300)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
       </button>
       {open && createPortal(
-        <div ref={listaRef} style={pos} className="fixed z-[90] w-64 overflow-hidden rounded-xl bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] backdrop-blur-xl dark:bg-[#2C2C2E]/95 dark:ring-white/10">
+        <div ref={listaRef} style={pos} className="fixed z-[90] w-64 overflow-hidden rounded-xl bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] backdrop-blur-xl dark:bg-[var(--ds-gray-800)]/95 dark:ring-white/10">
           <div className="border-b border-black/[0.06] px-3 py-2 dark:border-white/10">
             <input
               autoFocus value={q} onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (exacta) elegir(exacta); else if (q.trim()) elegir(q.trim()) } }}
               placeholder={placeholder} aria-label={`Buscar ${label.toLowerCase()}`}
-              className="w-full rounded-lg bg-black/[0.05] px-2.5 py-1.5 text-[14px] text-[#1C1C1E] outline-none placeholder:text-[#8E8E93] dark:bg-white/[0.08] dark:text-white"
+              className="w-full rounded-lg bg-black/[0.05] px-2.5 py-1.5 text-[14px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-500)] dark:bg-white/[0.08] dark:text-white"
             />
           </div>
           <div className="max-h-56 overflow-y-auto py-1">
             {value && (
-              <button type="button" onClick={() => elegir('')} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[#8E8E93] hover:bg-black/[0.05] dark:hover:bg-white/[0.08]">
+              <button type="button" onClick={() => elegir('')} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[var(--ds-gray-500)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08]">
                 <span className="w-4" />{vacio}
               </button>
             )}
             {q.trim() && !exacta && (
-              <button type="button" onClick={() => elegir(q.trim())} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] font-medium text-[#007AFF] hover:bg-black/[0.05] dark:text-[#0A84FF] dark:hover:bg-white/[0.08]">
+              <button type="button" onClick={() => elegir(q.trim())} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] font-medium text-[var(--ds-blue)] hover:bg-black/[0.05] dark:text-[var(--ds-blue-dark)] dark:hover:bg-white/[0.08]">
                 + Usar «{q.trim()}»
               </button>
             )}
             {filtradas.map((o) => (
-              <button key={o} type="button" onClick={() => elegir(o)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">
-                <span className="w-4 text-[#007AFF]">{o === value ? '✓' : ''}</span>{o}
+              <button key={o} type="button" onClick={() => elegir(o)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[var(--ds-gray-900)] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">
+                <span className="w-4 text-[var(--ds-blue)]">{o === value ? '✓' : ''}</span>{o}
               </button>
             ))}
           </div>
@@ -133,14 +133,14 @@ function Selector({ label, value, opciones, onChange, placeholder, vacio }: {
 function Fila({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex min-h-[46px] items-center justify-between gap-3 px-4 py-2">
-      <span className="shrink-0 text-[15px] text-[#1C1C1E] dark:text-white">{label}</span>
+      <span className="shrink-0 text-[15px] text-[var(--ds-gray-900)] dark:text-white">{label}</span>
       {children}
     </div>
   )
 }
 
-const INPUT = 'w-full min-w-0 bg-transparent text-right text-[15px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] dark:text-white'
-const SECCION = 'mt-5 mb-1.5 px-4 text-[12px] uppercase tracking-wide text-[#8E8E93]'
+const INPUT = 'w-full min-w-0 bg-transparent text-right text-[15px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-300)] dark:text-white'
+const SECCION = 'mt-5 mb-1.5 px-4 text-[12px] uppercase tracking-wide text-[var(--ds-gray-500)]'
 
 /** Separa valores con coma o punto y coma, pero no la coma decimal ("1,2 L" queda junto) */
 const SEPARADOR = /;|\n|,(?=\s|[^\d\s])/
@@ -186,23 +186,23 @@ function AtributoEditor({ def, sugeridos, nombresUsados, onChange, onQuitar }: {
           onChange={(e) => onChange({ ...def, nombre: e.target.value.slice(0, 30) })}
           placeholder="Atributo (talle, color…)"
           aria-label="Nombre del atributo"
-          className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-[#1C1C1E] outline-none placeholder:font-normal placeholder:text-[#C7C7CC] dark:text-white"
+          className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-[var(--ds-gray-900)] outline-none placeholder:font-normal placeholder:text-[var(--ds-gray-300)] dark:text-white"
         />
-        <button type="button" onClick={onQuitar} aria-label={`Quitar ${def.nombre || 'atributo'}`} className="text-[13px] text-[#FF3B30] transition-opacity active:opacity-60 dark:text-[#FF453A]">Quitar</button>
+        <button type="button" onClick={onQuitar} aria-label={`Quitar ${def.nombre || 'atributo'}`} className="text-[13px] text-[var(--ds-red)] transition-opacity active:opacity-60 dark:text-[var(--ds-red-dark)]">Quitar</button>
       </div>
       {/* Sin nombre todavía: atajos */}
       {!def.nombre.trim() && nombres.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           {nombres.slice(0, 6).map((n) => (
-            <button key={n} type="button" onClick={() => onChange({ ...def, nombre: n })} className="rounded-full bg-black/[0.04] px-2.5 py-0.5 text-[12px] text-[#3C3C43] transition active:scale-95 dark:bg-white/[0.08] dark:text-[#EBEBF5]">{n}</button>
+            <button key={n} type="button" onClick={() => onChange({ ...def, nombre: n })} className="rounded-full bg-black/[0.04] px-2.5 py-0.5 text-[12px] text-[var(--ds-gray-700)] transition active:scale-95 dark:bg-white/[0.08] dark:text-[var(--ds-gray-200)]">{n}</button>
           ))}
         </div>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {def.valores.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1 rounded-full bg-[#007AFF]/10 py-0.5 pl-2.5 pr-1 text-[13px] text-[#007AFF] dark:bg-[#0A84FF]/20 dark:text-[#64D2FF]">
+          <span key={v} className="inline-flex items-center gap-1 rounded-full bg-[var(--ds-blue)]/10 py-0.5 pl-2.5 pr-1 text-[13px] text-[var(--ds-blue)] dark:bg-[var(--ds-blue-dark)]/20 dark:text-[var(--ds-sky)]">
             {v}
-            <button type="button" onClick={() => quitar(v)} aria-label={`Quitar ${v}`} className="flex h-4 w-4 items-center justify-center rounded-full text-[#007AFF]/70 hover:bg-[#007AFF]/15 dark:text-[#64D2FF]/80">
+            <button type="button" onClick={() => quitar(v)} aria-label={`Quitar ${v}`} className="flex h-4 w-4 items-center justify-center rounded-full text-[var(--ds-blue)]/70 hover:bg-[var(--ds-blue)]/15 dark:text-[var(--ds-sky)]/80">
               <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
             </button>
           </span>
@@ -217,15 +217,15 @@ function AtributoEditor({ def, sugeridos, nombresUsados, onChange, onQuitar }: {
           onBlur={() => agregar(texto)}
           placeholder={def.valores.length === 0 ? `Escribí y tocá Enter (ej: ${ejemploDe(def.nombre)})` : 'Agregar…'}
           aria-label={`Agregar valor de ${def.nombre || 'atributo'}`}
-          className="min-w-[120px] flex-1 bg-transparent py-0.5 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] dark:text-white"
+          className="min-w-[120px] flex-1 bg-transparent py-0.5 text-[13px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-300)] dark:text-white"
         />
       </div>
       {/* Autocompletar: lo que ya usaste en otros artículos */}
       {libres.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] text-[#AEAEB2]">Usados:</span>
+          <span className="text-[11px] text-[var(--ds-gray-400)]">Usados:</span>
           {libres.slice(0, 12).map((s) => (
-            <button key={s} type="button" onClick={() => agregar(s)} className="rounded-full px-2 py-0.5 text-[12px] text-[#8E8E93] ring-1 ring-black/[0.08] transition hover:text-[#1C1C1E] active:scale-95 dark:ring-white/10 dark:hover:text-white">+ {s}</button>
+            <button key={s} type="button" onClick={() => agregar(s)} className="rounded-full px-2 py-0.5 text-[12px] text-[var(--ds-gray-500)] ring-1 ring-black/[0.08] transition hover:text-[var(--ds-gray-900)] active:scale-95 dark:ring-white/10 dark:hover:text-white">+ {s}</button>
           ))}
         </div>
       )}
@@ -321,15 +321,15 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
   return createPortal(
     <div className="fixed inset-0 z-[75] flex items-end justify-center md:items-center" role="dialog" aria-modal="true" aria-label={articulo ? 'Editar producto' : 'Nuevo producto'}>
       <div className="reg-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <form onSubmit={guardar} className="reg-sheet relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-[#F2F2F7] shadow-2xl dark:bg-black md:rounded-3xl">
+      <form onSubmit={guardar} className="reg-sheet relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-[var(--ds-gray-100)] shadow-2xl dark:bg-black md:rounded-3xl">
         <div className="flex justify-center pt-2 md:hidden" aria-hidden>
           <span className="h-[5px] w-9 rounded-full bg-black/15 dark:bg-white/20" />
         </div>
         {/* Encabezado tipo iOS: Cancelar · título · Guardar */}
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
-          <button type="button" onClick={onClose} className="text-[15px] text-[#007AFF] dark:text-[#0A84FF]">Cancelar</button>
-          <h3 className="text-[16px] font-semibold text-[#1C1C1E] dark:text-white">{articulo ? 'Editar producto' : 'Nuevo producto'}</h3>
-          <button type="submit" disabled={pending || !nombre.trim()} className="text-[15px] font-semibold text-[#007AFF] disabled:opacity-40 dark:text-[#0A84FF]">
+          <button type="button" onClick={onClose} className="text-[15px] text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">Cancelar</button>
+          <h3 className="text-[16px] font-semibold text-[var(--ds-gray-900)] dark:text-white">{articulo ? 'Editar producto' : 'Nuevo producto'}</h3>
+          <button type="submit" disabled={pending || !nombre.trim()} className="text-[15px] font-semibold text-[var(--ds-blue)] disabled:opacity-40 dark:text-[var(--ds-blue-dark)]">
             {pending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
@@ -339,35 +339,35 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
           <div className="mt-2 flex rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/[0.1]" role="tablist" aria-label="Tipo">
             {([['MERCADERIA', 'Producto'], ['SERVICIO', 'Servicio']] as const).map(([v, l]) => (
               <button key={v} type="button" role="tab" aria-selected={tipo === v} onClick={() => setTipo(v)}
-                className={`flex-1 rounded-md py-1.5 text-[13px] transition ${tipo === v ? 'bg-white font-medium text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white' : 'text-[#3C3C43] dark:text-[#EBEBF5]/70'}`}>
+                className={`flex-1 rounded-md py-1.5 text-[13px] transition ${tipo === v ? 'bg-white font-medium text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[var(--ds-gray-600)] dark:text-white' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/70'}`}>
                 {l}
               </button>
             ))}
           </div>
 
           {/* Foto + nombre */}
-          <div className="mt-4 flex items-center gap-3 rounded-xl bg-white p-3 dark:bg-[#1C1C1E]">
+          <div className="mt-4 flex items-center gap-3 rounded-xl bg-white p-3 dark:bg-[var(--ds-gray-900)]">
             <button type="button" onClick={() => fileRef.current?.click()} aria-label={fotoVista ? 'Cambiar foto' : 'Agregar foto'} className="relative shrink-0 transition active:scale-95">
               <Foto src={fotoVista} alt={nombre || 'Foto'} className="h-16 w-16 rounded-xl" icono="h-6 w-6" />
-              {!fotoVista && <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#007AFF] text-[13px] leading-none text-white ring-2 ring-white dark:bg-[#0A84FF] dark:ring-[#1C1C1E]">+</span>}
+              {!fotoVista && <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--ds-blue)] text-[13px] leading-none text-white ring-2 ring-white dark:bg-[var(--ds-blue-dark)] dark:ring-[var(--ds-gray-900)]">+</span>}
             </button>
             <div className="min-w-0 flex-1">
               <input
                 required autoFocus={!articulo} value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={100}
                 placeholder="Nombre (ej: Termo Quencher)" aria-label="Nombre"
-                className="w-full bg-transparent text-[16px] font-medium text-[#1C1C1E] outline-none placeholder:font-normal placeholder:text-[#C7C7CC] dark:text-white"
+                className="w-full bg-transparent text-[16px] font-medium text-[var(--ds-gray-900)] outline-none placeholder:font-normal placeholder:text-[var(--ds-gray-300)] dark:text-white"
               />
               <div className="mt-0.5 flex gap-3 text-[13px]">
-                <button type="button" onClick={() => fileRef.current?.click()} className="text-[#007AFF] dark:text-[#0A84FF]">{fotoVista ? 'Cambiar foto' : 'Agregar foto'}</button>
-                {fotoVista && <button type="button" onClick={() => setFoto(null)} className="text-[#8E8E93]">Quitar</button>}
+                <button type="button" onClick={() => fileRef.current?.click()} className="text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">{fotoVista ? 'Cambiar foto' : 'Agregar foto'}</button>
+                {fotoVista && <button type="button" onClick={() => setFoto(null)} className="text-[var(--ds-gray-500)]">Quitar</button>}
               </div>
-              {fotoError && <p className="text-[12px] text-[#FF3B30]">{fotoError}</p>}
+              {fotoError && <p className="text-[12px] text-[var(--ds-red)]">{fotoError}</p>}
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void elegirFoto(e.target.files?.[0]); e.target.value = '' }} />
           </div>
 
           {/* Datos */}
-          <div className="mt-4 divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[#1C1C1E]">
+          <div className="mt-4 divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[var(--ds-gray-900)]">
             <Fila label="Categoría">
               <Selector label="Categoría" value={categoria} opciones={categorias} onChange={(v) => { if (v !== categoria) setSubcategoria(''); setCategoria(v) }} placeholder="Buscar o crear" vacio="Sin categoría" />
             </Fila>
@@ -383,24 +383,24 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
           </div>
 
           {/* Precio, costo y margen en vivo */}
-          <div className="mt-4 divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[#1C1C1E]">
+          <div className="mt-4 divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[var(--ds-gray-900)]">
             <Fila label={combos.length > 0 ? 'Precio base' : 'Precio de venta'}>
               <div className="flex items-center gap-1">
-                <span className="text-[15px] text-[#8E8E93]">$</span>
+                <span className="text-[15px] text-[var(--ds-gray-500)]">$</span>
                 <input inputMode="decimal" value={precio} onChange={(e) => setPrecio(formatearMonto(e.target.value))} placeholder="0" aria-label="Precio de venta" className={`${INPUT} w-32 tabular-nums`} />
               </div>
             </Fila>
             {combos.length === 0 && (
               <Fila label="Costo prom.">
-                <span className="text-right text-[15px] tabular-nums text-[#8E8E93]">{costo > 0 ? fmt$(costo) : 'Sale de las compras'}</span>
+                <span className="text-right text-[15px] tabular-nums text-[var(--ds-gray-500)]">{costo > 0 ? fmt$(costo) : 'Sale de las compras'}</span>
               </Fila>
             )}
           </div>
-          <p className="mt-1.5 px-4 text-[12px] text-[#8E8E93]">
+          <p className="mt-1.5 px-4 text-[12px] text-[var(--ds-gray-500)]">
             {combos.length > 0
               ? 'Las variantes usan este precio; si alguna vale distinto, cargalo abajo.'
               : costo > 0 && precioNum > 0 ? (
-                <>Margen <span className={`tabular-nums ${margen < 0 ? 'text-[#B8664F] dark:text-[#E3A592]' : 'text-[#1C1C1E] dark:text-white'}`}>{margen < 0 ? '−' : ''}{fmt$(Math.abs(margen))}</span> · {margenPct.toLocaleString('es-AR', { maximumFractionDigits: 0 })}% por {unidad || 'unidad'}</>
+                <>Margen <span className={`tabular-nums ${margen < 0 ? 'text-[var(--ds-terracotta)] dark:text-[#F97066]' : 'text-[var(--ds-gray-900)] dark:text-white'}`}>{margen < 0 ? '−' : ''}{fmt$(Math.abs(margen))}</span> · {margenPct.toLocaleString('es-AR', { maximumFractionDigits: 0 })}% por {unidad || 'unidad'}</>
               ) : costo > 0 ? 'Cargá el precio para ver el margen.' : 'El costo y el stock se calculan solos con cada compra.'}
           </p>
 
@@ -408,7 +408,7 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
           {tipo === 'MERCADERIA' && (
             <>
               <p className={SECCION}>Variantes</p>
-              <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[#1C1C1E]">
+              <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[var(--ds-gray-900)]">
                 {atributos.map((a, i) => (
                   <AtributoEditor
                     key={i}
@@ -420,40 +420,40 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
                   />
                 ))}
                 {atributos.length < 3 && (
-                  <button type="button" onClick={() => setAtributos((prev) => [...prev, { nombre: '', valores: [] }])} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-[#007AFF] dark:text-[#0A84FF]">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#007AFF] text-[14px] leading-none text-white dark:bg-[#0A84FF]">+</span>
+                  <button type="button" onClick={() => setAtributos((prev) => [...prev, { nombre: '', valores: [] }])} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--ds-blue)] text-[14px] leading-none text-white dark:bg-[var(--ds-blue-dark)]">+</span>
                     {atributos.length === 0 ? 'Agregar talle, color, tamaño…' : 'Agregar otro atributo'}
                   </button>
                 )}
               </div>
-              <p className="mt-1.5 px-4 text-[12px] text-[#8E8E93]">
+              <p className="mt-1.5 px-4 text-[12px] text-[var(--ds-gray-500)]">
                 {combos.length > 0
                   ? `${combos.length} variante${combos.length === 1 ? '' : 's'}, cada una con su stock.`
                   : 'Sin variantes: un solo stock para todo el producto.'}
               </p>
 
               {combos.length > 0 && (
-                <div className="mt-3 divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[#1C1C1E]">
+                <div className="mt-3 divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[var(--ds-gray-900)]">
                   {combos.map((c, i) => {
                     const k = claveVariante(c)
                     const ex = existentes.get(k)
                     const propio = (precios[k] ?? '').trim() !== ''
                     return (
                       <div key={k} className="flex min-h-[42px] items-center gap-3 px-4 py-1.5">
-                        <span className="min-w-0 flex-1 truncate text-[14px] text-[#1C1C1E] dark:text-white">
+                        <span className="min-w-0 flex-1 truncate text-[14px] text-[var(--ds-gray-900)] dark:text-white">
                           {etiquetaVariante(c, defs)}
-                          {ex && ex.stock !== 0 && <span className="ml-1.5 text-[12px] tabular-nums text-[#AEAEB2]">{ex.stock.toLocaleString('es-AR')} u</span>}
-                          {i === 0 && stockSinVariante > 0 && <span className="ml-1.5 text-[12px] text-[#AEAEB2]">recibe {stockSinVariante.toLocaleString('es-AR')} u actuales</span>}
+                          {ex && ex.stock !== 0 && <span className="ml-1.5 text-[12px] tabular-nums text-[var(--ds-gray-400)]">{ex.stock.toLocaleString('es-AR')} u</span>}
+                          {i === 0 && stockSinVariante > 0 && <span className="ml-1.5 text-[12px] text-[var(--ds-gray-400)]">recibe {stockSinVariante.toLocaleString('es-AR')} u actuales</span>}
                         </span>
                         <div className="flex items-center gap-1">
-                          <span className={`text-[14px] ${propio ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-[#C7C7CC]'}`}>$</span>
+                          <span className={`text-[14px] ${propio ? 'text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]' : 'text-[var(--ds-gray-300)]'}`}>$</span>
                           <input
                             inputMode="decimal"
                             value={precios[k] ?? ''}
                             onChange={(e) => setPrecios((prev) => ({ ...prev, [k]: formatearMonto(e.target.value) }))}
                             placeholder={precio || '0'}
                             aria-label={`Precio de ${etiquetaVariante(c, defs)}`}
-                            className={`w-24 bg-transparent text-right text-[14px] tabular-nums outline-none placeholder:text-[#C7C7CC] ${propio ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-[#1C1C1E] dark:text-white'}`}
+                            className={`w-24 bg-transparent text-right text-[14px] tabular-nums outline-none placeholder:text-[var(--ds-gray-300)] ${propio ? 'text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]' : 'text-[var(--ds-gray-900)] dark:text-white'}`}
                           />
                         </div>
                       </div>
@@ -464,7 +464,7 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
             </>
           )}
 
-          {error && <p className="mt-3 px-4 text-[13px] text-[#FF3B30]">{error}</p>}
+          {error && <p className="mt-3 px-4 text-[13px] text-[var(--ds-red)]">{error}</p>}
         </div>
       </form>
     </div>,

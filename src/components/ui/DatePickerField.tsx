@@ -81,7 +81,7 @@ export default function DatePickerField({ value, onChange, disabled, className, 
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all hover:border-gray-300 focus:border-brand-military disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-zinc-900 dark:text-gray-200"
+        className="flex w-full items-center justify-between rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all hover:border-gray-300 focus:border-brand-military disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-gray-900 dark:text-gray-200"
       >
         <span className={selected ? '' : 'text-gray-400'}>
           {selected ? formatLabel(selected) : (placeholder ?? 'Seleccionar fecha')}
@@ -92,7 +92,7 @@ export default function DatePickerField({ value, onChange, disabled, className, 
       </button>
       )}
       {open && (
-        <div className={`absolute top-full z-50 mt-1.5 rounded-2xl border border-black/[0.08] bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-zinc-900 ${variant === 'icon' ? 'right-0' : 'left-0'}`}>
+        <div className={`absolute top-full z-50 mt-1.5 rounded-2xl border border-black/[0.08] bg-white p-3 shadow-2xl dark:border-white/10 dark:bg-gray-900 ${variant === 'icon' ? 'right-0' : 'left-0'}`}>
           <DayPicker
             mode="single"
             locale={es}

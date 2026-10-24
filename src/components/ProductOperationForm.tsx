@@ -19,10 +19,10 @@ const ENTRY_GRID = 'grid grid-cols-[minmax(0,1fr)_44px_88px_88px] items-center g
 
 // Campo chico del carrito: sin caja, con línea al enfocar
 const CART_INPUT_CLS =
-  'ios-bare w-full border-b border-transparent bg-transparent text-right text-[13px] text-[#1C1C1E] outline-none focus:border-[var(--reg-accent,#34C759)] dark:text-white tabular-nums'
+  'ios-bare w-full border-b border-transparent bg-transparent text-right text-[13px] text-[var(--ds-gray-900)] outline-none focus:border-[var(--reg-accent,#2D6A4F)] dark:text-white tabular-nums'
 
 // Pestaña flotante de la columna derecha (carrito, pago)
-const SIDE_CARD_CLS = 'shrink-0 rounded-3xl bg-[#F2F2F7] p-4 shadow-2xl dark:bg-black'
+const SIDE_CARD_CLS = 'shrink-0 rounded-3xl bg-[var(--ds-gray-100)] p-4 shadow-2xl dark:bg-black'
 
 // Pantalla ancha (md): el carrito va al costado de la pestaña
 const WIDE_QUERY = '(min-width: 768px)'
@@ -54,7 +54,7 @@ function CartNumber({ value, onChange, money, label }: { value: string; onChange
   }
   return (
     <button type="button" onClick={() => setEditing(true)} aria-label={`Editar ${label.toLowerCase()}`}
-      className="w-full border-b border-transparent text-right text-[13px] text-[#8E8E93] transition-colors hover:border-black/10 dark:hover:border-white/15">
+      className="w-full border-b border-transparent text-right text-[13px] text-[var(--ds-gray-500)] transition-colors hover:border-black/10 dark:hover:border-white/15">
       {money ? fmt(num(value)) : num(value).toLocaleString('es-AR')}
     </button>
   )
@@ -270,15 +270,15 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
   const carrito = (
     <div className={`flex flex-col ${IOS_FONT}`}>
       <div className="mb-1.5 flex items-baseline justify-between px-4">
-        <p className="text-[13px] text-[#8E8E93]">Carrito</p>
-        {items.length > 0 && <p className="text-[12px] text-[#8E8E93]">{items.length} producto{items.length !== 1 ? 's' : ''}</p>}
+        <p className="text-[13px] text-[var(--ds-gray-500)]">Carrito</p>
+        {items.length > 0 && <p className="text-[12px] text-[var(--ds-gray-500)]">{items.length} producto{items.length !== 1 ? 's' : ''}</p>}
       </div>
       <Group>
         {items.length === 0 ? (
-          <p className="px-4 py-6 text-center text-[13px] text-[#8E8E93]">Todavía no agregaste productos</p>
+          <p className="px-4 py-6 text-center text-[13px] text-[var(--ds-gray-500)]">Todavía no agregaste productos</p>
         ) : (
           <>
-            <div className={`${ITEM_GRID} px-3 pb-1.5 pt-2.5 text-[11px] text-[#8E8E93]`}>
+            <div className={`${ITEM_GRID} px-3 pb-1.5 pt-2.5 text-[11px] text-[var(--ds-gray-500)]`}>
               <span>Producto</span>
               <span className="text-right">Cant.</span>
               <span className="text-right">Precio</span>
@@ -286,7 +286,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
               <span />
             </div>
             {items.map((i) => (
-              <div key={i.key} className={`${ITEM_GRID} min-h-[38px] px-3 py-1.5 text-[13px] text-[#1C1C1E] dark:text-white`}>
+              <div key={i.key} className={`${ITEM_GRID} min-h-[38px] px-3 py-1.5 text-[13px] text-[var(--ds-gray-900)] dark:text-white`}>
                 <span className="truncate" title={productoById.get(i.productoId)?.nombre}>{productoById.get(i.productoId)?.nombre ?? '—'}</span>
                 <CartNumber value={i.cantidad} onChange={(v) => updateItem(i.key, { cantidad: v })} label="Cantidad" />
                 <CartNumber value={i.precio} onChange={(v) => updateItem(i.key, { precio: v })} label="Precio" money />
@@ -294,7 +294,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                 <button
                   type="button"
                   onClick={() => setItems((prev) => prev.filter((x) => x.key !== i.key))}
-                  className="flex justify-end text-[#C7C7CC] transition-colors hover:text-[#FF3B30]"
+                  className="flex justify-end text-[var(--ds-gray-300)] transition-colors hover:text-[var(--ds-red)]"
                   aria-label="Quitar producto"
                 >
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -308,31 +308,31 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
       <Group className="mt-3">
         {/* Subtotal y descuento más chicos para que resalte el total */}
         <div className="flex min-h-[36px] items-center justify-between px-4 text-[13px]">
-          <span className="text-[#8E8E93]">Subtotal</span>
-          <span className="text-[#8E8E93]">{fmt(subtotal)}</span>
+          <span className="text-[var(--ds-gray-500)]">Subtotal</span>
+          <span className="text-[var(--ds-gray-500)]">{fmt(subtotal)}</span>
         </div>
         {/* Descuento: fila mínima; tocar "$" / "%" alterna el tipo */}
-        <div className="flex min-h-[30px] items-center justify-between gap-3 px-4 text-[12px] text-[#AEAEB2]">
+        <div className="flex min-h-[30px] items-center justify-between gap-3 px-4 text-[12px] text-[var(--ds-gray-400)]">
           <span>Descuento</span>
           <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={() => setDescuentoModo((m) => (m === '$' ? '%' : '$'))}
               aria-label={`Descuento en ${descuentoModo === '$' ? 'pesos' : 'porcentaje'}, tocar para cambiar`}
-              className="rounded px-1 transition-colors hover:text-[#8E8E93]"
+              className="rounded px-1 transition-colors hover:text-[var(--ds-gray-500)]"
             >
               {descuentoModo}
             </button>
             <input
               type="number" min="0" step="0.01" value={descuentoText} placeholder="0"
               onChange={(e) => setDescuentoText(e.target.value)}
-              className="ios-bare w-16 bg-transparent text-right text-[12px] text-[#8E8E93] outline-none placeholder:text-[#C7C7CC] tabular-nums" aria-label="Descuento"
+              className="ios-bare w-16 bg-transparent text-right text-[12px] text-[var(--ds-gray-500)] outline-none placeholder:text-[var(--ds-gray-300)] tabular-nums" aria-label="Descuento"
             />
           </div>
         </div>
         <div className="flex min-h-[52px] items-center justify-between px-4">
-          <span className="text-[15px] font-medium text-[#1C1C1E] dark:text-white">Total</span>
-          <span className="text-[20px] font-semibold text-[var(--reg-accent,#34C759)]">{fmt(total)}</span>
+          <span className="text-[15px] font-medium text-[var(--ds-gray-900)] dark:text-white">Total</span>
+          <span className="text-[20px] font-semibold text-[var(--reg-accent,#2D6A4F)]">{fmt(total)}</span>
         </div>
       </Group>
     </div>
@@ -344,7 +344,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
   return (
     <div className="mt-5 flex flex-col">
       {error && (
-        <div className="mb-3 flex items-center justify-between rounded-xl bg-[#FF3B30]/10 px-4 py-2.5 text-[13px] text-[#D70015] dark:text-[#FF6961]">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-[var(--ds-red)]/10 px-4 py-2.5 text-[13px] text-[var(--ds-red-strong)] dark:text-[var(--ds-coral)]">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar aviso" className="ml-3 opacity-60">×</button>
         </div>
@@ -356,7 +356,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
         <Group>
           {/* Producto | Cant. | Precio | Total en una sola fila */}
           <div>
-            <div className={`${ENTRY_GRID} px-4 pt-2 text-[11px] text-[#8E8E93]`}>
+            <div className={`${ENTRY_GRID} px-4 pt-2 text-[11px] text-[var(--ds-gray-500)]`}>
               <span>Producto</span>
               <span className="text-right">Cant.</span>
               <span className="text-right">Precio</span>
@@ -369,7 +369,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                 className="flex min-w-0 items-center gap-1 border-b border-transparent text-left transition-colors hover:border-black/10 dark:hover:border-white/15"
                 aria-label="Elegir producto"
               >
-                <span className={`truncate ${draftProducto ? 'text-[#1C1C1E] dark:text-white' : 'text-[#C7C7CC]'}`}>
+                <span className={`truncate ${draftProducto ? 'text-[var(--ds-gray-900)] dark:text-white' : 'text-[var(--ds-gray-300)]'}`}>
                   {draftProducto ? draftProducto.nombre : 'Elegir producto'}
                 </span>
                 <Chevron open={searching} />
@@ -378,7 +378,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                 type="number" min="0.01" step="0.01" value={draft.cantidad}
                 onChange={(e) => setDraft((d) => ({ ...d, cantidad: e.target.value }))}
                 onKeyDown={(e) => { if (e.key === 'Enter') agregarAlCarrito() }}
-                className="ios-bare w-full border-b border-transparent bg-transparent text-right text-[13px] text-[#1C1C1E] outline-none focus:border-[var(--reg-accent,#34C759)] dark:text-white tabular-nums"
+                className="ios-bare w-full border-b border-transparent bg-transparent text-right text-[13px] text-[var(--ds-gray-900)] outline-none focus:border-[var(--reg-accent,#2D6A4F)] dark:text-white tabular-nums"
                 aria-label="Cantidad"
               />
               <MoneyField
@@ -388,14 +388,14 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                 onEnter={agregarAlCarrito}
                 label="Precio"
               />
-              <span className="text-right text-[#1C1C1E] dark:text-white">{fmt(draftTotal)}</span>
+              <span className="text-right text-[var(--ds-gray-900)] dark:text-white">{fmt(draftTotal)}</span>
             </div>
           </div>
           <div className="flex justify-center py-2">
             <button
               type="button"
               onClick={agregarAlCarrito}
-              className="text-[13px] font-medium text-[var(--reg-accent,#34C759)] transition-opacity active:opacity-60"
+              className="text-[13px] font-medium text-[var(--reg-accent,#2D6A4F)] transition-opacity active:opacity-60"
             >
               Agregar al carrito
             </button>
@@ -404,9 +404,9 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
 
         {/* Lista flotante: se abre sobre la pestaña, no la estira */}
         {searching && (
-          <div className="absolute inset-x-0 top-[62px] z-30 overflow-hidden rounded-xl bg-[#fff] shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] dark:bg-[#2C2C2E] dark:ring-white/10">
+          <div className="absolute inset-x-0 top-[62px] z-30 overflow-hidden rounded-xl bg-[var(--ds-white)] shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] dark:bg-[var(--ds-gray-800)] dark:ring-white/10">
             <div className="flex items-center gap-2 border-b border-black/[0.08] px-3 py-2 dark:border-white/[0.08]">
-              <svg className="h-3.5 w-3.5 shrink-0 text-[#8E8E93]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
+              <svg className="h-3.5 w-3.5 shrink-0 text-[var(--ds-gray-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
               <input
                 autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -414,12 +414,12 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                   if (e.key === 'Escape') { e.stopPropagation(); cerrarBuscador() }
                 }}
                 placeholder="Buscar"
-                className="ios-bare flex-1 bg-transparent text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] dark:text-white"
+                className="ios-bare flex-1 bg-transparent text-[13px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-300)] dark:text-white"
               />
             </div>
             <div className="max-h-64 overflow-y-auto">
               {resultados.length === 0 ? (
-                <p className="px-3 py-3 text-[13px] text-[#8E8E93]">Sin coincidencias</p>
+                <p className="px-3 py-3 text-[13px] text-[var(--ds-gray-500)]">Sin coincidencias</p>
               ) : resultados.map((p) => {
                 // Stock que queda descontando lo que ya está en el carrito
                 const stock = disponible(p.id)
@@ -429,8 +429,8 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                     disabled={esVenta && stock <= 0}
                     className={`block w-full px-3 py-2 text-left transition-colors hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.06] ${p.id === draft.productoId ? 'bg-brand-military/[0.06]' : ''}`}
                   >
-                    <span className="block truncate text-[13px] text-[#1C1C1E] dark:text-white">{p.nombre}</span>
-                    <span className="block truncate text-[11px] text-[#8E8E93]">{productoDetalle(p, stock)}</span>
+                    <span className="block truncate text-[13px] text-[var(--ds-gray-900)] dark:text-white">{p.nombre}</span>
+                    <span className="block truncate text-[11px] text-[var(--ds-gray-500)]">{productoDetalle(p, stock)}</span>
                   </button>
                 )
               })}
@@ -441,33 +441,33 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
               <button
                 type="button"
                 onClick={() => setNuevo({ nombre: query.trim(), precioVenta: '', categoria: '' })}
-                className="block w-full border-t border-black/[0.06] px-3 py-2 text-left text-[11px] text-[#AEAEB2] transition-colors hover:text-[#8E8E93] dark:border-white/[0.08]"
+                className="block w-full border-t border-black/[0.06] px-3 py-2 text-left text-[11px] text-[var(--ds-gray-400)] transition-colors hover:text-[var(--ds-gray-500)] dark:border-white/[0.08]"
               >
                 + Nuevo producto
               </button>
             ) : (
               <div className="border-t border-black/[0.06] px-3 py-2 dark:border-white/[0.08]">
-                <p className="mb-1 text-[11px] text-[#8E8E93]">Nuevo producto</p>
+                <p className="mb-1 text-[11px] text-[var(--ds-gray-500)]">Nuevo producto</p>
                 <input
                   autoFocus value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
                   placeholder="Nombre" maxLength={100}
-                  className="ios-bare w-full border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#34C759)] dark:border-white/10 dark:text-white"
+                  className="ios-bare w-full border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-300)] focus:border-[var(--reg-accent,#2D6A4F)] dark:border-white/10 dark:text-white"
                 />
                 <div className="mt-1 flex gap-3">
                   <input
                     type="number" min="0" step="0.01" value={nuevo.precioVenta} onChange={(e) => setNuevo({ ...nuevo, precioVenta: e.target.value })}
                     placeholder="Precio de venta"
-                    className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#34C759)] dark:border-white/10 dark:text-white"
+                    className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-300)] focus:border-[var(--reg-accent,#2D6A4F)] dark:border-white/10 dark:text-white"
                   />
                   <input
                     value={nuevo.categoria} onChange={(e) => setNuevo({ ...nuevo, categoria: e.target.value })}
                     placeholder="Categoría (opcional)" maxLength={80}
-                    className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#34C759)] dark:border-white/10 dark:text-white"
+                    className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-300)] focus:border-[var(--reg-accent,#2D6A4F)] dark:border-white/10 dark:text-white"
                   />
                 </div>
                 <div className="mt-2 flex justify-end gap-4 text-[12px]">
-                  <button type="button" onClick={() => setNuevo(null)} className="text-[#8E8E93]">Cancelar</button>
-                  <button type="button" onClick={crearProducto} disabled={creando} className="font-medium text-[var(--reg-accent,#34C759)] disabled:opacity-50">
+                  <button type="button" onClick={() => setNuevo(null)} className="text-[var(--ds-gray-500)]">Cancelar</button>
+                  <button type="button" onClick={crearProducto} disabled={creando} className="font-medium text-[var(--reg-accent,#2D6A4F)] disabled:opacity-50">
                     {creando ? 'Guardando…' : 'Crear'}
                   </button>
                 </div>

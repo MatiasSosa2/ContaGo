@@ -7,12 +7,12 @@ import type { ReactNode } from 'react'
 export const SF_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", system-ui, sans-serif'
 
 export const IOS = {
-  green: '#34C759',
-  red: '#FF3B30',
-  orange: '#FF9F0A',
-  blue: '#0A84FF',
+  green: '#2D6A4F',
+  red: '#B42318',
+  orange: '#B42318',
+  blue: '#2D6A4F',
   /** Celeste: color de la ganancia neta */
-  cyan: '#32ADE6',
+  cyan: '#5B9A78',
 } as const
 
 const SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
@@ -31,7 +31,7 @@ export function fmtPctEs(value: number) {
 /** Tarjeta blanca redondeada, sin borde, con sombra casi imperceptible */
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] dark:bg-[#1C1C1E] dark:shadow-none ${className}`}>
+    <div className={`ds-panel ${className}`}>
       {children}
     </div>
   )
@@ -69,18 +69,18 @@ export function KpiCard({ label, value, note, trend, color, delta }: {
   return (
     <Card className="flex flex-col px-4 pb-3 pt-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] text-[#8E8E93]">{label}</p>
+        <p className="text-[13px] text-[var(--ds-gray-500)]">{label}</p>
         {delta && delta.pct !== null && (
           <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${(delta.inverse ? delta.pct <= 0 : delta.pct >= 0) ? 'bg-[#34C759]/[0.12] text-[#248A3D] dark:text-[#30D158]' : 'bg-[#FF3B30]/[0.12] text-[#D70015] dark:text-[#FF453A]'}`}
+            className={`rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${(delta.inverse ? delta.pct <= 0 : delta.pct >= 0) ? 'bg-[var(--ds-green)]/[0.12] text-[var(--ds-green-strong)] dark:text-[var(--ds-green-dark)]' : 'bg-[var(--ds-red)]/[0.12] text-[var(--ds-red-strong)] dark:text-[var(--ds-red-dark)]'}`}
             title={`Contra ${delta.vs}`}
           >
             {delta.pct >= 0 ? '▲' : '▼'} {Math.abs(delta.pct).toLocaleString('es-AR', { maximumFractionDigits: 0 })}% <span className="font-normal opacity-70">vs {delta.vs}</span>
           </span>
         )}
       </div>
-      <p className="mt-0.5 text-[20px] font-semibold tracking-tight tabular-nums text-[#1C1C1E] sm:text-[22px] dark:text-white">{value}</p>
-      <p className="h-4 text-[12px] tabular-nums text-[#8E8E93]">{note}</p>
+      <p className="mt-0.5 text-[20px] font-semibold tracking-tight tabular-nums text-[var(--ds-gray-900)] sm:text-[22px] dark:text-white">{value}</p>
+      <p className="h-4 text-[12px] tabular-nums text-[var(--ds-gray-500)]">{note}</p>
       <div className="mt-2"><Sparkline values={trend} color={color} /></div>
     </Card>
   )
@@ -88,7 +88,7 @@ export function KpiCard({ label, value, note, trend, color, delta }: {
 
 /** Título de sección dentro de la tabla (ej. "Otros ingresos") */
 export function TableSection({ title }: { title: string }) {
-  return <p className="px-4 pb-1.5 pt-5 text-[12px] font-medium uppercase tracking-wide text-[#8E8E93] sm:px-5">{title}</p>
+  return <p className="px-4 pb-1.5 pt-5 text-[12px] font-medium uppercase tracking-wide text-[var(--ds-gray-500)] sm:px-5">{title}</p>
 }
 
 /**
@@ -113,13 +113,13 @@ export function TableRow({ label, amount, pct, currency, level = 0, strong = fal
   children?: ReactNode
 }) {
   const amountColor = tone === 'negative'
-    ? 'text-[#8E8E93]'
-    : tone === 'positive' && strong ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#1C1C1E] dark:text-white'
+    ? 'text-[var(--ds-gray-500)]'
+    : tone === 'positive' && strong ? 'text-[var(--ds-green-strong)] dark:text-[var(--ds-green-dark)]' : 'text-[var(--ds-gray-900)] dark:text-white'
   const content = (
     <>
       <span className={`flex min-w-0 items-center gap-1.5 ${level === 1 ? 'pl-4' : level === 2 ? 'pl-8' : ''}`}>
         {children ? (
-          <svg className="h-2.5 w-2.5 shrink-0 text-[#C7C7CC] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <svg className="h-2.5 w-2.5 shrink-0 text-[var(--ds-gray-300)] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         ) : level > 0 ? (
@@ -127,12 +127,12 @@ export function TableRow({ label, amount, pct, currency, level = 0, strong = fal
           <span className="w-2.5 shrink-0" aria-hidden />
         ) : null}
         <span className="min-w-0">
-          <span className={`block truncate ${strong ? 'font-semibold text-[#1C1C1E] dark:text-white' : level > 0 ? 'text-[#3C3C43] dark:text-[#EBEBF5]/80' : 'text-[#1C1C1E] dark:text-white'}`}>{label}</span>
-          {note && <span className="block truncate text-[12px] text-[#8E8E93]">{note}</span>}
+          <span className={`block truncate ${strong ? 'font-semibold text-[var(--ds-gray-900)] dark:text-white' : level > 0 ? 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80' : 'text-[var(--ds-gray-900)] dark:text-white'}`}>{label}</span>
+          {note && <span className="block truncate text-[12px] text-[var(--ds-gray-500)]">{note}</span>}
         </span>
       </span>
       <span className={`text-right tabular-nums ${strong ? 'font-semibold' : ''} ${amountColor}`}>{fmtFull(amount, currency, signed)}</span>
-      {pctColumn && <span className="hidden w-14 text-right text-[12px] tabular-nums text-[#8E8E93] sm:inline">{pct !== undefined ? fmtPctEs(pct) : ''}</span>}
+      {pctColumn && <span className="hidden w-14 text-right text-[12px] tabular-nums text-[var(--ds-gray-500)] sm:inline">{pct !== undefined ? fmtPctEs(pct) : ''}</span>}
     </>
   )
   const rowCls = `grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-[14px] sm:gap-4 sm:px-5 ${pctColumn ? 'sm:grid-cols-[minmax(0,1fr)_auto_auto]' : ''}`
@@ -151,9 +151,9 @@ export function TableRow({ label, amount, pct, currency, level = 0, strong = fal
 export function TableSubRow({ label, amount, pct, currency, pctColumn = true }: { label: string; amount: number; pct?: number; currency: string; pctColumn?: boolean }) {
   return (
     <div className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-1.5 text-[13px] sm:gap-4 sm:px-5 ${pctColumn ? 'sm:grid-cols-[minmax(0,1fr)_auto_auto]' : ''}`}>
-      <span className="truncate pl-6 text-[#8E8E93] sm:pl-8">{label}</span>
-      <span className="text-right tabular-nums text-[#8E8E93]">{fmtFull(amount, currency)}</span>
-      {pctColumn && <span className="hidden w-14 text-right text-[11px] tabular-nums text-[#AEAEB2] sm:inline">{pct !== undefined ? fmtPctEs(pct) : ''}</span>}
+      <span className="truncate pl-6 text-[var(--ds-gray-500)] sm:pl-8">{label}</span>
+      <span className="text-right tabular-nums text-[var(--ds-gray-500)]">{fmtFull(amount, currency)}</span>
+      {pctColumn && <span className="hidden w-14 text-right text-[11px] tabular-nums text-[var(--ds-gray-400)] sm:inline">{pct !== undefined ? fmtPctEs(pct) : ''}</span>}
     </div>
   )
 }
@@ -163,14 +163,14 @@ export function StatementHeader({ title, period, backHref, actions }: { title: s
   return (
     <div className="mb-5 flex items-end justify-between gap-3" style={{ fontFamily: SF_FONT }}>
       <div>
-        <a href={backHref} className="inline-flex items-center gap-0.5 text-[15px] text-[#007AFF] transition hover:opacity-70 dark:text-[#0A84FF]">
+        <a href={backHref} className="inline-flex items-center gap-0.5 text-[15px] text-[var(--ds-blue)] transition hover:opacity-70 dark:text-[var(--ds-blue-dark)]">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Informes
         </a>
-        <h1 className="mt-1 text-[24px] font-bold leading-tight tracking-tight text-[#1C1C1E] sm:text-[28px] dark:text-white">{title}</h1>
-        <p className="text-[15px] text-[#8E8E93]">{period}</p>
+        <h1 className="mt-1 text-[24px] font-bold leading-tight tracking-tight text-[var(--ds-gray-900)] sm:text-[28px] dark:text-white">{title}</h1>
+        <p className="text-[15px] text-[var(--ds-gray-500)]">{period}</p>
       </div>
       {actions && <div className="shrink-0">{actions}</div>}
     </div>
@@ -187,11 +187,11 @@ export function fmtMillones(value: number) {
  * Verde si mejoró, rojo si empeoró; inverse = subir es malo (ej. deudas).
  */
 export function SubtleDelta({ value, inverse = false, className = '' }: { value: number; inverse?: boolean; className?: string }) {
-  if (Math.abs(value) < 0.5) return <span className={`inline-flex justify-end text-[11px] text-[#C7C7CC] dark:text-[#48484A] ${className}`}>—</span>
+  if (Math.abs(value) < 0.5) return <span className={`inline-flex justify-end text-[11px] text-[var(--ds-gray-300)] dark:text-[var(--ds-gray-650)] ${className}`}>—</span>
   const mejoro = inverse ? value < 0 : value > 0
   return (
-    <span className={`inline-flex items-baseline justify-end gap-1 text-[11px] tabular-nums text-[#AEAEB2] dark:text-[#636366] ${className}`}>
-      <span className={`text-[8px] ${mejoro ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>{value > 0 ? '▲' : '▼'}</span>
+    <span className={`inline-flex items-baseline justify-end gap-1 text-[11px] tabular-nums text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)] ${className}`}>
+      <span className={`text-[8px] ${mejoro ? 'text-[var(--ds-green)]' : 'text-[var(--ds-red)]'}`}>{value > 0 ? '▲' : '▼'}</span>
       {fmtMillones(value)}
     </span>
   )

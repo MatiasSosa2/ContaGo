@@ -3,7 +3,7 @@ import FlujoDetail, { type CashTrends } from '@/components/financial-statements/
 import PatrimonioDetail, { type BalanceTrends } from '@/components/financial-statements/PatrimonioDetail'
 import AutoPrint from '@/components/financial-statements/AutoPrint'
 import { SF_FONT } from '@/components/financial-statements/modern'
-import { getBalanceSheet, getCashStatement, getYearlySeries } from '@/app/actions'
+import { getCashStatement, getYearlySeries } from '@/app/actions'
 import { getReportsViewData, previousPeriodArgs, type ReportsSearchParams } from '../reportsData'
 import { Suspense, type ReactNode } from 'react'
 
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 function Seccion({ titulo, children, salto }: { titulo: string; children: ReactNode; salto?: boolean }) {
   return (
     <section className={salto ? 'print-page-break' : ''}>
-      <h2 className="mb-3 text-[20px] font-bold tracking-tight text-[#1C1C1E] dark:text-white">{titulo}</h2>
+      <h2 className="mb-3 text-[20px] font-bold tracking-tight text-[var(--ds-gray-900)] dark:text-white">{titulo}</h2>
       {children}
     </section>
   )
@@ -32,13 +32,13 @@ export default async function InformeCompletoPage({ searchParams }: { searchPara
     results,
     seriesYear,
     seriesActiveMonth,
+    balance,
   } = await getReportsViewData(searchParams)
 
   const periodArgs = [periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart] as const
-  const [series, statement, balance] = await Promise.all([
+  const [series, statement] = await Promise.all([
     getYearlySeries(seriesYear, 'ARS'),
     getCashStatement(...periodArgs, 'ARS', null),
-    getBalanceSheet(...periodArgs),
   ])
 
   const upTo = seriesActiveMonth ?? 11
@@ -56,11 +56,11 @@ export default async function InformeCompletoPage({ searchParams }: { searchPara
   const prevLabel = previousPeriodArgs(periodo, selectedYear, selectedMonth)?.label ?? 'anterior'
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1100px] space-y-8 bg-[#F2F2F7] p-6 dark:bg-black" style={{ fontFamily: SF_FONT }}>
+    <div className="mx-auto min-h-screen max-w-[1100px] space-y-8 bg-[var(--ds-gray-100)] p-6 dark:bg-black" style={{ fontFamily: SF_FONT }}>
       <AutoPrint />
       <header>
-        <p className="text-[13px] text-[#8E8E93]">{sessionContext.activeBusiness.name}</p>
-        <h1 className="text-[28px] font-bold tracking-tight text-[#1C1C1E] dark:text-white">Informe · {periodLabel}</h1>
+        <p className="text-[13px] text-[var(--ds-gray-500)]">{sessionContext.activeBusiness.name}</p>
+        <h1 className="text-[28px] font-bold tracking-tight text-[var(--ds-gray-900)] dark:text-white">Informe · {periodLabel}</h1>
       </header>
 
       <Seccion titulo="Estado de resultados">

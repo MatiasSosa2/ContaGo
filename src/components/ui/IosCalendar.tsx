@@ -11,24 +11,24 @@ import { es } from 'react-day-picker/locale'
  */
 
 export const IOS_CALENDAR_CLASSES = {
-  root: 'text-[13px] text-[#1C1C1E] dark:text-white',
+  root: 'text-[13px] text-[var(--ds-gray-900)] dark:text-white',
   months: 'relative',
   month_caption: 'flex h-8 items-center px-1 text-[15px] font-semibold capitalize',
   nav: 'absolute right-0 top-0 flex h-8 items-center gap-1',
-  button_previous: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#34C759)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
-  button_next: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#34C759)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
+  button_previous: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#2D6A4F)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
+  button_next: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#2D6A4F)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
   weekdays: 'flex',
-  weekday: 'w-9 pb-1 text-center text-[11px] font-medium uppercase text-[#8E8E93]',
+  weekday: 'w-9 pb-1 text-center text-[11px] font-medium uppercase text-[var(--ds-gray-500)]',
   week: 'flex',
   day: 'h-9 w-9 p-0 text-center',
   day_button: 'h-9 w-9 rounded-full text-[14px] tabular-nums transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.08]',
-  selected: '[&>button]:bg-[var(--reg-accent,#34C759)] [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-[var(--reg-accent,#34C759)]',
+  selected: '[&>button]:bg-[var(--reg-accent,#2D6A4F)] [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-[var(--reg-accent,#2D6A4F)]',
   // Rango: extremos en círculo de color y el medio en una franja suave
-  range_start: 'rounded-l-full bg-[var(--reg-accent,#34C759)]/15',
-  range_end: 'rounded-r-full bg-[var(--reg-accent,#34C759)]/15',
-  range_middle: 'bg-[var(--reg-accent,#34C759)]/15 [&>button]:!bg-transparent [&>button]:!font-normal [&>button]:!text-[#1C1C1E] dark:[&>button]:!text-white',
-  today: 'font-semibold text-[var(--reg-accent,#34C759)]',
-  outside: 'text-[#C7C7CC] dark:text-[#48484A]',
+  range_start: 'rounded-l-full bg-[var(--reg-accent,#2D6A4F)]/15',
+  range_end: 'rounded-r-full bg-[var(--reg-accent,#2D6A4F)]/15',
+  range_middle: 'bg-[var(--reg-accent,#2D6A4F)]/15 [&>button]:!bg-transparent [&>button]:!font-normal [&>button]:!text-[var(--ds-gray-900)] dark:[&>button]:!text-white',
+  today: 'font-semibold text-[var(--reg-accent,#2D6A4F)]',
+  outside: 'text-[var(--ds-gray-300)] dark:text-[var(--ds-gray-650)]',
   disabled: 'opacity-30',
 }
 
@@ -81,7 +81,7 @@ export function CalendarPopover({ anchorRef, open, onClose, children, align = 'l
     <div
       ref={ref}
       style={pos}
-      className="fixed z-[80] w-[300px] rounded-2xl bg-[#fff]/95 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] backdrop-blur-xl animate-[reg-pop-in_160ms_ease-out] dark:bg-[#2C2C2E]/95 dark:ring-white/10"
+      className="fixed z-[80] w-[300px] rounded-2xl bg-[var(--ds-white)]/95 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] backdrop-blur-xl animate-[reg-pop-in_160ms_ease-out] dark:bg-[var(--ds-gray-800)]/95 dark:ring-white/10"
     >
       {children}
     </div>,
@@ -142,9 +142,9 @@ export function RangeCalendar({ value, onChange, onClear }: {
         classNames={IOS_CALENDAR_CLASSES}
       />
       <div className="mt-2 flex items-center justify-between border-t border-black/[0.06] pt-2 text-[13px] dark:border-white/10">
-        <span className="text-[#8E8E93]">{rangeLabel(draft) ?? 'Tocá el primer y el último día'}</span>
+        <span className="text-[var(--ds-gray-500)]">{rangeLabel(draft) ?? 'Tocá el primer y el último día'}</span>
         {onClear && (
-          <button type="button" onClick={() => { setDraft(undefined); onClear() }} className="font-medium text-[#007AFF] dark:text-[#0A84FF]">
+          <button type="button" onClick={() => { setDraft(undefined); onClear() }} className="font-medium text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">
             Limpiar
           </button>
         )}

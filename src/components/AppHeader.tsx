@@ -1,6 +1,6 @@
 
 type Role = 'ADMIN' | 'COLLABORATOR' | 'VIEWER'
-type Provider = 'google' | 'apple' | 'credentials' | 'mock'
+type Provider = 'google' | 'apple' | 'azure-ad' | 'credentials' | 'mock'
 
 type AppHeaderProps = {
   /** Opcional: título accesible (no se muestra visualmente). */
@@ -45,8 +45,8 @@ function UserInfoCard({
       className="
         hidden sm:flex items-center gap-2.5 shrink-0
         rounded-2xl
-        border border-stone-200/80 dark:border-white/[0.06]
-        bg-white/90 dark:bg-[#0d0e10]/95
+        border border-[var(--ui-border)]
+        bg-[var(--ui-header)]
         shadow-[0_6px_22px_rgba(15,23,42,0.06)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]
         px-2.5 py-1.5
       "
@@ -60,15 +60,15 @@ function UserInfoCard({
           className="h-8 w-8 rounded-full object-cover"
         />
       ) : (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1B4332] text-[11px] font-semibold text-[#D8F3DC]">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ui-avatar-bg)] text-[11px] font-semibold text-[var(--ui-avatar-text)]">
           {getInitials(user.name, user.email)}
         </div>
       )}
       <div className="min-w-0 leading-tight">
-        <p className="truncate max-w-[160px] text-[12px] font-semibold text-stone-800 dark:text-stone-100">
+        <p className="truncate max-w-[160px] text-[12px] font-semibold text-[var(--ui-label)]">
           {displayName}
         </p>
-        <p className="truncate max-w-[160px] text-[10.5px] font-medium text-[#1B4332] dark:text-[#9AC7A8]">
+        <p className="truncate max-w-[160px] text-[10.5px] font-medium text-[var(--ui-accent-text)]">
           {business.name}
         </p>
       </div>
@@ -95,7 +95,7 @@ export default function AppHeader({ title, icon, actions, sessionContext }: AppH
 
         {/* ── Ícono opcional (indicador visual de sección) ─── */}
         {icon && (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F1F5F2] text-[#1B4332] shadow-sm dark:bg-white/[0.06] dark:text-[#9AC7A8] [&>svg]:h-[18px] [&>svg]:w-[18px]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--ui-accent-soft)] text-[var(--ui-accent-text)] shadow-sm [&>svg]:h-[18px] [&>svg]:w-[18px]">
             {icon}
           </span>
         )}

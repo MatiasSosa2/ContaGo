@@ -364,9 +364,9 @@ export default function PeriodSelector({
 
   const tabBaseClass = 'rounded-lg px-2.5 py-1 text-[11px] font-semibold leading-none transition-colors'
   // Flechas de la franja (sin display: cada una decide si se ve en angosta o ancha)
-  const arrowBtnClass = 'h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.05] dark:hover:text-emerald-300'
+  const arrowBtnClass = 'h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.05] dark:hover:text-ds-green-300'
 
-  const navBtnClass = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-500 transition hover:border-[#1B4332]/40 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-stone-300 dark:hover:text-emerald-300'
+  const navBtnClass = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-[#1B4332]/40 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-gray-300 dark:hover:text-ds-green-300'
 
   // Calendario iOS del ícono 📅 (salta a cualquier día/semana/mes/año) y el de rango (Personalizado)
   const calRef = useRef<HTMLButtonElement>(null)
@@ -401,7 +401,7 @@ export default function PeriodSelector({
       {/* Linea única: tabs + navegación + Hoy */}
       {active !== 'custom' ? (
         <div className="flex flex-wrap items-center gap-1.5 lg:flex-nowrap lg:gap-2">
-          <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-stone-200 bg-stone-50/80 p-1 dark:border-white/[0.05] dark:bg-[#17191c]">
+          <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-gray-200 bg-gray-50/80 p-1 dark:border-white/[0.05] dark:bg-[#17191c]">
             {TABS.map((tab) => {
               const isActive = tab.key === active
               return (
@@ -413,7 +413,7 @@ export default function PeriodSelector({
                   className={
                     isActive
                       ? `${tabBaseClass} bg-[#1B4332] text-[#D8F3DC] shadow-sm`
-                      : `${tabBaseClass} text-stone-600 hover:bg-white hover:text-stone-900 dark:text-stone-300 dark:hover:bg-[#0d0e10]`
+                      : `${tabBaseClass} text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-[#0d0e10]`
                   }
                 >
                   {tab.label}
@@ -423,7 +423,7 @@ export default function PeriodSelector({
           </div>
 
           {/* @container: si la franja queda angosta, se ve solo el período elegido y las flechas lo cambian */}
-          <div className="@container flex min-w-0 flex-1 items-center gap-1 rounded-xl border border-stone-200 bg-white px-1 py-1 dark:border-white/[0.05] dark:bg-[#0d0e10]">
+          <div className="@container flex min-w-0 flex-1 items-center gap-1 rounded-xl border border-gray-200 bg-white px-1 py-1 dark:border-white/[0.05] dark:bg-[#0d0e10]">
             {/* Angosta: cambia el período elegido. Ancha: corre la franja */}
             <button type="button" onClick={() => stepSelected(-1)} disabled={pending} aria-label="Período anterior" className={`flex @[30rem]:hidden ${arrowBtnClass}`}>
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
@@ -445,15 +445,15 @@ export default function PeriodSelector({
                   onClick={item.onClick}
                   className={
                     item.isActive
-                      ? 'relative flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg bg-[#FCE7C8] px-1.5 py-1 text-stone-900 ring-1 ring-[#E0B97D]/70 transition dark:bg-[#FCE7C8]/95'
-                      : 'relative hidden @[30rem]:flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg px-1.5 py-1 text-stone-600 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/[0.05]'
+                      ? 'relative flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg bg-[#FEE4E2] px-1.5 py-1 text-gray-900 ring-1 ring-[#9AC7A8]/70 transition dark:bg-[#FEE4E2]/95'
+                      : 'relative hidden @[30rem]:flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg px-1.5 py-1 text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.05]'
                   }
                 >
-                  <span className={`truncate text-[11px] font-semibold capitalize leading-tight ${item.isToday && !item.isActive ? 'text-[#1B4332] dark:text-emerald-300' : ''}`}>
+                  <span className={`truncate text-[11px] font-semibold capitalize leading-tight ${item.isToday && !item.isActive ? 'text-[#1B4332] dark:text-ds-green-300' : ''}`}>
                     {item.primary}
                   </span>
                   {item.secondary && (
-                    <span className="text-[9px] font-medium leading-tight text-stone-500 dark:text-stone-400">{item.secondary}</span>
+                    <span className="text-[9px] font-medium leading-tight text-gray-500 dark:text-gray-400">{item.secondary}</span>
                   )}
                 </button>
               ))}
@@ -493,7 +493,7 @@ export default function PeriodSelector({
                 <button
                   type="button"
                   onClick={() => { goToday(); setCalOpen(false) }}
-                  className="mt-2 w-full border-t border-black/[0.06] pt-2 text-center text-[14px] font-medium text-[#007AFF] dark:border-white/10 dark:text-[#0A84FF]"
+                  className="mt-2 w-full border-t border-black/[0.06] pt-2 text-center text-[14px] font-medium text-[var(--ds-blue)] dark:border-white/10 dark:text-[var(--ds-blue-dark)]"
                 >
                   Hoy
                 </button>
@@ -504,7 +504,7 @@ export default function PeriodSelector({
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-stone-200 bg-stone-50/80 p-1 dark:border-white/[0.05] dark:bg-[#17191c]">
+            <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-gray-200 bg-gray-50/80 p-1 dark:border-white/[0.05] dark:bg-[#17191c]">
               {TABS.map((tab) => {
                 const isActive = tab.key === active
                 return (
@@ -516,7 +516,7 @@ export default function PeriodSelector({
                     className={
                       isActive
                         ? `${tabBaseClass} bg-[#1B4332] text-[#D8F3DC] shadow-sm`
-                        : `${tabBaseClass} text-stone-600 hover:bg-white hover:text-stone-900 dark:text-stone-300 dark:hover:bg-[#0d0e10]`
+                        : `${tabBaseClass} text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-[#0d0e10]`
                     }
                   >
                     {tab.label}
@@ -528,7 +528,7 @@ export default function PeriodSelector({
               type="button"
               onClick={clearCustom}
               disabled={pending}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-stone-200"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-gray-200"
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3" />
@@ -543,15 +543,15 @@ export default function PeriodSelector({
               onClick={() => setRangoOpen((v) => !v)}
               disabled={pending}
               aria-expanded={rangoOpen}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[14px] text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition active:scale-[0.99] disabled:opacity-40 dark:bg-[#1C1C1E] dark:text-white"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[14px] text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition active:scale-[0.99] disabled:opacity-40 dark:bg-[var(--ds-gray-900)] dark:text-white"
             >
-              <svg className="h-4 w-4 text-[var(--reg-accent,#34C759)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+              <svg className="h-4 w-4 text-[var(--reg-accent,#2D6A4F)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
               </svg>
               {customSummary ? (
-                <span>{customSummary.label} <span className="text-[#8E8E93]">· {customSummary.days} días</span></span>
+                <span>{customSummary.label} <span className="text-[var(--ds-gray-500)]">· {customSummary.days} días</span></span>
               ) : (
-                <span className="text-[#8E8E93]">Elegir desde – hasta</span>
+                <span className="text-[var(--ds-gray-500)]">Elegir desde – hasta</span>
               )}
             </button>
             <CalendarPopover anchorRef={rangoRef} open={rangoOpen} onClose={() => setRangoOpen(false)}>

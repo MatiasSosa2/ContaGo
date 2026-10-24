@@ -21,16 +21,16 @@ import {
 
 // ── Paleta del gráfico Historial ──────────────────────────────────────────
 const CHART_COLORS = {
-  ing: '#3A4D39',
+  ing: '#1B4332',
   ingSoft: '#9AC7A8',
-  egr: '#A65D57',
-  egrSoft: '#F2B272',
+  egr: '#B42318',
+  egrSoft: '#F97066',
 } as const
 
 /** Línea de saldo acumulado: azul petróleo (más claro en modo oscuro para que se lea) */
 function useSaldoColor() {
   const [theme] = useStoredValue('theme')
-  return theme === 'dark' ? '#0EA5E9' : '#075985'
+  return theme === 'dark' ? '#5B9A78' : '#1B4332'
 }
 
 interface CajasAccountItem {
@@ -103,11 +103,11 @@ function groupByOperacion(movements: CajasMovementItem[]): MovementRow[] {
 /** Circulito de la columna Caja: billete azul pizarra (efectivo), tarjeta marrón cuero (virtual), ⇄ (cambio) o reloj (cuotas) */
 function CajaIcon({ kind }: { kind: 'efectivo' | 'virtual' | 'cambio' | 'credito' | 'deuda' }) {
   const cls = {
-    efectivo: 'bg-[#5E6C84]/15 text-[#5E6C84] dark:text-[#98A4B8]',
-    virtual: 'bg-[#A2845E]/15 text-[#8A6D49] dark:text-[#C4A57E]',
-    cambio: 'bg-black/[0.06] text-[#8E8E93] dark:bg-white/10',
-    credito: 'bg-[#5E5CE6]/15 text-[#4B49C8] dark:text-[#9D9BF5]',
-    deuda: 'bg-[#FF9F0A]/15 text-[#B86E00] dark:text-[#FFB340]',
+    efectivo: 'bg-[#6B7280]/15 text-[#4B5563] dark:text-[#9CA3AF]',
+    virtual: 'bg-[#2D6A4F]/15 text-[#2D6A4F] dark:text-[#98D4AD]',
+    cambio: 'bg-black/[0.06] text-[var(--ds-gray-500)] dark:bg-white/10',
+    credito: 'bg-[#2D6A4F]/15 text-[#2D6A4F] dark:text-[#8FBFA5]',
+    deuda: 'bg-[var(--ds-orange-dark)]/15 text-[#B42318] dark:text-[#F97066]',
   }[kind]
   const path = {
     efectivo: 'M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
@@ -132,7 +132,7 @@ function CajaIcon({ kind }: { kind: 'efectivo' | 'virtual' | 'cambio' | 'credito
 function CajaCell({ mov }: { mov: MovementRow }) {
   if (mov.isTransfer) {
     return (
-      <span className="flex items-center gap-2 text-[13px] text-[#1C1C1E] dark:text-white">
+      <span className="flex items-center gap-2 text-[13px] text-[var(--ds-gray-900)] dark:text-white">
         <CajaIcon kind="cambio" />
         <span className="truncate">{mov.transferLabel ?? mov.account?.name}</span>
       </span>
@@ -148,7 +148,7 @@ function CajaCell({ mov }: { mov: MovementRow }) {
 
   if (contado.length === 0) {
     return (
-      <span className="flex items-center gap-2 text-[13px] text-[#8E8E93]">
+      <span className="flex items-center gap-2 text-[13px] text-[var(--ds-gray-500)]">
         <CajaIcon kind={mov.type === 'INCOME' ? 'credito' : 'deuda'} />
         {cuotasTxt ?? 'A crédito'}
       </span>
@@ -156,18 +156,18 @@ function CajaCell({ mov }: { mov: MovementRow }) {
   }
   return (
     <div className="min-w-0">
-      <span className="flex items-center gap-2 text-[13px] text-[#1C1C1E] dark:text-white">
+      <span className="flex items-center gap-2 text-[13px] text-[var(--ds-gray-900)] dark:text-white">
         <span className="flex shrink-0 -space-x-1.5">
           {tipos.map((t) => <CajaIcon key={t} kind={t} />)}
         </span>
         <span className="truncate">
           {nombres.join(' + ')}
-          {cuotasTxt && <span className="text-[#8E8E93]"> + {cuotasTxt}</span>}
+          {cuotasTxt && <span className="text-[var(--ds-gray-500)]"> + {cuotasTxt}</span>}
         </span>
       </span>
       {/* Pago combinado: el monto de cada caja, muy sutil */}
       {partes.length > 1 && (
-        <p className="mt-0.5 truncate pl-[30px] text-[11px] tabular-nums text-[#AEAEB2] dark:text-[#636366]">
+        <p className="mt-0.5 truncate pl-[30px] text-[11px] tabular-nums text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]">
           {contado.map((p) => `${p.account?.name ?? ''} ${fmtMoney(p.amount, p.currency)}`).join(' · ')}
           {credito.length > 0 && ` · Cuotas ${fmtMoney(credito.reduce((s, p) => s + p.amount, 0), credito[0].currency)}`}
         </p>
@@ -375,12 +375,12 @@ function MovementIcon() {
 // ── Estado Badge ────────────────────────────────────────────────────────────
 function EstadoBadge({ type, esCredito }: { type: string; esCredito: boolean }) {
   if (type === 'INCOME' && !esCredito)
-    return <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Ingreso</span>
+    return <span className="inline-flex rounded-full border border-ds-green-200 bg-ds-green-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ds-green-700">Ingreso</span>
   if (type === 'EXPENSE' && !esCredito)
-    return <span className="inline-flex rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600">Egreso</span>
+    return <span className="inline-flex rounded-full border border-ds-red-100 bg-ds-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ds-red-600">Egreso</span>
   if (type === 'INCOME' && esCredito)
-    return <span className="inline-flex rounded-full border border-emerald-700 bg-emerald-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">A cobrar</span>
-  return <span className="inline-flex rounded-full border border-red-700 bg-red-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">A pagar</span>
+    return <span className="inline-flex rounded-full border border-ds-green-700 bg-ds-green-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">A cobrar</span>
+  return <span className="inline-flex rounded-full border border-ds-red-600 bg-ds-red-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">A pagar</span>
 }
 
 // Recuadro del gráfico: ingresos, egresos, cambio de moneda (solo si hubo) y saldo
@@ -396,15 +396,15 @@ function HistorialTooltip({ active, payload, fmt }: { active?: boolean; payload?
     ['Saldo', point.saldo, saldoColor],
   ]
   return (
-    <div className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-[11px] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-[#1C1C1E]">
-      <p className="mb-1 text-stone-500 dark:text-stone-400">{point.label}</p>
+    <div className="rounded-xl border border-[var(--ds-neutral-200)] bg-white px-3 py-2 text-[11px] shadow-[0_4px_16px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-[var(--ds-gray-900)]">
+      <p className="mb-1 text-gray-500 dark:text-gray-400">{point.label}</p>
       {rows.map(([name, value, color]) => (
         <p key={name} className="flex items-center justify-between gap-4">
-          <span className="flex items-center gap-1.5 text-stone-600 dark:text-stone-300">
+          <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
             <span className="h-2 w-2 rounded-full" style={{ background: color }} />
             {name}
           </span>
-          <span className="font-mono font-semibold text-[#1F2937] tabular-nums dark:text-[#E8E8E8]">{name === 'Cambio de moneda' && value > 0 ? '+' : ''}{fmt(value)}</span>
+          <span className="font-mono font-semibold text-[var(--ds-neutral-800)] tabular-nums dark:text-[var(--ds-line)]">{name === 'Cambio de moneda' && value > 0 ? '+' : ''}{fmt(value)}</span>
         </p>
       ))}
     </div>
@@ -443,7 +443,7 @@ function useHistorialData(props: HistorialProps, currency: CajaCurrency) {
 
 function CurrencyToggle({ value, onChange, size = 'sm' }: { value: CajaCurrency; onChange: (c: CajaCurrency) => void; size?: 'xs' | 'sm' }) {
   return (
-    <div className="flex overflow-hidden rounded-lg border border-[#E5E7EB] dark:border-white/10" role="group" aria-label="Moneda">
+    <div className="flex overflow-hidden rounded-lg border border-[var(--ds-neutral-200)] dark:border-white/10" role="group" aria-label="Moneda">
       {CAJA_CURRENCIES.map((c) => (
         <button
           key={c}
@@ -451,7 +451,7 @@ function CurrencyToggle({ value, onChange, size = 'sm' }: { value: CajaCurrency;
           onClick={(e) => { e.stopPropagation(); onChange(c) }}
           aria-pressed={value === c}
           className={`font-semibold transition ${size === 'xs' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-[11px]'} ${
-            value === c ? 'bg-brand-military text-white' : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-200'
+            value === c ? 'bg-brand-military text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
           }`}
         >
           {c}
@@ -478,21 +478,21 @@ function HistorialModal({
     return String(v)
   }
   const fmtSaldo = (v: number) => `${v < 0 ? '− ' : ''}${sym}${Math.abs(Math.round(v)).toLocaleString('es-AR')}`
-  const saldoCls = (v: number) => v >= 0 ? 'text-[#1F2937] dark:text-[#E8E8E8]' : 'text-[#A65D57]'
+  const saldoCls = (v: number) => v >= 0 ? 'text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]' : 'text-[#B42318]'
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative z-10 flex h-[90vh] w-[92vw] max-w-[1600px] flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#141414]">
-        <div className="flex items-center justify-between border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 py-4 dark:border-white/10 dark:bg-[#171717]">
-          <h3 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Historial de caja</h3>
+      <div className="relative z-10 flex h-[90vh] w-[92vw] max-w-[1600px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[var(--ds-ink)]">
+        <div className="flex items-center justify-between border-b border-[var(--ds-sand-warm)] bg-[#FAFBFC] px-5 py-4 dark:border-white/10 dark:bg-[#171717]">
+          <h3 className="text-base font-semibold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">Historial de caja</h3>
           <div className="flex items-center gap-3">
             <CurrencyToggle value={currency} onChange={onCurrencyChange} />
             <button
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="rounded-xl border border-stone-200 bg-white p-2 text-stone-400 transition hover:text-stone-700 dark:border-white/10 dark:bg-[#1B1B1B] dark:hover:text-stone-200"
+              className="rounded-xl border border-gray-200 bg-white p-2 text-gray-400 transition hover:text-gray-700 dark:border-white/10 dark:bg-[#1B1B1B] dark:hover:text-gray-200"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -503,7 +503,7 @@ function HistorialModal({
 
         <div className="flex min-h-0 flex-1 flex-col p-5">
           {chartData.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-stone-400">Sin datos para este período</div>
+            <div className="flex flex-1 items-center justify-center text-sm text-gray-400">Sin datos para este período</div>
           ) : (
             <div className="min-h-0 flex-1">
               <ResponsiveContainer width="100%" height="100%">
@@ -518,7 +518,7 @@ function HistorialModal({
                       <stop offset="100%" stopColor={CHART_COLORS.egr} stopOpacity={0.45} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-stone-200 dark:text-white/10" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-200 dark:text-white/10" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="left" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={48} />
                   <YAxis yAxisId="right" orientation="right" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: saldoColor }} axisLine={false} tickLine={false} width={52} />
@@ -553,21 +553,21 @@ function HistorialModal({
           )}
         </div>
 
-        <div className="grid grid-cols-2 divide-x divide-[#E5E7EB] border-t border-[#ECE7E1] dark:divide-white/10 dark:border-white/10 sm:grid-cols-4">
+        <div className="grid grid-cols-2 divide-x divide-[var(--ds-neutral-200)] border-t border-[var(--ds-sand-warm)] dark:divide-white/10 dark:border-white/10 sm:grid-cols-4">
           <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Saldo inicial</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Saldo inicial</p>
             <p className={`mt-1 font-mono text-sm font-bold ${saldoCls(summary.saldoInicial)}`}>{fmtSaldo(summary.saldoInicial)}</p>
           </div>
           <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Ingresos</p>
-            <p className="mt-1 font-mono text-sm font-bold text-[#3A4D39]">{fmtSaldo(summary.ingresos)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Ingresos</p>
+            <p className="mt-1 font-mono text-sm font-bold text-[#1B4332]">{fmtSaldo(summary.ingresos)}</p>
           </div>
           <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Egresos</p>
-            <p className="mt-1 font-mono text-sm font-bold text-[#B42318] dark:text-[#E08580]">{fmtSaldo(summary.egresos)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Egresos</p>
+            <p className="mt-1 font-mono text-sm font-bold text-[#B42318] dark:text-[#F97066]">{fmtSaldo(summary.egresos)}</p>
           </div>
           <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Saldo final</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Saldo final</p>
             <p className={`mt-1 font-mono text-sm font-bold ${saldoCls(summary.saldoFinal)}`}>{fmtSaldo(summary.saldoFinal)}</p>
           </div>
         </div>
@@ -590,13 +590,13 @@ function HistorialCard(props: HistorialProps) {
     if (abs >= 1_000) return `${sign}${sym}${(abs / 1_000).toFixed(0)}K`
     return `${sign}${sym}${Math.round(abs)}`
   }
-  const saldoCls = (v: number) => v >= 0 ? 'text-[#1F2937] dark:text-[#E8E8E8]' : 'text-[#A65D57] dark:text-[#F2B272]'
+  const saldoCls = (v: number) => v >= 0 ? 'text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]' : 'text-[#B42318] dark:text-[#F97066]'
 
   return (
     <>
-      <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414]">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--ds-neutral-200)] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[var(--ds-ink)]">
         {/* Sin fila de título: el selector de moneda flota en la esquina y el gráfico usa todo el alto */}
-        <div className="absolute right-3 top-3 z-10 bg-white/80 backdrop-blur-sm dark:bg-[#141414]/80">
+        <div className="absolute right-3 top-3 z-10 bg-white/80 backdrop-blur-sm dark:bg-[var(--ds-ink)]/80">
           <CurrencyToggle value={currency} onChange={setCurrency} size="xs" />
         </div>
 
@@ -608,7 +608,7 @@ function HistorialCard(props: HistorialProps) {
         >
           {chartData.length === 0 ? (
             <div className="flex flex-1 items-center justify-center py-8">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-stone-400">Sin movimientos</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-400">Sin movimientos</p>
             </div>
           ) : (
             <div className="relative min-h-[180px] w-full flex-1">
@@ -640,19 +640,19 @@ function HistorialCard(props: HistorialProps) {
 
           <div className="grid grid-cols-4 gap-1 pt-1">
             <div className="text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Saldo inicial</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Saldo inicial</p>
               <p className={`mt-0.5 font-mono text-[11px] font-bold ${saldoCls(summary.saldoInicial)}`}>{fmtCompact(summary.saldoInicial)}</p>
             </div>
             <div className="text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Ingresos</p>
-              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#3A4D39] dark:text-[#9AC7A8]">{fmtCompact(summary.ingresos)}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Ingresos</p>
+              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#1B4332] dark:text-[#9AC7A8]">{fmtCompact(summary.ingresos)}</p>
             </div>
             <div className="text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Egresos</p>
-              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#B42318] dark:text-[#E08580]">{fmtCompact(summary.egresos)}</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Egresos</p>
+              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#B42318] dark:text-[#F97066]">{fmtCompact(summary.egresos)}</p>
             </div>
             <div className="text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-stone-400">Saldo final</p>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Saldo final</p>
               <p className={`mt-0.5 font-mono text-[11px] font-bold ${saldoCls(summary.saldoFinal)}`}>{fmtCompact(summary.saldoFinal)}</p>
             </div>
           </div>
@@ -766,39 +766,39 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
     {
       key: 'efectivo',
       label: 'Efectivo',
-      active: 'border-[#5E6C84] bg-[#5E6C84] text-white',
-      idle: 'border-[#D9DEE6] bg-[#F4F6F9] text-[#4B576B] dark:border-[#333B48] dark:bg-[#161A20] dark:text-[#98A4B8]',
+      active: 'border-[#4B5563] bg-[#4B5563] text-white',
+      idle: 'border-[#E5E7EB] bg-[#F4F6F9] text-[#4B576B] dark:border-[#374151] dark:bg-[#161A20] dark:text-[#98A4B8]',
     },
     {
       key: 'virtual',
       label: 'Virtual',
-      active: 'border-[#A2845E] bg-[#A2845E] text-white',
-      idle: 'border-[#E8DDD0] bg-[#FAF6F1] text-[#8A6D49] dark:border-[#4A3D2E] dark:bg-[#1F1912] dark:text-[#C4A57E]',
+      active: 'border-[#2D6A4F] bg-[#2D6A4F] text-white',
+      idle: 'border-[#E5E7EB] bg-[#F9FAFB] text-[#2D6A4F] dark:border-[#2A2F36] dark:bg-[#161A20] dark:text-[#98D4AD]',
     },
     {
       key: 'credito',
       label: 'Créditos',
       // Créditos (te deben): índigo
-      active: 'border-[#5E5CE6] bg-[#5E5CE6] text-white',
-      idle: 'border-[#D9D8F8] bg-[#F4F4FE] text-[#4B49C8] dark:border-[#2F2E5C] dark:bg-[#15142A] dark:text-[#9D9BF5]',
+      active: 'border-[#2D6A4F] bg-[#2D6A4F] text-white',
+      idle: 'border-[#E3F1E8] bg-[#F3F7F4] text-[#2D6A4F] dark:border-[#1B4332] dark:bg-[#0E2418] dark:text-[#8FBFA5]',
     },
     {
       key: 'deuda',
       label: 'Deudas',
       // Deudas (debés): ámbar
-      active: 'border-[#FF9F0A] bg-[#FF9F0A] text-white',
-      idle: 'border-[#FFE3B8] bg-[#FFF7EB] text-[#B86E00] dark:border-[#4D3510] dark:bg-[#21180A] dark:text-[#FFB340]',
+      active: 'border-[var(--ds-orange-dark)] bg-[var(--ds-orange-dark)] text-white',
+      idle: 'border-[#FECDCA] bg-[#FEF3F2] text-[#B42318] dark:border-[#5A2A24] dark:bg-[#1F1514] dark:text-[#F97066]',
     },
   ]
 
   return (
-    <div ref={panelRef} className="scroll-mt-4 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
-      <div className="border-b border-[#ECE7E1] bg-[#FAFBFC] px-5 pb-4 pt-5 dark:border-white/10 dark:bg-[#171717]">
+    <div ref={panelRef} className="scroll-mt-4 overflow-hidden rounded-2xl border border-[var(--ds-neutral-200)] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[var(--ds-ink)] dark:shadow-none">
+      <div className="border-b border-[var(--ds-sand-warm)] bg-[#FAFBFC] px-5 pb-4 pt-5 dark:border-white/10 dark:bg-[#171717]">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military dark:bg-[#162019] dark:text-[#9AC7A8]">
             <MovementIcon />
           </div>
-          <h3 className="text-base font-semibold text-[#1F2937] dark:text-[#E8E8E8]">Movimientos</h3>
+          <h3 className="text-base font-semibold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">Movimientos</h3>
           {detalle && (
           <MovementDetailSheet
             mov={detalle}
@@ -808,15 +808,15 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
         )}
 
         {filtered.length > 0 && (
-            <span className="ml-auto text-[11px] font-semibold text-stone-400">{filtered.length} registros</span>
+            <span className="ml-auto text-[11px] font-semibold text-gray-400">{filtered.length} registros</span>
           )}
         </div>
 
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[220px] flex-1 basis-[260px]">
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Buscar</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">Buscar</p>
             <div className="relative">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
               </svg>
               <input
@@ -825,13 +825,13 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                 onChange={e => { setQuery(e.target.value); setPage(1) }}
                 placeholder="Descripción, cliente, proveedor, categoría, producto…"
                 aria-label="Buscar movimientos"
-                className="h-[38px] w-full border border-[#E5E7EB] bg-white pl-9 pr-3 text-sm text-stone-700 outline-none transition placeholder:text-stone-400 focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-200"
+                className="h-[38px] w-full border border-[var(--ds-neutral-200)] bg-white pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-200"
               />
             </div>
           </div>
 
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Origen</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">Origen</p>
             <div className="flex flex-wrap gap-2">
               {originOptions.map(({ key, label, active, idle }) => (
                 <button
@@ -847,19 +847,19 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
           </div>
 
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-400">Fecha</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">Fecha</p>
             {/* Un solo calendario iOS de rango (desde–hasta) */}
             <button
               ref={fechasRef}
               type="button"
               onClick={() => setFechasOpen((v) => !v)}
               aria-expanded={fechasOpen}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[14px] text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition active:scale-[0.99] dark:bg-[#1C1C1E] dark:text-white dark:ring-white/10"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[14px] text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition active:scale-[0.99] dark:bg-[var(--ds-gray-900)] dark:text-white dark:ring-white/10"
             >
-              <svg className="h-4 w-4 text-[#007AFF] dark:text-[#0A84FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+              <svg className="h-4 w-4 text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
               </svg>
-              <span className={dateFrom ? '' : 'text-[#8E8E93]'}>{rangeLabel(rangoFechas) ?? 'Todas las fechas'}</span>
+              <span className={dateFrom ? '' : 'text-[var(--ds-gray-500)]'}>{rangeLabel(rangoFechas) ?? 'Todas las fechas'}</span>
             </button>
             <CalendarPopover anchorRef={fechasRef} open={fechasOpen} onClose={() => setFechasOpen(false)}>
               <RangeCalendar
@@ -875,13 +875,13 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
       <div>
         {paginated.length === 0 ? (
           <div className="px-5 py-12 text-center">
-            <p className="text-sm font-medium text-stone-500 dark:text-stone-400">No hay movimientos que coincidan.</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No hay movimientos que coincidan.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] border-collapse text-xs">
               <thead>
-                <tr className="border-y border-[#ECE7E1] bg-[#FAFBFC] text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7280] dark:border-white/10 dark:bg-[#171717] dark:text-stone-400">
+                <tr className="border-y border-[var(--ds-sand-warm)] bg-[#FAFBFC] text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-neutral-500)] dark:border-white/10 dark:bg-[#171717] dark:text-gray-400">
                   <th className="px-5 py-3 text-left">Fecha</th>
                   <th className="px-5 py-3 text-left">Categoría</th>
                   <th className="px-5 py-3 text-left">Estado</th>
@@ -901,30 +901,30 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                       id={`mov-${mov.id}`}
                       onClick={() => setDetalle(mov)}
                       title="Ver detalle"
-                      className={`cursor-pointer border-b border-[#ECE7E1] transition-colors duration-700 hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
-                        mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[#3A4D39]' : 'border-l-[#A65D57]'
-                      } ${highlight && mov.id === targetRowId ? 'bg-[#FFF4D6] dark:bg-[#3A3220]' : ''}`}
+                      className={`cursor-pointer border-b border-[var(--ds-sand-warm)] transition-colors duration-700 hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
+                        mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[#1B4332]' : 'border-l-[#B42318]'
+                      } ${highlight && mov.id === targetRowId ? 'bg-[#FEF3F2] dark:bg-[#1E2A1E]' : ''}`}
                     >
                       <td className="px-5 py-3 align-middle whitespace-nowrap">
-                        <span className="text-sm font-medium text-[#4B5563] dark:text-stone-300">{fmtDate(mov.date)}</span>
+                        <span className="text-sm font-medium text-[var(--ds-neutral-600)] dark:text-gray-300">{fmtDate(mov.date)}</span>
                       </td>
 
                       <td className="px-5 py-3 align-middle">
                         {/* Solo la categoría; la subcategoría, si hay, muy sutil debajo */}
-                        <p className="whitespace-nowrap text-[13px] font-medium text-[#1C1C1E] dark:text-white">
+                        <p className="whitespace-nowrap text-[13px] font-medium text-[var(--ds-gray-900)] dark:text-white">
                           {mov.isTransfer ? 'Cambio de caja' : mov.category?.name ?? getSubTypeLabel(mov.subType)}
                         </p>
                         {mov.subcategory && (
-                          <p className="mt-0.5 whitespace-nowrap text-[11px] text-[#AEAEB2] dark:text-[#636366]">{mov.subcategory.name}</p>
+                          <p className="mt-0.5 whitespace-nowrap text-[11px] text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]">{mov.subcategory.name}</p>
                         )}
                       </td>
 
                       <td className="px-5 py-3 align-middle">
                         {mov.isTransfer
-                          ? <span className="inline-flex rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-600 dark:border-white/15 dark:bg-white/5 dark:text-zinc-300">{isIncome ? 'Entra' : 'Sale'}</span>
+                          ? <span className="inline-flex rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-600 dark:border-white/15 dark:bg-white/5 dark:text-gray-300">{isIncome ? 'Entra' : 'Sale'}</span>
                           : mov.parts && mov.parts.some((p) => p.esCredito) && mov.parts.some((p) => !p.esCredito)
                             ? <span className={`inline-flex rounded-full border bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide dark:bg-transparent ${
-                                isIncome ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400' : 'border-red-300 text-red-600 dark:text-red-400'
+                                isIncome ? 'border-ds-green-300 text-ds-green-700 dark:text-ds-green-400' : 'border-ds-red-300 text-ds-red-600 dark:text-ds-red-300'
                               }`}>Parcial</span>
                             : <EstadoBadge type={mov.type} esCredito={mov.parts ? mov.parts.every((p) => p.esCredito) : esCredito} />}
                       </td>
@@ -935,15 +935,15 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
 
                       <td className="px-5 py-3 align-middle">
                         {mov.contact?.name
-                          ? <span className="text-sm text-stone-600 dark:text-stone-300">{mov.contact.name}</span>
-                          : <span className="text-sm text-stone-400">—</span>
+                          ? <span className="text-sm text-gray-600 dark:text-gray-300">{mov.contact.name}</span>
+                          : <span className="text-sm text-gray-400">—</span>
                         }
                       </td>
 
                       <td className="px-5 py-3 text-right align-middle whitespace-nowrap">
                         <span className={`text-sm font-mono font-bold num-tabular ${
-                          mov.isTransfer ? 'text-zinc-600 dark:text-zinc-300'
-                            : isIncome ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#A65D57] dark:text-[#E08580]'
+                          mov.isTransfer ? 'text-gray-600 dark:text-gray-300'
+                            : isIncome ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#B42318] dark:text-[#F97066]'
                         }`}>
                           {isIncome ? '+' : '−'}{fmtMoney(mov.amount, mov.currency)}
                         </span>
@@ -957,15 +957,15 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
         )}
 
         {filtered.length > 0 && (
-          <div className="border-t border-[#ECE7E1] px-5 py-4 flex items-center justify-between dark:border-white/10">
-            <p className="text-[11px] text-stone-400">
+          <div className="border-t border-[var(--ds-sand-warm)] px-5 py-4 flex items-center justify-between dark:border-white/10">
+            <p className="text-[11px] text-gray-400">
               {Math.min(paginated.length, filtered.length)} de {filtered.length} movimientos
             </p>
             {hasMore && (
               <button
                 type="button"
                 onClick={() => setPage(p => p + 1)}
-                className="border border-[#E5E7EB] bg-white px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-600 transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-stone-300"
+                className="border border-[var(--ds-neutral-200)] bg-white px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-600 transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-300"
               >
                 Ver más ({filtered.length - paginated.length} restantes)
               </button>
@@ -1001,25 +1001,25 @@ function CajaGroupColumn({
   const tone = variant === 'gold'
     ? {
         // Virtual: marrón cuero
-        selectorWrap: 'border-[#E8DDD0] bg-[#FAF6F1] dark:border-[#4A3D2E] dark:bg-[#1F1912]',
-        selectorActive: 'bg-[#A2845E] text-white shadow-sm dark:bg-[#8A6D49] dark:text-white',
-        selectorIdle: 'text-[#8A6D49] hover:text-[#6B5338] dark:text-[#C4A57E] dark:hover:text-[#E3CBA9]',
+        selectorWrap: 'border-[#E5E7EB] bg-[#F9FAFB] dark:border-[#2A2F36] dark:bg-[#1F1514]',
+        selectorActive: 'bg-[#2D6A4F] text-white shadow-sm dark:bg-[#1B4332] dark:text-white',
+        selectorIdle: 'text-[#2D6A4F] hover:text-[#1B4332] dark:text-[#98D4AD] dark:hover:text-[#C6F0D8]',
       }
     : {
         // Efectivo: azul pizarra (no se confunde con ingresos, egresos ni ganancias)
-        selectorWrap: 'border-[#D9DEE6] bg-[#F4F6F9] dark:border-[#333B48] dark:bg-[#161A20]',
-        selectorActive: 'bg-[#5E6C84] text-white shadow-sm dark:bg-[#4B576B] dark:text-white',
-        selectorIdle: 'text-[#4B576B] hover:text-[#38414F] dark:text-[#98A4B8] dark:hover:text-[#C3CCD9]',
+        selectorWrap: 'border-[#E5E7EB] bg-[#F4F6F9] dark:border-[#374151] dark:bg-[#161A20]',
+        selectorActive: 'bg-[#4B5563] text-white shadow-sm dark:bg-[#374151] dark:text-white',
+        selectorIdle: 'text-[#4B576B] hover:text-[#374151] dark:text-[#98A4B8] dark:hover:text-[#D1D5DB]',
       }
 
   const filtrarPor = (nombre: string) => window.dispatchEvent(new CustomEvent(EVENTO_FILTRAR_CAJA, { detail: nombre }))
 
   return (
-    <div className="flex h-full flex-col rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] dark:bg-[#1C1C1E] dark:shadow-none">
+    <div className="flex h-full flex-col ds-panel p-5">
       {/* Título suave y saldo grande (estilo iOS) */}
-      <h2 className="text-[13px] font-medium text-[#8E8E93]">{label}</h2>
+      <h2 className="text-[13px] font-medium text-[var(--ds-gray-500)]">{label}</h2>
       <p className={`mt-1 text-[36px] font-semibold leading-tight tracking-tight tabular-nums ${
-        isNegative ? 'text-[#FF3B30] dark:text-[#FF453A]' : 'text-[#1C1C1E] dark:text-white'
+        isNegative ? 'text-[var(--ds-red)] dark:text-[var(--ds-red-dark)]' : 'text-[var(--ds-gray-900)] dark:text-white'
       }`}>
         {isNegative ? '−' : ''}{fmtMoney(Math.abs(filteredTotal), selectedCurrency)}
       </p>
@@ -1035,10 +1035,10 @@ function CajaGroupColumn({
                 title={`Ver movimientos de ${acc.name}`}
                 className="flex w-full items-center justify-between gap-3 py-2.5 text-left text-[14px] transition-opacity active:opacity-60"
               >
-                <span className="min-w-0 truncate text-[#1C1C1E] dark:text-white">{acc.name}</span>
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[#3C3C43] dark:text-[#EBEBF5]/80">
+                <span className="min-w-0 truncate text-[var(--ds-gray-900)] dark:text-white">{acc.name}</span>
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80">
                   {fmtMoney(acc.currentBalance, acc.currency)}
-                  <svg className="h-3 w-3 text-[#C7C7CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                  <svg className="h-3 w-3 text-[var(--ds-gray-300)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </span>

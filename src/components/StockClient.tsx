@@ -370,7 +370,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
             role="tab"
             aria-selected={vistaInventario === valor}
             onClick={() => setVistaInventario(valor)}
-            className={`rounded-md px-3.5 py-1 text-[13px] transition ${vistaInventario === valor ? 'bg-white font-medium text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white' : 'text-[#3C3C43] dark:text-[#EBEBF5]/70'}`}
+            className={`rounded-md px-3.5 py-1 text-[13px] transition ${vistaInventario === valor ? 'bg-white font-medium text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[var(--ds-gray-600)] dark:text-white' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/70'}`}
           >
             {label}
           </button>
@@ -379,13 +379,13 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {([
-          ['Inventario inicial', enUnidades ? inicialUnidades : inventarioInicial, 'text-[#1C1C1E] dark:text-white', null],
-          ['Inventario vendido', enUnidades ? vendidoUnidades : inventarioVendido, 'text-[#B8664F] dark:text-[#E3A592]', '↓'],
-          ['Inventario comprado', enUnidades ? compradoUnidades : inventarioComprado, 'text-[#4F8A6B] dark:text-[#8FC0A4]', '↑'],
-          ['Stock final', enUnidades ? stockFinalUnidades : stockFinalPeriodo, 'text-[#1C1C1E] dark:text-white', null],
+          ['Inventario inicial', enUnidades ? inicialUnidades : inventarioInicial, 'text-[var(--ds-gray-900)] dark:text-white', null],
+          ['Inventario vendido', enUnidades ? vendidoUnidades : inventarioVendido, 'text-[var(--ds-terracotta)] dark:text-[#F97066]', '↓'],
+          ['Inventario comprado', enUnidades ? compradoUnidades : inventarioComprado, 'text-[#3E7F5F] dark:text-[#8FC0A4]', '↑'],
+          ['Stock final', enUnidades ? stockFinalUnidades : stockFinalPeriodo, 'text-[var(--ds-gray-900)] dark:text-white', null],
         ] as const).map(([titulo, valor, tono, flecha]) => (
-          <div key={titulo} className="rounded-2xl bg-white px-4 py-3.5 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:bg-[#1C1C1E] dark:shadow-none">
-            <p className="text-[12px] text-[#8E8E93]">
+          <div key={titulo} className="ds-panel px-4 py-3.5 text-center">
+            <p className="text-[12px] text-[var(--ds-gray-500)]">
               {titulo}
               {/* Sale stock / entra stock */}
               {flecha && <span className={`ml-1 text-[11px] ${tono}`} aria-hidden>{flecha}</span>}
@@ -399,22 +399,22 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
 
       {/* Lo vendido a precio de venta (Estado de resultados) contra su costo: la ganancia bruta del período */}
       {ventasPeriodo > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl bg-white px-5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:bg-[#1C1C1E] dark:shadow-none">
+        <div className="flex items-center justify-between gap-3 ds-panel px-5 py-2.5">
           <div className="text-center">
-            <p className="text-[11px] text-[#8E8E93]">Ventas</p>
-            <p className="text-[15px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white">${fmtEntero(ventasPeriodo)}</p>
+            <p className="text-[11px] text-[var(--ds-gray-500)]">Ventas</p>
+            <p className="text-[15px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">${fmtEntero(ventasPeriodo)}</p>
           </div>
-          <span className="text-[15px] text-[#C7C7CC]" aria-hidden>−</span>
+          <span className="text-[15px] text-[var(--ds-gray-300)]" aria-hidden>−</span>
           <div className="text-center">
-            <p className="text-[11px] text-[#8E8E93]">Costo vendido</p>
-            <p className="text-[15px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white">${fmtEntero(inventarioVendido)}</p>
+            <p className="text-[11px] text-[var(--ds-gray-500)]">Costo vendido</p>
+            <p className="text-[15px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">${fmtEntero(inventarioVendido)}</p>
           </div>
-          <span className="text-[15px] text-[#C7C7CC]" aria-hidden>=</span>
+          <span className="text-[15px] text-[var(--ds-gray-300)]" aria-hidden>=</span>
           <div className="text-center">
-            <p className="text-[11px] text-[#8E8E93]">Ganancia bruta</p>
-            <p className="text-[15px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white">
+            <p className="text-[11px] text-[var(--ds-gray-500)]">Ganancia bruta</p>
+            <p className="text-[15px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">
               ${fmtEntero(ventasPeriodo - inventarioVendido)}
-              <span className="ml-1 text-[10px] font-normal text-[#AEAEB2] dark:text-[#636366]">{Math.round(pctMargen(ventasPeriodo - inventarioVendido, ventasPeriodo))}%</span>
+              <span className="ml-1 text-[10px] font-normal text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]">{Math.round(pctMargen(ventasPeriodo - inventarioVendido, ventasPeriodo))}%</span>
             </p>
           </div>
         </div>
@@ -425,7 +425,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
           <div className="flex items-center gap-2">
             {/* Buscador estilo iOS */}
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-black/[0.05] px-3 py-2 dark:bg-white/[0.08]">
-              <svg className="h-4 w-4 shrink-0 text-[#8E8E93]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+              <svg className="h-4 w-4 shrink-0 text-[var(--ds-gray-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
               </svg>
               <input
@@ -433,10 +433,10 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                 onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar producto, categoría o marca"
                 aria-label="Buscar producto"
-                className="ios-bare w-full bg-transparent text-[14px] text-[#1C1C1E] outline-none placeholder:text-[#8E8E93] dark:text-white"
+                className="ios-bare w-full bg-transparent text-[14px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-500)] dark:text-white"
               />
               {busqueda && (
-                <button type="button" onClick={() => setBusqueda('')} aria-label="Borrar búsqueda" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#AEAEB2] text-white dark:bg-[#636366]">
+                <button type="button" onClick={() => setBusqueda('')} aria-label="Borrar búsqueda" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--ds-gray-400)] text-white dark:bg-[var(--ds-gray-600)]">
                   <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
               )}
@@ -447,19 +447,19 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                 onClick={() => setShowExportMenu(v => !v)}
                 aria-label="Más opciones"
                 title="Precios, subtotales, exportar o imprimir"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] text-[#3C3C43] transition active:scale-95 dark:bg-white/10 dark:text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] text-[var(--ds-gray-700)] transition active:scale-95 dark:bg-white/10 dark:text-white"
               >
                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
               </button>
               {showExportMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} aria-hidden />
-                  <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[210px] overflow-hidden rounded-xl bg-white/95 py-1 shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] backdrop-blur-xl dark:bg-[#2C2C2E]/95 dark:ring-white/10">
-                    <button type="button" onClick={() => { setShowExportMenu(false); setShowPrecios(true) }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Actualizar precios</button>
-                    <button type="button" onClick={() => { setShowExportMenu(false); setShowSubtotales(true) }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Subtotales por categoría</button>
+                  <div className="absolute right-0 top-full z-20 mt-1.5 min-w-[210px] overflow-hidden rounded-xl bg-white/95 py-1 shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] backdrop-blur-xl dark:bg-[var(--ds-gray-800)]/95 dark:ring-white/10">
+                    <button type="button" onClick={() => { setShowExportMenu(false); setShowPrecios(true) }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[var(--ds-gray-900)] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Actualizar precios</button>
+                    <button type="button" onClick={() => { setShowExportMenu(false); setShowSubtotales(true) }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[var(--ds-gray-900)] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Subtotales por categoría</button>
                     <div className="mx-3.5 my-1 h-px bg-black/[0.06] dark:bg-white/[0.08]" aria-hidden />
-                    <button type="button" onClick={() => { setShowExportMenu(false); handleExportar() }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Descargar Excel</button>
-                    <button type="button" onClick={() => { setShowExportMenu(false); handleImprimir() }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Imprimir</button>
+                    <button type="button" onClick={() => { setShowExportMenu(false); handleExportar() }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[var(--ds-gray-900)] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Descargar Excel</button>
+                    <button type="button" onClick={() => { setShowExportMenu(false); handleImprimir() }} className="flex w-full px-3.5 py-2 text-left text-[14px] text-[var(--ds-gray-900)] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">Imprimir</button>
                   </div>
                 </>
               )}
@@ -469,7 +469,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
               onClick={() => { setShowForm(true); setEditingId(null) }}
               aria-label="Nuevo producto"
               title="Nuevo producto"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#007AFF] text-white transition active:scale-95 dark:bg-[#0A84FF]"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ds-blue)] text-white transition active:scale-95 dark:bg-[var(--ds-blue-dark)]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m7-7H5" /></svg>
             </button>
@@ -479,24 +479,24 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
         {filtrados.length === 0 ? (
           // Vacío: sin productos todavía, o la búsqueda no encontró nada
           <div className="flex flex-col items-center px-4 py-16 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/[0.04] text-[#AEAEB2] dark:bg-white/[0.06]">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/[0.04] text-[var(--ds-gray-400)] dark:bg-white/[0.06]">
               <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.4} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             </span>
             {busqueda ? (
               <>
-                <p className="mt-3 text-[15px] font-medium text-[#1C1C1E] dark:text-white">Sin resultados para “{busqueda}”</p>
-                <button type="button" onClick={() => setBusqueda('')} className="mt-1 text-[14px] text-[#007AFF] dark:text-[#0A84FF]">Ver todos los productos</button>
+                <p className="mt-3 text-[15px] font-medium text-[var(--ds-gray-900)] dark:text-white">Sin resultados para “{busqueda}”</p>
+                <button type="button" onClick={() => setBusqueda('')} className="mt-1 text-[14px] text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">Ver todos los productos</button>
               </>
             ) : (
               <>
-                <p className="mt-3 text-[15px] font-medium text-[#1C1C1E] dark:text-white">Cargá tu primer producto</p>
-                <p className="mt-0.5 text-[13px] text-[#8E8E93]">Vas a ver acá su stock, lo que vale y lo que ganarías.</p>
+                <p className="mt-3 text-[15px] font-medium text-[var(--ds-gray-900)] dark:text-white">Cargá tu primer producto</p>
+                <p className="mt-0.5 text-[13px] text-[var(--ds-gray-500)]">Vas a ver acá su stock, lo que vale y lo que ganarías.</p>
                 <button
                   type="button"
                   onClick={() => { setShowForm(true); setEditingId(null) }}
-                  className="mt-4 rounded-full bg-[#007AFF] px-4 py-2 text-[14px] font-medium text-white transition active:scale-95 dark:bg-[#0A84FF]"
+                  className="mt-4 rounded-full bg-[var(--ds-blue)] px-4 py-2 text-[14px] font-medium text-white transition active:scale-95 dark:bg-[var(--ds-blue-dark)]"
                 >
                   Nuevo producto
                 </button>
@@ -507,7 +507,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
           <div id="inventario-tabla" className="overflow-x-auto lg:overflow-x-visible">
             <table className="w-full min-w-[640px] text-[13px]">
               <thead>
-                <tr className="text-[12px] text-[#8E8E93]">
+                <tr className="text-[12px] text-[var(--ds-gray-500)]">
                   {([
                     ['nombre', 'Producto', 'text-left w-[44%] px-5'],
                     ['unidades', 'Unidades', 'text-right px-4'],
@@ -519,7 +519,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                       <button
                         type="button"
                         onClick={() => ordenarPor(col)}
-                        className={`inline-flex items-center gap-1 transition-colors hover:text-[#1C1C1E] dark:hover:text-white ${orden === col ? 'text-[#1C1C1E] dark:text-white' : ''}`}
+                        className={`inline-flex items-center gap-1 transition-colors hover:text-[var(--ds-gray-900)] dark:hover:text-white ${orden === col ? 'text-[var(--ds-gray-900)] dark:text-white' : ''}`}
                       >
                         {label}
                         {orden === col && col !== 'nombre' && <span aria-hidden>↓</span>}
@@ -544,7 +544,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                     <React.Fragment key={grupo.categoria}>
                       {/* Categoría como título de sección (estilo Ajustes de iOS): se pliega al tocarla */}
                       <tr className="group-header cursor-pointer" onClick={() => togglePlegada(grupo.categoria)}>
-                        <td className="px-5 pb-1.5 pt-5 text-[12px] font-medium text-[#8E8E93]">
+                        <td className="px-5 pb-1.5 pt-5 text-[12px] font-medium text-[var(--ds-gray-500)]">
                           <span className="inline-flex items-center gap-1.5">
                             <svg className={`h-3 w-3 transition-transform ${cerrada ? '' : 'rotate-90'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -569,7 +569,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                           <React.Fragment key={art.key}>
                             {sub && (
                               <tr>
-                                <td colSpan={4} className="px-5 pb-0.5 pt-2 text-[11px] text-[#AEAEB2] dark:text-[#636366]">{sub}</td>
+                                <td colSpan={4} className="px-5 pb-0.5 pt-2 text-[11px] text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]">{sub}</td>
                               </tr>
                             )}
                             <tr
@@ -581,25 +581,25 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                                 <div className="flex items-center gap-2.5">
                                   <Foto src={art.fotoSrc} alt="" className="h-7 w-7 rounded-[7px]" />
                                   <div className="min-w-0">
-                                    <div className="truncate text-[13px] text-[#1C1C1E] dark:text-white">
+                                    <div className="truncate text-[13px] text-[var(--ds-gray-900)] dark:text-white">
                                       {art.nombre}
-                                      {art.marca?.trim() && <span className="ml-1.5 text-[11px] text-[#AEAEB2] dark:text-[#636366]">{art.marca.trim()}</span>}
+                                      {art.marca?.trim() && <span className="ml-1.5 text-[11px] text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]">{art.marca.trim()}</span>}
                                     </div>
-                                    {multi && <div className="truncate text-[11px] leading-tight text-[#AEAEB2] dark:text-[#636366]">{resumenAtributos(art.atributos)}</div>}
+                                    {multi && <div className="truncate text-[11px] leading-tight text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]">{resumenAtributos(art.atributos)}</div>}
                                   </div>
                                 </div>
                                 {sep && <span aria-hidden className="absolute bottom-0 left-[60px] right-0 h-px bg-black/[0.05] dark:bg-white/[0.06]" />}
                               </td>
-                              <td className={`px-4 py-1.5 text-right text-[13px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white ${borde}`}>
-                                {fmtUnits(t.unidades)} <span className="text-[12px] font-normal text-[#8E8E93]">{unidadDe(art.unidad, t.unidades)}</span>
+                              <td className={`px-4 py-1.5 text-right text-[13px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white ${borde}`}>
+                                {fmtUnits(t.unidades)} <span className="text-[12px] font-normal text-[var(--ds-gray-500)]">{unidadDe(art.unidad, t.unidades)}</span>
                               </td>
-                              <td className={`px-4 py-1.5 text-right text-[13px] font-semibold tabular-nums text-[#1C1C1E] dark:text-white ${borde}`}>
+                              <td className={`px-4 py-1.5 text-right text-[13px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white ${borde}`}>
                                 ${fmtEntero(t.valorizado)}
                               </td>
                               <td className={`relative py-1.5 pl-4 pr-10 text-right ${borde}`}>
-                                <span title={`Ganarías $${fmtEntero(ganancia)} si vendés todo`} className="text-[12px] tabular-nums"><span className="text-[#8E8E93]">${fmtEntero(t.ingresos)}</span><span className="text-[#AEAEB2] dark:text-[#636366]"> · {pctMargen(ganancia, t.ingresos).toLocaleString('es-AR', { maximumFractionDigits: 0 })}%</span></span>
+                                <span title={`Ganarías $${fmtEntero(ganancia)} si vendés todo`} className="text-[12px] tabular-nums"><span className="text-[var(--ds-gray-500)]">${fmtEntero(t.ingresos)}</span><span className="text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]"> · {pctMargen(ganancia, t.ingresos).toLocaleString('es-AR', { maximumFractionDigits: 0 })}%</span></span>
                                 {/* Con variantes: se abre en la tabla; sin variantes: abre la ficha */}
-                                <svg className={`absolute right-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#C7C7CC] transition ${multi ? (abierto ? 'rotate-90' : '') : 'opacity-0 group-hover:opacity-100'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                                <svg className={`absolute right-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ds-gray-300)] transition ${multi ? (abierto ? 'rotate-90' : '') : 'opacity-0 group-hover:opacity-100'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                                 </svg>
                               </td>
@@ -613,7 +613,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                                     <div className="w-full max-w-[460px]">
                                       <StockGrid articulo={art} compacta onElegir={(v) => abrirFicha(art, v.id)} />
                                     </div>
-                                    <button type="button" onClick={() => abrirFicha(art)} className="pb-1 text-[12px] text-[#007AFF] dark:text-[#0A84FF]">Ver ficha ›</button>
+                                    <button type="button" onClick={() => abrirFicha(art)} className="pb-1 text-[12px] text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">Ver ficha ›</button>
                                   </div>
                                 </td>
                               </tr>
@@ -623,13 +623,13 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                               const bordeV = ultima && idx < articulosOrden.length - 1 ? 'border-b border-black/[0.05] dark:border-white/[0.06]' : ''
                               return (
                                 <tr key={v.id} onClick={() => abrirFicha(art, v.id)} className="group/v animate-[reg-fade-in_200ms_ease-out] cursor-pointer transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.035]">
-                                  <td className={`py-1 pl-[60px] pr-4 text-[12px] text-[#3C3C43] dark:text-[#EBEBF5]/80 ${bordeV}`}>
+                                  <td className={`py-1 pl-[60px] pr-4 text-[12px] text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80 ${bordeV}`}>
                                     {v.etiqueta}
-                                    {v.precioPropio && <span className="ml-1.5 text-[11px] tabular-nums text-[#007AFF] dark:text-[#0A84FF]">${fmtEntero(v.precioVenta)}</span>}
+                                    {v.precioPropio && <span className="ml-1.5 text-[11px] tabular-nums text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">${fmtEntero(v.precioVenta)}</span>}
                                   </td>
-                                  <td className={`px-4 py-1 text-right text-[12px] tabular-nums ${v.stockActual <= 0 ? 'text-[#AEAEB2]' : v.stockActual <= (v.alertaStock ?? 2) ? 'text-[#C93400] dark:text-[#FFB340]' : 'text-[#3C3C43] dark:text-[#EBEBF5]/80'} ${bordeV}`}>{fmtUnits(v.stockActual)}</td>
-                                  <td className={`px-4 py-1 text-right text-[12px] tabular-nums text-[#8E8E93] ${bordeV}`}>${fmtEntero(v.stockActual * v.precioCosto)}</td>
-                                  <td className={`py-1 pl-4 pr-10 text-right text-[12px] tabular-nums text-[#AEAEB2] dark:text-[#636366] ${bordeV}`}>${fmtEntero(v.stockActual * v.precioVenta)}</td>
+                                  <td className={`px-4 py-1 text-right text-[12px] tabular-nums ${v.stockActual <= 0 ? 'text-[var(--ds-gray-400)]' : v.stockActual <= (v.alertaStock ?? 2) ? 'text-[#B42318] dark:text-[#F97066]' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80'} ${bordeV}`}>{fmtUnits(v.stockActual)}</td>
+                                  <td className={`px-4 py-1 text-right text-[12px] tabular-nums text-[var(--ds-gray-500)] ${bordeV}`}>${fmtEntero(v.stockActual * v.precioCosto)}</td>
+                                  <td className={`py-1 pl-4 pr-10 text-right text-[12px] tabular-nums text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)] ${bordeV}`}>${fmtEntero(v.stockActual * v.precioVenta)}</td>
                                 </tr>
                               )
                             })}
@@ -644,20 +644,20 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
               {/* Total liviano: línea arriba y semibold, sin franja */}
               <tfoot>
                 <tr className="total-general-row">
-                  <td className="border-t border-black/[0.08] px-5 py-3 text-[13px] font-semibold text-[#1C1C1E] dark:border-white/[0.1] dark:text-white">Total</td>
-                  <td className="border-t border-black/[0.08] px-4 py-3 text-right text-[14px] font-semibold tabular-nums text-[#1C1C1E] dark:border-white/[0.1] dark:text-white">{fmtUnits(totalGeneral.unidades)}</td>
-                  <td className="border-t border-black/[0.08] px-4 py-3 text-right text-[14px] font-semibold tabular-nums text-[#1C1C1E] dark:border-white/[0.1] dark:text-white">${fmtEntero(totalGeneral.valorizado)}</td>
-                  <td className="border-t border-black/[0.08] py-3 pl-4 pr-10 text-right dark:border-white/[0.1]"><span title={`Ganarías $${fmtEntero(totalGeneral.ganancia)} si vendés todo`} className="text-[13px] tabular-nums"><span className="text-[#8E8E93]">${fmtEntero(totalGeneral.ingresos)}</span><span className="text-[#AEAEB2] dark:text-[#636366]"> · {pctMargen(totalGeneral.ganancia, totalGeneral.ingresos).toLocaleString('es-AR', { maximumFractionDigits: 0 })}%</span></span></td>
+                  <td className="border-t border-black/[0.08] px-5 py-3 text-[13px] font-semibold text-[var(--ds-gray-900)] dark:border-white/[0.1] dark:text-white">Total</td>
+                  <td className="border-t border-black/[0.08] px-4 py-3 text-right text-[14px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:border-white/[0.1] dark:text-white">{fmtUnits(totalGeneral.unidades)}</td>
+                  <td className="border-t border-black/[0.08] px-4 py-3 text-right text-[14px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:border-white/[0.1] dark:text-white">${fmtEntero(totalGeneral.valorizado)}</td>
+                  <td className="border-t border-black/[0.08] py-3 pl-4 pr-10 text-right dark:border-white/[0.1]"><span title={`Ganarías $${fmtEntero(totalGeneral.ganancia)} si vendés todo`} className="text-[13px] tabular-nums"><span className="text-[var(--ds-gray-500)]">${fmtEntero(totalGeneral.ingresos)}</span><span className="text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]"> · {pctMargen(totalGeneral.ganancia, totalGeneral.ingresos).toLocaleString('es-AR', { maximumFractionDigits: 0 })}%</span></span></td>
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-black/[0.06] px-5 py-2.5 text-[12px] text-[#8E8E93] dark:border-white/[0.08]">
+        <div className="flex items-center justify-between border-t border-black/[0.06] px-5 py-2.5 text-[12px] text-[var(--ds-gray-500)] dark:border-white/[0.08]">
           <span>
             {articulosFiltrados.length} producto{articulosFiltrados.length !== 1 ? 's' : ''}
-            {filtrados.length > articulosFiltrados.length && <span className="text-[#AEAEB2]"> · {filtrados.length} variantes</span>}
+            {filtrados.length > articulosFiltrados.length && <span className="text-[var(--ds-gray-400)]"> · {filtrados.length} variantes</span>}
           </span>
           <span>{sinStock} sin stock · {bajoStock} con stock bajo</span>
         </div>
@@ -727,7 +727,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
 
       {/* Aviso breve abajo */}
       {aviso && (
-        <div className="reg-toast fixed bottom-6 left-1/2 z-[80] rounded-full bg-[#1C1C1E]/90 px-4 py-2 text-[13px] text-white shadow-lg backdrop-blur dark:bg-white/90 dark:text-[#1C1C1E]" role="status">
+        <div className="reg-toast fixed bottom-6 left-1/2 z-[80] rounded-full bg-[var(--ds-gray-900)]/90 px-4 py-2 text-[13px] text-white shadow-lg backdrop-blur dark:bg-white/90 dark:text-[var(--ds-gray-900)]" role="status">
           {aviso}
         </div>
       )}

@@ -68,11 +68,11 @@ export default function RegistroToast({ registro, tone, onDismiss }: {
       role="status"
       aria-live="polite"
       data-closing={closing || undefined}
-      className={`reg-toast ${tone} fixed bottom-24 left-1/2 z-[70] flex w-[calc(100%-2rem)] max-w-md items-center gap-3 rounded-2xl bg-white/95 px-4 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.18)] backdrop-blur-xl dark:bg-[#2C2C2E]/95 md:bottom-8`}
+      className={`reg-toast ${tone} fixed bottom-24 left-1/2 z-[70] flex w-[calc(100%-2rem)] max-w-md items-center gap-3 rounded-2xl bg-white/95 px-4 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.18)] backdrop-blur-xl dark:bg-[var(--ds-gray-800)]/95 md:bottom-8`}
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif' }}
     >
       <span
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${estado === 'error' ? 'bg-[#FF9500]' : estado === 'deshecho' ? 'bg-[#8E8E93]' : 'bg-[var(--reg-accent)]'}`}
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${estado === 'error' ? 'bg-[var(--ds-orange)]' : estado === 'deshecho' ? 'bg-[var(--ds-gray-500)]' : 'bg-[var(--reg-accent)]'}`}
         aria-hidden
       >
         {estado === 'error' ? (
@@ -89,9 +89,9 @@ export default function RegistroToast({ registro, tone, onDismiss }: {
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-medium text-[#1C1C1E] dark:text-white">{texto}</p>
+        <p className="truncate text-[15px] font-medium text-[var(--ds-gray-900)] dark:text-white">{texto}</p>
         {registro.detalle && estado === 'visible' && (
-          <p className="truncate text-[13px] text-[#8E8E93]">{registro.detalle}</p>
+          <p className="truncate text-[13px] text-[var(--ds-gray-500)]">{registro.detalle}</p>
         )}
       </div>
 
@@ -100,7 +100,7 @@ export default function RegistroToast({ registro, tone, onDismiss }: {
           type="button"
           onClick={deshacer}
           disabled={estado === 'deshaciendo'}
-          className="shrink-0 text-[15px] font-semibold text-[#007AFF] transition-opacity active:opacity-60 disabled:opacity-50 dark:text-[#0A84FF]"
+          className="shrink-0 text-[15px] font-semibold text-[var(--ds-blue)] transition-opacity active:opacity-60 disabled:opacity-50 dark:text-[var(--ds-blue-dark)]"
         >
           {estado === 'deshaciendo' ? 'Deshaciendo…' : 'Deshacer'}
         </button>

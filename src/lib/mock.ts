@@ -56,7 +56,7 @@ const MOCK_WEEK: [string, number, number][] = [
 ]
 
 export function getMockDashboardStats() {
-  const catColors = ['#3A4D39', '#C5A065', '#5A7A57', '#d4ae84', '#6b8f65', '#c49a6c']
+  const catColors = ['#1B4332', '#2D6A4F', '#5A7A57', '#8FBFA5', '#6b8f65', '#6B7280']
 
   return {
     kpis: { income: 500000, expense: 350000, gain: 150000, marginPct: 30 },

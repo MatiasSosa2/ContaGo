@@ -9,7 +9,7 @@ import type { ActionResult } from '@/lib/validations'
 import { generateJournalLines } from '@/server/accounting/journal-engine'
 import { getBusinessId, parseMovementDate, getScopedAccount, getOrCreateDefaultCategory, type DashboardPeriodKey, computePeriodRange } from './shared'
 
-export async function createTransaction(formData: FormData): Promise<ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string }>> {
+export async function createTransaction(formData: FormData): Promise<ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string; transactionId?: string }>> {
   const esCreditoRaw = formData.get('esCredito') as string
   const cantidadRaw = parseFloat(formData.get('cantidad') as string)
   const precioUnitarioRaw = parseFloat(formData.get('precioUnitario') as string)
@@ -133,6 +133,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
   let clienteNombre: string | undefined
   let proveedorSaldado = false
   let proveedorNombre: string | undefined
+  let createdTransactionId: string | undefined
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -492,6 +493,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         },
         select: { id: true },
       })
+      createdTransactionId = newTx.id
 
       if (!esCredito) {
         const balanceChange = type === 'INCOME' ? amount : -amount
@@ -596,7 +598,7 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
   revalidatePath('/stock')
   revalidatePath('/creditos')
   revalidatePath('/bienes-de-uso')
-  return { success: true, data: { clienteSaldado, clienteNombre, proveedorSaldado, proveedorNombre } }
+  return { success: true, data: { clienteSaldado, clienteNombre, proveedorSaldado, proveedorNombre, transactionId: createdTransactionId } }
 }
 
 export async function getAllTransactions(

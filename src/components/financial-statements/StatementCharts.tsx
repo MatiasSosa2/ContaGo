@@ -12,7 +12,7 @@ import { SubtleDelta } from './modern'
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
-const IOS_COLORS = { green: '#34C759', blue: '#0A84FF', red: '#FF3B30', cyan: '#32ADE6' }
+const IOS_COLORS = { green: '#2D6A4F', blue: '#2D6A4F', red: '#B42318', cyan: '#5B9A78' }
 const MODERN_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'
 const modernAxis = { tickLine: false, axisLine: false, tick: { fontSize: 9, fill: '#8E8E93' } }
 const modernTooltip = {
@@ -45,7 +45,7 @@ function ChartCard({ title, subtitle, legend, children, modern = false, fluid = 
   return (
     <div
       className={modern
-        ? 'flex min-h-[260px] flex-1 flex-col rounded-2xl bg-white px-5 pb-4 pt-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] dark:bg-[#1C1C1E] dark:shadow-none'
+        ? 'flex min-h-[260px] flex-1 flex-col ds-panel px-5 pb-4 pt-4'
         : 'flex min-h-[280px] flex-1 flex-col border border-[#E5E7EB] bg-white p-5 dark:border-white/10 dark:bg-[#141414]'}
       style={modern ? { fontFamily: MODERN_FONT } : { boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}
     >
@@ -90,7 +90,7 @@ function hasData<T>(points: (T | null)[]) {
 // ── Estado de resultados ──────────────────────────────────────────
 
 // Colores iOS para repartir los gastos (el costo de lo vendido siempre naranja)
-const SPEND_COLORS = ['#FF9F0A', '#FF3B30', '#AF52DE', '#5856D6', '#FF2D55', '#A2845E', '#8E8E93']
+const SPEND_COLORS = ['#B42318', '#1B4332', '#2D6A4F', '#5B9A78', '#8FBFA5', '#6B7280', '#B8BEC8']
 
 export function ResultadosCharts({ series, results, activeMonth }: { series: YearlySeries; results: ResultsData; activeMonth?: number }) {
   const K = IOS_COLORS
@@ -272,7 +272,7 @@ export function FlujoCharts({ series, currency, activeMonth }: { series: YearlyS
 // ── Estado patrimonial ──────────────────────────────────────────
 
 // Colores de la composición del activo
-const ACTIVO_COLORS: Record<string, string> = { caja: '#0A84FF', creditos: '#34C759', mercaderia: '#FF9F0A', bienes: '#AF52DE' }
+const ACTIVO_COLORS: Record<string, string> = { caja: '#1B4332', creditos: '#2D6A4F', mercaderia: '#6B7280', bienes: '#5B9A78' }
 
 
 type BalancePointView = {
@@ -291,8 +291,8 @@ function BalanceTooltip({ active, label, payload, currency }: {
   const p = payload?.[0]?.payload
   if (!active || !p || p.patrimonio === null) return null
   const filas: [string, number | null, number | null, string, boolean][] = [
-    ['Activo', p.activos, p.dActivos, '#0A84FF', false],
-    ['Pasivo', p.pasivos, p.dPasivos, '#FF9F0A', true],
+    ['Activo', p.activos, p.dActivos, '#2D6A4F', false],
+    ['Pasivo', p.pasivos, p.dPasivos, '#B42318', true],
   ]
   const variacion = (v: number | null, inverse: boolean) => (v === null ? <span /> : <SubtleDelta value={v} inverse={inverse} />)
   return (
@@ -313,7 +313,7 @@ function BalanceTooltip({ active, label, payload, currency }: {
         ))}
         <span className="col-span-3 my-1 border-t border-black/[0.08] dark:border-white/10" />
         <span className="text-[13px] font-medium text-[#1C1C1E] dark:text-white">Patrimonio</span>
-        <span className="text-right text-[15px] font-semibold tabular-nums text-[#0071A4] dark:text-[#64D2FF]">{fmtAmount(p.patrimonio, currency)}</span>
+        <span className="text-right text-[15px] font-semibold tabular-nums text-[#1B4332] dark:text-[#5B9A78]">{fmtAmount(p.patrimonio, currency)}</span>
         {variacion(p.dPatrimonio, false)}
       </div>
     </div>
@@ -373,7 +373,7 @@ export function PatrimonioCharts({ series, balance, currency, activeMonth }: { s
         {(() => {
           const filas = [
             ...balance.activo.map((r) => ({ label: r.label, amount: conv(r.amount), color: ACTIVO_COLORS[r.key] ?? '#8E8E93' })),
-            ...balance.pasivo.map((r) => ({ label: r.label, amount: conv(r.amount), color: '#FF3B30' })),
+            ...balance.pasivo.map((r) => ({ label: r.label, amount: conv(r.amount), color: '#B42318' })),
           ].filter((f) => f.amount > 0.5).sort((x, y) => y.amount - x.amount)
           const max = Math.max(1, ...filas.map((f) => f.amount))
           return (

@@ -200,13 +200,13 @@ export default function LoginPanel({
         </div>
 
         {message && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 lg:py-2.5">
+          <div className="rounded-2xl border border-ds-green-200 bg-ds-green-50 px-4 py-3 text-sm text-ds-green-700 lg:py-2.5">
             {message}
           </div>
         )}
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 lg:py-2.5">
+          <div className="rounded-2xl border border-ds-red-100 bg-ds-red-50 px-4 py-3 text-sm text-ds-red-600 lg:py-2.5">
             {error}
           </div>
         )}

@@ -52,7 +52,7 @@ export default function Foto({ src, alt, className = 'h-7 w-7 rounded-[7px]', ic
     return <img src={src} alt={alt} loading="lazy" className={`${className} shrink-0 bg-white object-cover ring-1 ring-black/[0.06] dark:ring-white/10`} />
   }
   return (
-    <span className={`${className} flex shrink-0 items-center justify-center bg-black/[0.04] text-[#C7C7CC] dark:bg-white/[0.06] dark:text-[#48484A]`} aria-hidden>
+    <span className={`${className} flex shrink-0 items-center justify-center bg-black/[0.04] text-[var(--ds-gray-300)] dark:bg-white/[0.06] dark:text-[var(--ds-gray-650)]`} aria-hidden>
       <svg className={icono} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
       </svg>

@@ -39,7 +39,7 @@ export default async function StockPage({
   ])
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F2F2F7] p-4 font-sans text-[#1F2937] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
+    <div className="mx-auto min-h-screen max-w-[1920px] bg-[var(--ds-gray-100)] p-4 font-sans text-[var(--ds-neutral-800)] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
 
       <AppHeader
         title="Inventario"

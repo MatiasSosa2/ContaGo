@@ -8,14 +8,25 @@ import bcrypt from "bcryptjs";
 
 import prismaClient from '@/lib/prisma'
 import type { EmailChallengePurpose } from '@/server/auth/challenges'
-import { createEmailChallenge, findVerifiedChallengeForLogin } from '@/server/auth/challenges'
+import { consumeVerifiedChallengeForLogin, createEmailChallenge } from '@/server/auth/challenges'
 import { sendAuthCodeEmail } from '@/server/auth/email'
 import { decideLoginChallenge, shouldRequirePeriodicRiskChallenge } from '@/server/auth/login-security'
 
-const isMock = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === 'true';
+// El modo mock nunca se activa en producción: un mock de auth asigna rol ADMIN.
+const allowMock = process.env.NODE_ENV !== 'production';
+const isMock = allowMock && (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === 'true');
 const hasDatabaseConfig = Boolean(process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL)
-const useMockAuth = isMock || !hasDatabaseConfig
+const useMockAuth = isMock || (allowMock && !hasDatabaseConfig)
 const prisma = useMockAuth ? null : prismaClient;
+
+type AuthProvider = 'google' | 'apple' | 'azure-ad' | 'credentials' | 'mock'
+
+function toAuthProvider(providerId: string | undefined): Exclude<AuthProvider, 'mock'> {
+  if (providerId === 'google' || providerId === 'apple' || providerId === 'azure-ad') {
+    return providerId
+  }
+  return 'credentials'
+}
 
 type CredentialsAuthUser = {
   id: string
@@ -126,7 +137,7 @@ function getConfiguredProviders() {
         // Post-verificación: permite iniciar sesión con un challengeId recién consumido
         // (sin reingresar password) en la ventana de 2 minutos después del verify-code.
         if (postVerifyChallengeId && normalizedEmail && prisma) {
-          const verified = await findVerifiedChallengeForLogin({
+          const verified = await consumeVerifiedChallengeForLogin({
             email: normalizedEmail,
             challengeId: postVerifyChallengeId,
           })
@@ -295,6 +306,11 @@ export const authOptions: NextAuthOptions = {
   providers: getConfiguredProviders(),
   callbacks: {
     async session({ session, token }) {
+      // Token revocado (cambio de contraseña): sin usuario, la sesión deja de ser válida.
+      if (!token.sub) {
+        return { expires: session.expires } as typeof session
+      }
+
       if (session.user && token.sub) {
         session.user.id = token.sub;
         session.user.emailVerified = Boolean(token.emailVerified)
@@ -316,6 +332,19 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async jwt({ token, user, account, trigger, session }) {
+      // Revoca sesiones emitidas antes del último cambio de contraseña.
+      const issuedAt = typeof token.iat === 'number' ? token.iat : null
+      if (!user && token.sub && issuedAt !== null && prismaClient) {
+        const passwordState = await prismaClient.user.findUnique({
+          where: { id: token.sub },
+          select: { passwordChangedAt: true },
+        })
+        const changedAt = passwordState?.passwordChangedAt
+        if (changedAt && Math.floor(changedAt.getTime() / 1000) > issuedAt) {
+          return {} as JWT
+        }
+      }
+
       if (user) {
         token.sub = user.id;
         const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
@@ -325,9 +354,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (account?.provider) {
-        token.authProvider = account.provider === 'google' || account.provider === 'apple'
-          ? account.provider
-          : 'credentials'
+        token.authProvider = toAuthProvider(account.provider)
       }
 
       if (trigger === 'update' && session?.activeBusiness?.id) {
@@ -353,9 +380,7 @@ export const authOptions: NextAuthOptions = {
     },
     async signIn({ user, account }) {
       if (!useMockAuth && prisma && user.id && user.email && account?.provider) {
-        const provider = account.provider === 'google' || account.provider === 'apple'
-          ? account.provider
-          : 'credentials'
+        const provider = toAuthProvider(account.provider)
 
         const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
         const isTemporaryAccess = credentialsUser.isTemporaryAccess === true

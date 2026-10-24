@@ -342,7 +342,7 @@ async function _fetchDashboardStats(
   const sparklines = computeSparklines(currentTxs, period, from, to)
 
   // ── Category breakdown (period) ──
-  const CAT_COLORS = ['#3A4D39', '#C5A065', '#5A7A57', '#d4ae84', '#6b8f65', '#c49a6c']
+  const CAT_COLORS = ['#1B4332', '#2D6A4F', '#5A7A57', '#8FBFA5', '#6b8f65', '#6B7280']
   const catMap: Record<string, { name: string; value: number }> = {}
   for (const tx of currentTxs) {
     if (tx.type !== 'EXPENSE') continue

@@ -90,7 +90,7 @@ function InlineAdd({ label, placeholder, indent, onAdd }: {
       <button
         type="button"
         onClick={() => setAdding(true)}
-        className={`flex w-full items-center gap-1 py-1 pr-3 text-left text-[11px] text-[#AEAEB2] transition-colors hover:text-gray-500 dark:hover:text-gray-300 ${indent ? 'pl-7' : 'pl-3'}`}
+        className={`flex w-full items-center gap-1 py-1 pr-3 text-left text-[11px] text-[var(--ds-gray-400)] transition-colors hover:text-gray-500 dark:hover:text-gray-300 ${indent ? 'pl-7' : 'pl-3'}`}
       >
         <PlusIcon />
         {label}
@@ -123,7 +123,7 @@ function InlineAdd({ label, placeholder, indent, onAdd }: {
           {saving ? '…' : 'Agregar'}
         </button>
       </div>
-      {error && <p className="mt-1 text-[11px] text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-[11px] text-ds-red-600">{error}</p>}
     </div>
   )
 }
@@ -175,7 +175,7 @@ export default function OperationTypeSelect({
 
   const toggleExpand = (id: string) => setExpandedId((cur) => (cur === id ? null : id))
 
-  const selectedCls = type === 'INCOME' ? 'font-semibold text-[var(--reg-accent,#34C759)]' : 'font-semibold text-[var(--reg-accent,#FF3B30)]'
+  const selectedCls = type === 'INCOME' ? 'font-semibold text-[var(--reg-accent,#2D6A4F)]' : 'font-semibold text-[var(--reg-accent,#B42318)]'
 
   return (
     <div ref={ref} className="relative">
@@ -183,8 +183,8 @@ export default function OperationTypeSelect({
         type="button"
         onClick={() => (open ? close() : openList())}
         className={variant === 'ios'
-          ? 'flex min-h-[44px] w-full items-center justify-between rounded-xl bg-white px-4 text-[15px] text-[#1C1C1E] outline-none active:bg-black/[0.04] dark:bg-[#1C1C1E] dark:text-white'
-          : 'flex w-full items-center justify-between rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all hover:border-gray-300 focus:border-brand-military dark:border-white/10 dark:bg-zinc-900 dark:text-gray-200'}
+          ? 'flex min-h-[44px] w-full items-center justify-between rounded-xl bg-white px-4 text-[15px] text-[var(--ds-gray-900)] outline-none active:bg-black/[0.04] dark:bg-[var(--ds-gray-900)] dark:text-white'
+          : 'flex w-full items-center justify-between rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all hover:border-gray-300 focus:border-brand-military dark:border-white/10 dark:bg-gray-900 dark:text-gray-200'}
       >
         <span className={`truncate ${labelText ? (variant === 'ios' ? 'font-medium text-[var(--reg-accent,#1C1C1E)]' : '') : 'text-gray-400'}`}>{labelText ?? 'Seleccionar categoría'}</span>
         <svg className={`h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -193,7 +193,7 @@ export default function OperationTypeSelect({
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-80 overflow-y-auto rounded-lg border border-black/[0.08] bg-white py-1 shadow-lg dark:border-white/10 dark:bg-zinc-900">
+        <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-80 overflow-y-auto rounded-lg border border-black/[0.08] bg-white py-1 shadow-lg dark:border-white/10 dark:bg-gray-900">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -226,7 +226,7 @@ export default function OperationTypeSelect({
                       title="Eliminar categoría"
                       aria-label={`Eliminar ${c.name}`}
                       onClick={(e) => { e.stopPropagation(); onDeleteCustom(c.id) }}
-                      className={`${ICON_BTN_CLS} hover:text-red-500 md:opacity-0 md:group-hover:opacity-100`}
+                      className={`${ICON_BTN_CLS} hover:text-ds-red-600 md:opacity-0 md:group-hover:opacity-100`}
                     >
                       <XIcon />
                     </button>
@@ -264,7 +264,7 @@ export default function OperationTypeSelect({
                             title="Eliminar subcategoría"
                             aria-label={`Eliminar ${s.name}`}
                             onClick={(e) => { e.stopPropagation(); onDeleteSubcategory(s.id) }}
-                            className={`${ICON_BTN_CLS} mr-5.5 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100`}
+                            className={`${ICON_BTN_CLS} mr-5.5 hover:text-ds-red-600 md:opacity-0 md:group-hover:opacity-100`}
                           >
                             <XIcon />
                           </button>

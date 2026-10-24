@@ -58,3 +58,7 @@ next-swc.win32-x64-msvc.node
 next-env.d.ts
 
 /src/generated/prisma
+
+# reference material (local only)
+/.ai-skills
+/.github/instructions/web-design.md

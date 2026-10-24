@@ -357,7 +357,7 @@ export default function FloatingActionButton() {
                 onClick={() => pickFromMenu(item.type)}
                 tabIndex={menuOpen ? 0 : -1}
                 aria-hidden={!menuOpen}
-                className={`h-8 whitespace-nowrap rounded-full bg-zinc-700 px-3.5 text-xs font-semibold text-white shadow-md ${hidden ? 'opacity-0' : 'pointer-events-auto opacity-100'}`}
+                className={`h-8 whitespace-nowrap rounded-full bg-gray-700 px-3.5 text-xs font-semibold text-white shadow-md ${hidden ? 'opacity-0' : 'pointer-events-auto opacity-100'}`}
                 style={{
                   transform: menuOpen ? `scale(${isPicked ? 1.08 : 1})` : 'translateY(-24px) scale(0.6)',
                   transition: `transform 380ms ${SPRING}, opacity 200ms ease`,
@@ -400,7 +400,7 @@ export default function FloatingActionButton() {
         className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl active:scale-95 md:bottom-6 md:right-6"
         style={{
           // Dorado de la marca: no se confunde con Ingresos (verde), Egresos (rojo) ni las grises
-          background: 'linear-gradient(135deg, #C5A065 0%, #A8864E 100%)',
+          background: 'linear-gradient(135deg, #2D6A4F 0%, #6B7280 100%)',
           // Sube junto con el abanico para dejar la fila secundaria abajo
           translate: menuOpen ? '0 -48px' : '0 0',
           transition: `translate 380ms ${SPRING}, scale 200ms ease, box-shadow 200ms ease`,
@@ -447,7 +447,7 @@ export default function FloatingActionButton() {
 
           <div className="flex w-full items-start gap-4">
           {/* Panel */}
-          <div className="relative flex max-h-[calc(88vh-80px)] w-full shrink-0 flex-col overflow-hidden rounded-3xl md:w-[32rem] bg-[#F2F2F7] shadow-2xl dark:bg-black md:max-h-[calc(92vh-80px)]">
+          <div className="relative flex max-h-[calc(88vh-80px)] w-full shrink-0 flex-col overflow-hidden rounded-3xl md:w-[32rem] bg-[var(--ds-gray-100)] shadow-2xl dark:bg-black md:max-h-[calc(92vh-80px)]">
             {/* Manija + header: desde acá se arrastra la hoja para cerrarla (celu) */}
             <div
               className="shrink-0 touch-none md:touch-auto"
@@ -469,13 +469,13 @@ export default function FloatingActionButton() {
 
             {/* Confirmación: check que se dibuja sobre la ventana */}
             {exito && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[#F2F2F7]/85 backdrop-blur-md dark:bg-black/80" role="status">
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[var(--ds-gray-100)]/85 backdrop-blur-md dark:bg-black/80" role="status">
                 <span className="reg-check-circle flex h-20 w-20 items-center justify-center rounded-full bg-[var(--reg-accent)] shadow-lg">
                   <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.6}>
                     <path className="reg-check-path" strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.5 4.5L19 7.5" />
                   </svg>
                 </span>
-                <p className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">{exito.titulo}</p>
+                <p className="text-[17px] font-semibold text-[var(--ds-gray-900)] dark:text-white">{exito.titulo}</p>
               </div>
             )}
 

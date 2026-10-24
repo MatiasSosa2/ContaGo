@@ -3,29 +3,33 @@
 import prisma from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import {
-  loginWithCredentialsSchema,
   registerWithCredentialsSchema,
   requestEmailChallengeSchema,
   resetPasswordWithCodeSchema,
   type ActionResult,
   verifyEmailChallengeSchema,
 } from '@/lib/validations'
-import type { EmailChallengePurpose } from '@/server/auth/challenges'
 import { createEmailChallenge, verifyEmailChallenge } from '@/server/auth/challenges'
 import { sendAuthCodeEmail } from '@/server/auth/email'
 import { ensureUserBusinessMembership } from '@/server/auth/business-context'
-import { decideLoginChallenge } from '@/server/auth/login-security'
 import { requireAuth } from '@/server/auth/require-auth'
 import { hashPassword, requestPasswordResetFlow, resetPasswordWithCodeFlow } from '@/server/auth/passwords'
 import { setupContableAccountsForBusiness } from '@/server/accounting/setup-contable-accounts'
 
 const DEFAULT_EXPENSE_CATEGORIES = ['Sueldos', 'Alquiler', 'Publicidad', 'Impuestos']
 
+// El mock nunca se activa en producción (sería un bypass de autenticación).
+const allowMock = process.env.NODE_ENV !== 'production'
 const hasDatabaseConfig = Boolean(process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL)
 const USE_MOCK =
-  process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' ||
-  process.env.USE_MOCK_DATA === 'true' ||
-  !hasDatabaseConfig
+  allowMock &&
+  (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' ||
+    process.env.USE_MOCK_DATA === 'true' ||
+    !hasDatabaseConfig)
+
+// Máximo de códigos por email en la ventana indicada (anti-spam de correos).
+const EMAIL_CODE_WINDOW_MS = 10 * 60 * 1000
+const EMAIL_CODE_MAX_PER_WINDOW = 3
 
 export async function registerWithCredentials(formData: FormData): Promise<ActionResult<{ email: string }>> {
   if (USE_MOCK) {
@@ -52,7 +56,8 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
   })
 
   if (existingUser) {
-    return { success: false, error: 'Ya existe una cuenta registrada con este email.' }
+    // Respuesta uniforme: no revelamos si el email ya tiene cuenta.
+    return { success: true, data: { email } }
   }
 
   const createdUser = await prisma.$transaction(async (tx) => {
@@ -122,76 +127,6 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
   return { success: true, data: { email } }
 }
 
-export async function prepareCredentialsLogin(
-  formData: FormData,
-): Promise<ActionResult<{ requiresCode?: boolean; email?: string; purpose?: EmailChallengePurpose }>> {
-  if (USE_MOCK) {
-    return { success: true }
-  }
-
-  const raw = {
-    email: formData.get('email') as string,
-    password: formData.get('password') as string,
-  }
-
-  const parsed = loginWithCredentialsSchema.safeParse(raw)
-  if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0].message }
-  }
-
-  // Solo consultamos los campos necesarios para decidir si hace falta challenge.
-  // La validación de password se delega a authorize() en el signIn para no
-  // pagar bcrypt dos veces (ahorro ~200-400ms por login).
-  const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email },
-    select: {
-      id: true,
-      email: true,
-      emailVerified: true,
-      lastSecurityChallengeAt: true,
-    },
-  })
-
-  // Si el usuario no existe, devolvemos success sin datos: signIn fallará con el
-  // mensaje genérico y no filtramos enumeración de usuarios.
-  if (!user) {
-    return { success: true }
-  }
-
-  const challengePurpose = decideLoginChallenge({
-    provider: 'credentials',
-    emailVerified: user.emailVerified,
-    lastSecurityChallengeAt: user.lastSecurityChallengeAt,
-  })
-
-  if (!challengePurpose) {
-    return { success: true }
-  }
-
-  // Sólo enviamos el email si realmente hay challenge (caso menos frecuente
-  // luego del fix del baseline en login-security).
-  const { code } = await createEmailChallenge({
-    userId: user.id,
-    email: user.email,
-    purpose: challengePurpose,
-  })
-
-  await sendAuthCodeEmail({
-    email: user.email,
-    code,
-    purpose: challengePurpose,
-  })
-
-  return {
-    success: true,
-    data: {
-      requiresCode: true,
-      email: user.email,
-      purpose: challengePurpose,
-    },
-  }
-}
-
 export async function requestEmailVerification(formData: FormData): Promise<ActionResult> {
   if (USE_MOCK) {
     return { success: true }
@@ -220,6 +155,15 @@ export async function requestEmailVerification(formData: FormData): Promise<Acti
     return { success: true }
   }
 
+  // Límite por email: evita que un tercero dispare correos en masa.
+  const windowStart = new Date(Date.now() - EMAIL_CODE_WINDOW_MS)
+  const recentCount = await prisma.emailChallenge.count({
+    where: { email: parsed.data.email, createdAt: { gte: windowStart } },
+  })
+  if (recentCount >= EMAIL_CODE_MAX_PER_WINDOW) {
+    return { success: true }
+  }
+
   const { code } = await createEmailChallenge({
     email: parsed.data.email,
     userId: user.id,
@@ -230,11 +174,6 @@ export async function requestEmailVerification(formData: FormData): Promise<Acti
     email: parsed.data.email,
     code,
     purpose: parsed.data.purpose,
-  })
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastSecurityChallengeAt: new Date() },
   })
 
   return { success: true }

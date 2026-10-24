@@ -12,7 +12,7 @@ declare module 'next-auth' {
       role: 'ADMIN' | 'COLLABORATOR' | 'VIEWER'
     } | null
     auth?: {
-      provider: 'google' | 'apple' | 'credentials' | 'mock'
+      provider: 'google' | 'apple' | 'azure-ad' | 'credentials' | 'mock'
       challengeSatisfied: boolean
     }
   }
@@ -23,7 +23,7 @@ declare module 'next-auth/jwt' {
     activeBusinessId?: string | null
     activeBusinessName?: string | null
     activeBusinessRole?: 'ADMIN' | 'COLLABORATOR' | 'VIEWER' | null
-    authProvider?: 'google' | 'apple' | 'credentials' | 'mock'
+    authProvider?: 'google' | 'apple' | 'azure-ad' | 'credentials' | 'mock'
     challengeSatisfied?: boolean
     emailVerified?: boolean
     isTemporaryAccess?: boolean

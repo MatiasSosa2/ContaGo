@@ -102,8 +102,8 @@ export default function VerifyCodePanel({
           <input id="code" name="code" type="text" inputMode="numeric" pattern="[0-9]{6}" required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-lg tracking-[0.45em] text-gray-900 outline-none transition focus:border-brand-military" />
         </div>
 
-        {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-        {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>}
+        {error && <div className="rounded-2xl border border-ds-red-100 bg-ds-red-50 px-4 py-3 text-sm text-ds-red-600">{error}</div>}
+        {message && <div className="rounded-2xl border border-ds-green-200 bg-ds-green-50 px-4 py-3 text-sm text-ds-green-700">{message}</div>}
 
         <button type="submit" disabled={isPending} className="w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
           {isPending ? 'Validando...' : 'Validar codigo'}

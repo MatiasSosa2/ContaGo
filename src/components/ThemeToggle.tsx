@@ -29,7 +29,7 @@ export default function ThemeToggle({ compact = false, circle = false, className
         role="switch"
         aria-checked={dark}
         aria-label={dark ? 'Modo claro' : 'Modo oscuro'}
-        className={`print:hidden flex h-8 w-8 items-center justify-center rounded-full bg-[#fff]/[0.08] text-[#fff]/75 transition hover:bg-[#fff]/[0.14] hover:text-[#fff] active:scale-95 ${className}`}
+        className={`print:hidden flex h-8 w-8 items-center justify-center rounded-full bg-[var(--ds-white)]/[0.08] text-[var(--ds-white)]/75 transition hover:bg-[var(--ds-white)]/[0.14] hover:text-[var(--ds-white)] active:scale-95 ${className}`}
       >
         {dark ? (
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
@@ -51,7 +51,7 @@ export default function ThemeToggle({ compact = false, circle = false, className
         onClick={toggle}
         suppressHydrationWarning
         title={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-        className="print:hidden h-8 w-8 flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/[0.07] transition-colors"
+        className="print:hidden h-8 w-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.07] transition-colors"
       >
         {dark ? (
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -74,7 +74,7 @@ export default function ThemeToggle({ compact = false, circle = false, className
       aria-checked={dark}
       title={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       className="print:hidden w-full flex items-center gap-3 px-4 py-2.5 rounded-sm text-xs font-medium uppercase tracking-wider transition-all
-        text-gray-400 hover:text-gray-200 hover:bg-[#fff]/[0.06] border border-transparent"
+        text-gray-400 hover:text-gray-200 hover:bg-[var(--ds-white)]/[0.06] border border-transparent"
     >
       {/* Ícono Sol / Luna */}
       <span className="w-5 h-5 text-brand-gold flex items-center justify-center shrink-0">
@@ -93,16 +93,16 @@ export default function ThemeToggle({ compact = false, circle = false, className
 
       <span>{dark ? 'Modo Claro' : 'Modo Oscuro'}</span>
 
-      {/* Interruptor estilo iPhone. Colores fijos (bg-[#fff], no bg-white): el
+      {/* Interruptor estilo iPhone. Colores fijos (bg-[var(--ds-white)], no bg-white): el
           estilo oscuro global pinta .bg-white de negro */}
       <span className="ml-auto" aria-hidden>
         <span
           className={`relative block h-[18px] w-[32px] rounded-full transition-colors duration-200 ${
-            dark ? 'bg-[#34C759]' : 'bg-[#fff]/20'
+            dark ? 'bg-[var(--ds-green)]' : 'bg-[var(--ds-white)]/20'
           }`}
         >
           <span
-            className={`absolute left-[2px] top-[2px] h-[14px] w-[14px] rounded-full bg-[#fff] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-transform duration-200 ${
+            className={`absolute left-[2px] top-[2px] h-[14px] w-[14px] rounded-full bg-[var(--ds-white)] shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-transform duration-200 ${
               dark ? 'translate-x-[14px]' : 'translate-x-0'
             }`}
           />

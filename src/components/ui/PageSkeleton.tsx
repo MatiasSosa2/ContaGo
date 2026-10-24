@@ -8,7 +8,7 @@ function Bone({ className = '' }: { className?: string }) {
 
 function CardShell({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:bg-[#1C1C1E] dark:shadow-none ${className}`}>
+    <div className={`ds-panel p-5 ${className}`}>
       {children}
     </div>
   )
@@ -17,7 +17,7 @@ function CardShell({ children, className = '' }: { children: React.ReactNode; cl
 export default function PageSkeleton({ cards = 3, chart = false }: { cards?: number; chart?: boolean }) {
   const cols = cards >= 4 ? 'md:grid-cols-4' : cards === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'
   return (
-    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F2F2F7] p-4 dark:bg-black sm:p-6 lg:p-8" aria-busy="true" aria-label="Cargando">
+    <div className="mx-auto min-h-screen max-w-[1920px] bg-[var(--ds-gray-100)] p-4 dark:bg-black sm:p-6 lg:p-8" aria-busy="true" aria-label="Cargando">
       {/* Encabezado: título + selector de período */}
       <div className="mb-6 flex items-center justify-between gap-4">
         <Bone className="h-7 w-40" />

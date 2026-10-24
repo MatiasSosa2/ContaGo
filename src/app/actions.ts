@@ -8,7 +8,8 @@ import type { UndoRef } from '@/lib/registro';
 import type { ArticuloInput, PreciosMasivoInput } from '@/server/db/articulos';
 
 const hasDatabaseConfig = Boolean(process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL);
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === 'true' || !hasDatabaseConfig;
+// El mock nunca se activa en producción (sería un bypass de datos).
+const USE_MOCK = process.env.NODE_ENV !== 'production' && (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || process.env.USE_MOCK_DATA === 'true' || !hasDatabaseConfig);
 
 const emptyCatalogs = () => ({
   accounts: [],
@@ -170,6 +171,12 @@ export async function getLatestTransactionDate() {
   if (USE_MOCK) return null;
   const databaseActions = await getDatabaseActions();
   return databaseActions.getLatestTransactionDate();
+}
+
+export async function getMonthlyHistory(): Promise<{ month: string; byCur: Record<string, { income: number; expense: number }> }[]> {
+  if (USE_MOCK) return [];
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getMonthlyHistory();
 }
 
 export async function getReportData(range?: DateRange) {

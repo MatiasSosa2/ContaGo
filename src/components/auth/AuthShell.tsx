@@ -17,7 +17,7 @@ export default function AuthShell({
   showSignOut?: boolean
 }) {
   return (
-    <div className="min-h-screen bg-[#f3efe7] lg:h-screen lg:overflow-hidden lg:bg-transparent">
+    <div className="min-h-screen bg-[#F3F4F6] lg:h-screen lg:overflow-hidden lg:bg-transparent">
       <div className="grid min-h-screen w-full lg:h-screen lg:grid-cols-[1.04fr_0.96fr]">
         <section className="relative flex min-h-[35vh] items-center justify-center overflow-hidden bg-[#003b1f] px-6 py-8 text-white sm:px-10 sm:py-10 lg:h-screen lg:min-h-0 lg:justify-start lg:px-12 lg:py-8 xl:px-14 xl:py-10">
           <div className="absolute inset-0 bg-[linear-gradient(180deg,_rgba(255,255,255,0.02),_rgba(0,0,0,0.12))]" />

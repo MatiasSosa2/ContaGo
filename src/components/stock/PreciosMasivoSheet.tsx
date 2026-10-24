@@ -18,7 +18,7 @@ function Segmentado<T extends string | number>({ opciones, valor, onChange, labe
     <div className="flex rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/[0.1]" role="tablist" aria-label={label}>
       {opciones.map(([v, l]) => (
         <button key={String(v)} type="button" role="tab" aria-selected={valor === v} onClick={() => onChange(v)}
-          className={`flex-1 rounded-md py-1.5 text-[13px] transition ${valor === v ? 'bg-white font-medium text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white' : 'text-[#3C3C43] dark:text-[#EBEBF5]/70'}`}>
+          className={`flex-1 rounded-md py-1.5 text-[13px] transition ${valor === v ? 'bg-white font-medium text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[var(--ds-gray-600)] dark:text-white' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/70'}`}>
           {l}
         </button>
       ))}
@@ -75,69 +75,69 @@ export default function PreciosMasivoSheet({ productos, onClose, onDone }: {
   return createPortal(
     <div className="fixed inset-0 z-[75] flex items-end justify-center md:items-center" role="dialog" aria-modal="true" aria-label="Actualizar precios">
       <div className="reg-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="reg-sheet relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-[#F2F2F7] shadow-2xl dark:bg-black md:rounded-3xl">
+      <div className="reg-sheet relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-[var(--ds-gray-100)] shadow-2xl dark:bg-black md:rounded-3xl">
         <div className="flex justify-center pt-2 md:hidden" aria-hidden>
           <span className="h-[5px] w-9 rounded-full bg-black/15 dark:bg-white/20" />
         </div>
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
-          <button type="button" onClick={onClose} className="text-[15px] text-[#007AFF] dark:text-[#0A84FF]">Cancelar</button>
-          <h3 className="text-[16px] font-semibold text-[#1C1C1E] dark:text-white">Actualizar precios</h3>
-          <button type="button" onClick={aplicar} disabled={!listo || pending} className="text-[15px] font-semibold text-[#007AFF] disabled:opacity-40 dark:text-[#0A84FF]">
+          <button type="button" onClick={onClose} className="text-[15px] text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">Cancelar</button>
+          <h3 className="text-[16px] font-semibold text-[var(--ds-gray-900)] dark:text-white">Actualizar precios</h3>
+          <button type="button" onClick={aplicar} disabled={!listo || pending} className="text-[15px] font-semibold text-[var(--ds-blue)] disabled:opacity-40 dark:text-[var(--ds-blue-dark)]">
             {pending ? 'Aplicando…' : 'Aplicar'}
           </button>
         </div>
 
         <div className="overflow-y-auto px-4 pb-6">
-          <p className="mb-1.5 mt-3 px-4 text-[12px] uppercase tracking-wide text-[#8E8E93]">Aplicar a</p>
+          <p className="mb-1.5 mt-3 px-4 text-[12px] uppercase tracking-wide text-[var(--ds-gray-500)]">Aplicar a</p>
           <Segmentado label="Aplicar a" valor={alcance} onChange={(v) => { setAlcance(v); setFiltro('') }} opciones={[['TODO', 'Todo'], ['CATEGORIA', 'Categoría'], ['MARCA', 'Marca']] as const} />
           {alcance !== 'TODO' && (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {opciones.length === 0 && <p className="px-1 text-[13px] text-[#8E8E93]">No hay {alcance === 'CATEGORIA' ? 'categorías' : 'marcas'} cargadas.</p>}
+              {opciones.length === 0 && <p className="px-1 text-[13px] text-[var(--ds-gray-500)]">No hay {alcance === 'CATEGORIA' ? 'categorías' : 'marcas'} cargadas.</p>}
               {opciones.map((o) => (
                 <button key={o} type="button" onClick={() => setFiltro(o)} aria-pressed={filtro === o}
-                  className={`rounded-full px-3 py-1 text-[13px] transition active:scale-95 ${filtro === o ? 'bg-[#007AFF] text-white dark:bg-[#0A84FF]' : 'bg-white text-[#1C1C1E] ring-1 ring-black/[0.08] dark:bg-[#1C1C1E] dark:text-white dark:ring-white/10'}`}>
+                  className={`rounded-full px-3 py-1 text-[13px] transition active:scale-95 ${filtro === o ? 'bg-[var(--ds-blue)] text-white dark:bg-[var(--ds-blue-dark)]' : 'bg-white text-[var(--ds-gray-900)] ring-1 ring-black/[0.08] dark:bg-[var(--ds-gray-900)] dark:text-white dark:ring-white/10'}`}>
                   {o}
                 </button>
               ))}
             </div>
           )}
 
-          <p className="mb-1.5 mt-5 px-4 text-[12px] uppercase tracking-wide text-[#8E8E93]">Cambio</p>
-          <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[#1C1C1E]">
+          <p className="mb-1.5 mt-5 px-4 text-[12px] uppercase tracking-wide text-[var(--ds-gray-500)]">Cambio</p>
+          <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[var(--ds-gray-900)]">
             <div className="flex items-center justify-between gap-3 px-4 py-2.5">
               <div className="w-40"><Segmentado label="Sentido" valor={sentido} onChange={setSentido} opciones={[['SUBE', 'Subir'], ['BAJA', 'Bajar']] as const} /></div>
               <div className="flex items-center gap-1">
                 <input autoFocus inputMode="decimal" value={pctTxt} onChange={(e) => setPctTxt(e.target.value.replace(/[^\d,]/g, '').slice(0, 5))} placeholder="0" aria-label="Porcentaje"
-                  className="w-16 bg-transparent text-right text-[17px] font-semibold tabular-nums text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] dark:text-white" />
-                <span className="text-[17px] text-[#8E8E93]">%</span>
+                  className="w-16 bg-transparent text-right text-[17px] font-semibold tabular-nums text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-300)] dark:text-white" />
+                <span className="text-[17px] text-[var(--ds-gray-500)]">%</span>
               </div>
             </div>
             <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-              <span className="text-[15px] text-[#1C1C1E] dark:text-white">Redondear a</span>
+              <span className="text-[15px] text-[var(--ds-gray-900)] dark:text-white">Redondear a</span>
               <div className="w-44"><Segmentado label="Redondeo" valor={redondeo} onChange={setRedondeo} opciones={[[1, '$1'], [10, '$10'], [100, '$100']] as const} /></div>
             </div>
           </div>
 
           {/* Vista previa */}
-          <p className="mb-1.5 mt-5 px-4 text-[12px] uppercase tracking-wide text-[#8E8E93]">
+          <p className="mb-1.5 mt-5 px-4 text-[12px] uppercase tracking-wide text-[var(--ds-gray-500)]">
             Vista previa · {afectados.length} producto{afectados.length === 1 ? '' : 's'}
           </p>
-          <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[#1C1C1E]">
+          <div className="divide-y divide-black/[0.06] overflow-hidden rounded-xl bg-white dark:divide-white/[0.08] dark:bg-[var(--ds-gray-900)]">
             {(alcance === 'TODO' || filtro) && afectados.slice(0, 6).map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-2 text-[13px]">
-                <span className="min-w-0 truncate text-[#1C1C1E] dark:text-white">{p.nombre}</span>
+                <span className="min-w-0 truncate text-[var(--ds-gray-900)] dark:text-white">{p.nombre}</span>
                 <span className="shrink-0 tabular-nums">
-                  <span className="text-[#8E8E93]">{fmt$(p.precioVenta)}</span>
-                  {pct !== 0 && <><span className="mx-1 text-[#C7C7CC]">→</span><span className="font-medium text-[#1C1C1E] dark:text-white">{fmt$(nuevo(p.precioVenta))}</span></>}
+                  <span className="text-[var(--ds-gray-500)]">{fmt$(p.precioVenta)}</span>
+                  {pct !== 0 && <><span className="mx-1 text-[var(--ds-gray-300)]">→</span><span className="font-medium text-[var(--ds-gray-900)] dark:text-white">{fmt$(nuevo(p.precioVenta))}</span></>}
                 </span>
               </div>
             ))}
             {(alcance === 'TODO' || filtro) && afectados.length > 6 && (
-              <p className="px-4 py-2 text-[12px] text-[#8E8E93]">y {afectados.length - 6} más</p>
+              <p className="px-4 py-2 text-[12px] text-[var(--ds-gray-500)]">y {afectados.length - 6} más</p>
             )}
-            {alcance !== 'TODO' && !filtro && <p className="px-4 py-3 text-[13px] text-[#8E8E93]">Elegí {alcance === 'CATEGORIA' ? 'una categoría' : 'una marca'}.</p>}
+            {alcance !== 'TODO' && !filtro && <p className="px-4 py-3 text-[13px] text-[var(--ds-gray-500)]">Elegí {alcance === 'CATEGORIA' ? 'una categoría' : 'una marca'}.</p>}
           </div>
-          {error && <p className="mt-3 px-4 text-[13px] text-[#FF3B30]">{error}</p>}
+          {error && <p className="mt-3 px-4 text-[13px] text-[var(--ds-red)]">{error}</p>}
         </div>
       </div>
     </div>,

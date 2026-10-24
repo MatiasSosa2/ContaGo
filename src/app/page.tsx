@@ -17,23 +17,23 @@ function DashboardSkeleton() {
     <>
       <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-4">
         {[0, 1, 2, 3].map(i => (
-          <div key={i} className="h-[140px] animate-pulse rounded-2xl border border-stone-200 bg-white dark:border-white/10 dark:bg-[#141414]" />
+          <div key={i} className="h-[140px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
         ))}
       </section>
-      <div className="mb-5 h-[380px] animate-pulse rounded-2xl border border-stone-200 bg-white dark:border-white/10 dark:bg-[#141414]" />
+      <div className="mb-5 h-[380px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
       <section className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[0, 1, 2, 3].map(i => (
-          <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-stone-200 bg-white dark:border-white/10 dark:bg-[#141414]" />
+          <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
         ))}
       </section>
       <section className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[0, 1, 2].map(i => (
-          <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-stone-200 bg-white dark:border-white/10 dark:bg-[#141414]" />
+          <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
         ))}
       </section>
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[0, 1, 2].map(i => (
-          <div key={i} className="h-[62px] animate-pulse rounded-2xl border border-stone-200 bg-white dark:border-white/10 dark:bg-[#141414]" />
+          <div key={i} className="h-[62px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
         ))}
       </div>
     </>
@@ -63,10 +63,10 @@ function variationState(value: number | null, trend: 'direct' | 'inverse' = 'dir
 
 /** Pastilla iOS: fondo suave verde (favorable), rojo (desfavorable) o gris (sin comparación) */
 function variationClass(state: ReturnType<typeof variationState>) {
-  if (state.favorable === null) return 'bg-black/[0.04] text-stone-400 dark:bg-white/[0.06] dark:text-stone-500'
+  if (state.favorable === null) return 'bg-black/[0.04] text-gray-400 dark:bg-white/[0.06] dark:text-gray-500'
   return state.favorable
-    ? 'bg-[#34C759]/[0.12] text-[#248A3D] dark:bg-[#30D158]/[0.16] dark:text-[#30D158]'
-    : 'bg-[#FF3B30]/[0.10] text-[#D70015] dark:bg-[#FF453A]/[0.16] dark:text-[#FF6961]'
+    ? 'bg-[var(--ds-green)]/[0.12] text-[var(--ds-green-strong)] dark:bg-[var(--ds-green-dark)]/[0.16] dark:text-[var(--ds-green-dark)]'
+    : 'bg-[var(--ds-red)]/[0.10] text-[var(--ds-red-strong)] dark:bg-[var(--ds-red-dark)]/[0.16] dark:text-[var(--ds-coral)]'
 }
 
 // ── Async content component ────────────────────────────────────────────────────
@@ -136,9 +136,9 @@ async function DashboardContent({
   const rotDelta = comparable && stockTotal > 0 && prev.stockTotal > 0 ? rotacionInventario - prevRotacion : null
 
   const deltaClass = (d: number | null) =>
-    d === null ? 'bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400'
+    d === null ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
     : d >= 0 ? 'bg-[#E8F5EC] text-[#15803D] dark:bg-[#15321F] dark:text-[#86EFAC]'
-    : 'bg-[#FDECEC] text-[#B91C1C] dark:bg-[#3A1717] dark:text-[#FCA5A5]'
+    : 'bg-[#FEF3F2] text-[#B91C1C] dark:bg-[#3A1717] dark:text-[#FCA5A5]'
   const deltaArrow = (d: number | null) => (d === null ? '' : d >= 0 ? '▲' : '▼')
 
 
@@ -148,54 +148,54 @@ async function DashboardContent({
       <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
 
         {/* KPI Ingresos — verde */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-[#D5E3D8] bg-white p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#1E3627] dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col gap-3 rounded-2xl border border-[#D5E3D8] bg-white p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#1E3627] dark:bg-[var(--ds-ink)] dark:shadow-none">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2D6A4F] dark:text-[#8FD0A7]">Ingresos</span>
             <span title={incomeV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(incomeV)}`}>{incomeV.label}</span>
           </div>
-          <p className="mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] text-[#1F2937] dark:text-[#E8E8E8] num-tabular">
+          <p className="mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] num-tabular">
             <KpiNumber id="ingresos" value={kpis.income} />
           </p>
         </div>
 
         {/* KPI Egresos — rojo */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-[#F3D6D6] bg-white p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#2E1919] dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col gap-3 rounded-2xl border border-[#FEE4E2] bg-white p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#2E1919] dark:bg-[var(--ds-ink)] dark:shadow-none">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#B91C1C] dark:text-[#F87171]">Egresos</span>
             <span title={expenseV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(expenseV)}`}>{expenseV.label}</span>
           </div>
-          <p className="mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] text-[#1F2937] dark:text-[#E8E8E8] num-tabular">
+          <p className="mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] num-tabular">
             <KpiNumber id="egresos" value={kpis.expense} />
           </p>
         </div>
 
         {/* KPI Variación neta de caja (entró − salió ± cambio de moneda) — celeste */}
         <div className={`flex flex-col gap-3 rounded-2xl border p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${
-          gainIsPositive ? 'border-[#BAE6FD] bg-white dark:border-[#0C3450] dark:bg-[#141414]' : 'border-[#F3D6D6] bg-white dark:border-[#2E1919] dark:bg-[#141414]'
+          gainIsPositive ? 'border-[#C6F0D8] bg-white dark:border-[#15321F] dark:bg-[var(--ds-ink)]' : 'border-[#FEE4E2] bg-white dark:border-[#2E1919] dark:bg-[var(--ds-ink)]'
         }`}>
           <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${gainIsPositive ? 'text-[#0369A1] dark:text-[#38BDF8]' : 'text-[#B91C1C] dark:text-[#F87171]'}`}>
+            <span className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${gainIsPositive ? 'text-[#1B4332] dark:text-[#5B9A78]' : 'text-[#B91C1C] dark:text-[#F87171]'}`}>
               Variación neta
             </span>
             <span title={gainV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(gainV)}`}>{gainV.label}</span>
           </div>
           <p className={`mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] num-tabular ${
-            gainIsPositive ? 'text-[#0369A1] dark:text-[#38BDF8]' : 'text-[#B91C1C] dark:text-[#F87171]'
+            gainIsPositive ? 'text-[#1B4332] dark:text-[#5B9A78]' : 'text-[#B91C1C] dark:text-[#F87171]'
           }`}>
             <KpiNumber id="variacion" value={kpis.gain} conSigno />
           </p>
           {/* Mismo número que la Variación neta de Informes: aclara el cambio de moneda si lo hubo */}
           {kpis.cambioMoneda !== 0 && (
-            <p className="mt-3 text-[11px] text-stone-400">
+            <p className="mt-3 text-[11px] text-gray-400">
               Incluye cambio de moneda {kpis.cambioMoneda < 0 ? '−' : '+'}{fmt(kpis.cambioMoneda)}
             </p>
           )}
         </div>
       </section>
       <div className="mb-5">
-        <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+        <div className="overflow-hidden ds-panel">
           {/* Título solo, sobre blanco (sin franja) */}
-          <h2 className="px-5 pt-4 text-[15px] font-semibold tracking-[-0.01em] text-[#1F2937] dark:text-[#E8E8E8]">
+          <h2 className="px-5 pt-4 text-[15px] font-semibold tracking-[-0.01em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
             Evolución financiera
           </h2>
           <EvolutionTabs chartData={chartData} chartTx={chartTx} categoryBreakdown={categoryBreakdown} incomeCategoryBreakdown={incomeCategoryBreakdown} />
@@ -208,19 +208,19 @@ async function DashboardContent({
         {/* Caja */}
         <Link
           href="/cajas"
-          className="group flex flex-col rounded-2xl border-2 border-[#2D5A41]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#2D5A41]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#9AC7A8]/40 dark:hover:border-[#9AC7A8]/80 dark:bg-[#141414] dark:shadow-none"
+          className="group flex flex-col rounded-2xl border-2 border-[#2D5A41]/20 bg-[var(--ds-white)] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#2D5A41]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#9AC7A8]/40 dark:hover:border-[#9AC7A8]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F0F5F2] text-[#4F7A63] dark:bg-[#1F3428] dark:text-[#9AC7A8]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
             </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Caja</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Caja</span>
           </div>
           {/* Monto centrado en el espacio que queda debajo del título */}
           <div className="flex flex-1 flex-col justify-center">
-          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{cajaTotal < 0 ? '−' : ''}{fmt(cajaTotal)}</p>
+          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{cajaTotal < 0 ? '−' : ''}{fmt(cajaTotal)}</p>
           {cajaUsd !== 0 && (
-            <p className="mt-1 font-mono text-sm font-semibold num-tabular text-stone-500 dark:text-stone-400">
+            <p className="mt-1 font-mono text-sm font-semibold num-tabular text-gray-500 dark:text-gray-400">
               {cajaUsd < 0 ? '− ' : '+ '}US${Math.abs(cajaUsd).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
             </p>
           )}
@@ -230,24 +230,24 @@ async function DashboardContent({
         {/* Créditos / Deudas */}
         <Link
           href="/creditos"
-          className="group flex flex-col rounded-2xl border-2 border-[#C2410C]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#C2410C]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#F97316]/40 dark:hover:border-[#F97316]/80 dark:bg-[#141414] dark:shadow-none"
+          className="group flex flex-col rounded-2xl border-2 border-[#B42318]/20 bg-[var(--ds-white)] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#B42318]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#B42318]/40 dark:hover:border-[#B42318]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FFF7EF] text-[#D97757] dark:bg-[#2A1810] dark:text-[#F97316]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FEF3F2] text-[#F97066] dark:bg-[#1F1514] dark:text-[#B42318]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
             </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Créditos / Deudas</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Créditos / Deudas</span>
           </div>
           {/* Monto centrado en el espacio que queda debajo del título */}
           <div className="flex flex-1 flex-col justify-center">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-[10px] font-semibold text-emerald-500/80 dark:text-emerald-400">A cobrar</p>
-              <p className="font-mono text-[1.15rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8] whitespace-nowrap">{fmt(totalACobrar)}</p>
+              <p className="text-[10px] font-semibold text-ds-green-500/80 dark:text-ds-green-400">A cobrar</p>
+              <p className="font-mono text-[1.15rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] whitespace-nowrap">{fmt(totalACobrar)}</p>
             </div>
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-[10px] font-semibold text-red-500/80 dark:text-red-400">A pagar</p>
-              <p className="font-mono text-[1.15rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8] whitespace-nowrap">{fmt(totalAPagar)}</p>
+              <p className="text-[10px] font-semibold text-ds-red-600/80 dark:text-ds-red-300">A pagar</p>
+              <p className="font-mono text-[1.15rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] whitespace-nowrap">{fmt(totalAPagar)}</p>
             </div>
           </div>
           </div>
@@ -256,17 +256,17 @@ async function DashboardContent({
         {/* Stock */}
         <Link
           href="/stock"
-          className="group flex flex-col rounded-2xl border-2 border-[#7C3AED]/20 bg-[#FFFFFF] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#7C3AED]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#A78BFA]/40 dark:hover:border-[#A78BFA]/80 dark:bg-[#141414] dark:shadow-none"
+          className="group flex flex-col rounded-2xl border-2 border-[var(--ds-violet)]/20 bg-[var(--ds-white)] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[var(--ds-violet)]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[var(--ds-violet-light)]/40 dark:hover:border-[var(--ds-violet-light)]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F7F4FE] text-[#9B7BD8] dark:bg-[#1E1830] dark:text-[#A78BFA]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F5FAF7] text-[#5B9A78] dark:bg-[#14301F] dark:text-[var(--ds-violet-light)]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Stock</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Stock</span>
           </div>
           {/* Monto centrado en el espacio que queda debajo del título */}
           <div className="flex flex-1 flex-col justify-center">
-          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[#1F2937] dark:text-[#E8E8E8]">{fmt(stockTotal)}</p>
+          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{fmt(stockTotal)}</p>
           </div>
         </Link>
 
@@ -278,77 +278,77 @@ async function DashboardContent({
       <section className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
 
         {/* Rentabilidad */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col overflow-hidden ds-panel">
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E0F2FE] text-[#0369A1] dark:bg-[#0C2A3E] dark:text-[#38BDF8]">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E8F5EC] text-[#1B4332] dark:bg-[#14301F] dark:text-[#5B9A78]">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.281m5.94 2.28l-2.28 5.941" /></svg>
                 </span>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-stone-400">Rentabilidad</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Rentabilidad</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(rentDelta)}`}>
                 <span>{deltaArrow(rentDelta)} {rentDelta === null ? '—' : `${rentDelta >= 0 ? '+' : ''}${dec1(rentDelta)} pp`}</span>
                 <span className="text-[9px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
-            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#0369A1] dark:text-[#38BDF8]">
+            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#1B4332] dark:text-[#5B9A78]">
               {kpis.hasSales ? `${dec1(kpis.marginPct)}%` : '—'}
             </p>
-            <p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">Ganancia neta / Ingresos</p>
+            <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">Ganancia neta / Ingresos</p>
           </div>
-          <div className="h-1.5 bg-[#E0F2FE] dark:bg-[#0C2A3E]">
-            <div className="h-full bg-gradient-to-r from-[#0369A1] to-[#38BDF8]" style={{ width: `${Math.min(100, Math.max(0, kpis.marginPct))}%` }} />
+          <div className="h-1.5 bg-[#E8F5EC] dark:bg-[#14301F]">
+            <div className="h-full bg-gradient-to-r from-[#1B4332] to-[#5B9A78]" style={{ width: `${Math.min(100, Math.max(0, kpis.marginPct))}%` }} />
           </div>
         </div>
 
         {/* ROA — Rentabilidad sobre Activos */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col overflow-hidden ds-panel">
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#CCFBF1] text-[#0D9488] dark:bg-[#0C2E2A] dark:text-[#5EEAD4]">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#D7F3DF] text-[#2D6A4F] dark:bg-[#0C2E2A] dark:text-[#9AC7A8]">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </span>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-stone-400">ROA</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">ROA</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(roaDelta)}`}>
                 <span>{deltaArrow(roaDelta)} {roaDelta === null ? '—' : `${roaDelta >= 0 ? '+' : ''}${dec1(roaDelta)} pp`}</span>
                 <span className="text-[9px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
-            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#0D9488] dark:text-[#5EEAD4]">
+            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#2D6A4F] dark:text-[#9AC7A8]">
               {activosTotal > 0 ? `${dec1(roaPct)}%` : '—'}
             </p>
-            <p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">Ganancia neta / Activos</p>
+            <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">Ganancia neta / Activos</p>
           </div>
-          <div className="h-1.5 bg-[#CCFBF1] dark:bg-[#0C2E2A]">
-            <div className="h-full bg-gradient-to-r from-[#0D9488] to-[#5EEAD4]" style={{ width: `${Math.min(100, Math.max(0, roaPct))}%` }} />
+          <div className="h-1.5 bg-[#D7F3DF] dark:bg-[#0C2E2A]">
+            <div className="h-full bg-gradient-to-r from-[#2D6A4F] to-[#9AC7A8]" style={{ width: `${Math.min(100, Math.max(0, roaPct))}%` }} />
           </div>
         </div>
 
         {/* Rotación de Inventario */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[#141414] dark:shadow-none">
+        <div className="flex flex-col overflow-hidden ds-panel">
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EFEAFB] text-[#7C3AED] dark:bg-[#1E1830] dark:text-[#A78BFA]">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF6F1] text-[var(--ds-violet)] dark:bg-[#14301F] dark:text-[var(--ds-violet-light)]">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
                 </span>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 dark:text-stone-400">Rotación de Inventario</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Rotación de Inventario</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(rotDelta)}`}>
                 <span>{deltaArrow(rotDelta)} {rotDelta === null ? '—' : `${rotDelta >= 0 ? '+' : ''}${dec1(rotDelta)}×`}</span>
                 <span className="text-[9px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
-            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#7C3AED] dark:text-[#A78BFA]">
+            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[var(--ds-violet)] dark:text-[var(--ds-violet-light)]">
               {stockTotal > 0 ? `${dec1(rotacionInventario)}×` : '—'}
             </p>
-            <p className="mt-2 text-[11px] text-stone-400 dark:text-stone-500">Costo de mercadería vendida / Inventario</p>
+            <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">Costo de mercadería vendida / Inventario</p>
           </div>
-          <div className="h-1.5 bg-[#EFEAFB] dark:bg-[#1E1830]">
-            <div className="h-full bg-gradient-to-r from-[#7C3AED] to-[#A78BFA]" style={{ width: `${Math.min(100, (rotacionInventario / 12) * 100)}%` }} />
+          <div className="h-1.5 bg-[#EEF6F1] dark:bg-[#14301F]">
+            <div className="h-full bg-gradient-to-r from-[var(--ds-violet)] to-[var(--ds-violet-light)]" style={{ width: `${Math.min(100, (rotacionInventario / 12) * 100)}%` }} />
           </div>
         </div>
       </section>
@@ -383,7 +383,7 @@ export default async function Home({
   const selectedWeekStart = sp.weekStart
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F7F9FB] p-4 font-sans text-[#1F2937] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
+    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F7F9FB] p-4 font-sans text-[var(--ds-neutral-800)] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
 
 
       {/* ── Header con selector de período moderno ───────────────────────────── */}

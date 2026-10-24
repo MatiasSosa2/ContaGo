@@ -59,7 +59,7 @@ export default function PrintButton() {
     <button
       onClick={handlePrint}
       aria-label="Exportar PDF"
-      className="no-print flex items-center gap-1.5 rounded-full bg-black/[0.05] px-3.5 py-1.5 text-[13px] font-medium text-[#007AFF] transition hover:bg-black/[0.08] active:scale-[0.97] dark:bg-white/[0.08] dark:text-[#0A84FF] dark:hover:bg-white/[0.12]"
+      className="no-print flex items-center gap-1.5 rounded-full bg-black/[0.05] px-3.5 py-1.5 text-[13px] font-medium text-[var(--ds-blue)] transition hover:bg-black/[0.08] active:scale-[0.97] dark:bg-white/[0.08] dark:text-[var(--ds-blue-dark)] dark:hover:bg-white/[0.12]"
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif' }}
     >
       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>

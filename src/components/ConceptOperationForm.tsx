@@ -19,7 +19,7 @@ type Pendiente = {
 type ContactoConPendientes = { contactId: string; nombre: string; items: Pendiente[] }
 
 const TEXT_INPUT_CLS =
-  'ios-bare w-full bg-transparent text-right text-[15px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] dark:text-white'
+  'ios-bare w-full bg-transparent text-right text-[15px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-300)] dark:text-white'
 
 const fmtFecha = (d: Date | string | null) =>
   d ? new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '') : 'Sin vencimiento'
@@ -154,7 +154,7 @@ export default function ConceptOperationForm({
   // Fila "Monto" como el Total del carrito
   const montoRow = (label: string) => (
     <div className="flex min-h-[52px] items-center justify-between gap-3 px-4">
-      <span className="text-[15px] font-medium text-[#1C1C1E] dark:text-white">{label}</span>
+      <span className="text-[15px] font-medium text-[var(--ds-gray-900)] dark:text-white">{label}</span>
       <div className="w-40">
         <MoneyField
           align="right"
@@ -170,7 +170,7 @@ export default function ConceptOperationForm({
   return (
     <div className={`mt-5 flex flex-col ${IOS_FONT}`}>
       {error && (
-        <div className="mb-3 flex items-center justify-between rounded-xl bg-[#FF3B30]/10 px-4 py-2.5 text-[13px] text-[#D70015] dark:text-[#FF6961]">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-[var(--ds-red)]/10 px-4 py-2.5 text-[13px] text-[var(--ds-red-strong)] dark:text-[var(--ds-coral)]">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar aviso" className="ml-3 opacity-60">×</button>
         </div>
@@ -182,7 +182,7 @@ export default function ConceptOperationForm({
           <Caption>Bien de uso</Caption>
           <Group>
             {bienesActivos.length === 0 ? (
-              <p className="px-4 py-3 text-[13px] text-[#8E8E93]">No hay bienes de uso cargados</p>
+              <p className="px-4 py-3 text-[13px] text-[var(--ds-gray-500)]">No hay bienes de uso cargados</p>
             ) : (
               <Row label="Bien" value={
                 <MenuSelect
@@ -194,7 +194,7 @@ export default function ConceptOperationForm({
               } />
             )}
             {bien && (
-              <div className="flex min-h-[36px] items-center justify-between px-4 text-[13px] text-[#8E8E93]">
+              <div className="flex min-h-[36px] items-center justify-between px-4 text-[13px] text-[var(--ds-gray-500)]">
                 <span>Valor en libros</span>
                 <span>{fmt(Math.max(0, bien.valorAdquisicion - bien.depreciacionAcumulada))}</span>
               </div>
@@ -222,9 +222,9 @@ export default function ConceptOperationForm({
         <>
           <Group className="mt-5">
             {pendientes === null ? (
-              <p className="px-4 py-3 text-[13px] text-[#8E8E93]">Cargando…</p>
+              <p className="px-4 py-3 text-[13px] text-[var(--ds-gray-500)]">Cargando…</p>
             ) : pendientes.length === 0 ? (
-              <p className="px-4 py-3 text-[13px] text-[#8E8E93]">{kind === 'COBRO' ? 'No hay créditos pendientes de cobro' : 'No hay deudas pendientes de pago'}</p>
+              <p className="px-4 py-3 text-[13px] text-[var(--ds-gray-500)]">{kind === 'COBRO' ? 'No hay créditos pendientes de cobro' : 'No hay deudas pendientes de pago'}</p>
             ) : (
               <Row label={kind === 'COBRO' ? 'Cliente' : 'Proveedor'} value={
                 <MenuSelect
@@ -239,7 +239,7 @@ export default function ConceptOperationForm({
 
           {contacto && (
             <>
-              <Caption right={<span className="text-[12px] text-[#8E8E93]">Pendiente {fmt(round2(cuotas.reduce((s, c) => s + c.saldoPendiente, 0)))}</span>}>
+              <Caption right={<span className="text-[12px] text-[var(--ds-gray-500)]">Pendiente {fmt(round2(cuotas.reduce((s, c) => s + c.saldoPendiente, 0)))}</span>}>
                 Cuotas
               </Caption>
               <Group>
@@ -254,23 +254,23 @@ export default function ConceptOperationForm({
                       aria-pressed={on}
                       className="flex min-h-[44px] w-full items-center gap-3 px-4 py-2 text-left transition-colors active:bg-black/[0.04] dark:active:bg-white/[0.06]"
                     >
-                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-[var(--reg-accent,#34C759)] bg-[var(--reg-accent,#34C759)] text-white' : 'border-[#C7C7CC]'}`}>
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-[var(--reg-accent,#2D6A4F)] bg-[var(--reg-accent,#2D6A4F)] text-white' : 'border-[var(--ds-gray-300)]'}`}>
                         {on && <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] text-[#1C1C1E] dark:text-white">{c.description}</span>
-                        <span className={`block text-[11px] ${vencida ? 'text-[#FF3B30]' : 'text-[#8E8E93]'}`}>
+                        <span className="block truncate text-[13px] text-[var(--ds-gray-900)] dark:text-white">{c.description}</span>
+                        <span className={`block text-[11px] ${vencida ? 'text-[var(--ds-red)]' : 'text-[var(--ds-gray-500)]'}`}>
                           {vencida ? 'Venció' : 'Vence'} {fmtFecha(c.fechaVencimiento)}
                         </span>
                       </span>
-                      <span className="text-[13px] text-[#1C1C1E] dark:text-white">{fmt(c.saldoPendiente)}</span>
+                      <span className="text-[13px] text-[var(--ds-gray-900)] dark:text-white">{fmt(c.saldoPendiente)}</span>
                     </button>
                   )
                 })}
               </Group>
               <Group className="mt-3">{montoRow(kind === 'COBRO' ? 'Cobrado' : 'Pagado')}</Group>
               {montoManual && monto < saldoElegido - 0.01 && (
-                <p className="mt-1.5 px-4 text-[12px] text-[#8E8E93]">Pago parcial: se aplica a las cuotas en orden de vencimiento</p>
+                <p className="mt-1.5 px-4 text-[12px] text-[var(--ds-gray-500)]">Pago parcial: se aplica a las cuotas en orden de vencimiento</p>
               )}
             </>
           )}

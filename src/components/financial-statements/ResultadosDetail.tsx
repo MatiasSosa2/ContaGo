@@ -79,12 +79,12 @@ export default function ResultadosDetail({ data, trends, previous }: { data: Res
 
         {/* Ganancia neta: cierre del cuadro, por peso de letra y no por fondo de color */}
         <div className="mx-4 mt-3 flex items-baseline sm:mx-5 justify-between border-t border-black/10 pb-2 pt-4 dark:border-white/15">
-          <p className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">Ganancia neta</p>
+          <p className="text-[17px] font-semibold text-[var(--ds-gray-900)] dark:text-white">Ganancia neta</p>
           <div className="text-right">
-            <p className={`text-[22px] font-semibold tracking-tight tabular-nums ${data.netProfit >= 0 ? 'text-[#0071A4] dark:text-[#64D2FF]' : 'text-[#D70015] dark:text-[#FF453A]'}`}>
+            <p className={`text-[22px] font-semibold tracking-tight tabular-nums ${data.netProfit >= 0 ? 'text-[#1B4332] dark:text-[var(--ds-sky)]' : 'text-[var(--ds-red-strong)] dark:text-[var(--ds-red-dark)]'}`}>
               {fmtFull(data.netProfit, cur)}
             </p>
-            <p className="text-[12px] tabular-nums text-[#8E8E93]">Margen {fmtPctEs(data.netMargin)}</p>
+            <p className="text-[12px] tabular-nums text-[var(--ds-gray-500)]">Margen {fmtPctEs(data.netMargin)}</p>
           </div>
         </div>
       </Card>

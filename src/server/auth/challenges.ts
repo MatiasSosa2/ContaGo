@@ -36,7 +36,17 @@ type VerifyEmailChallengeResult =
     }
 
 function getChallengePepper() {
-  return process.env.AUTH_CHALLENGE_PEPPER || process.env.NEXTAUTH_SECRET || 'contago-dev-pepper'
+  const pepper = process.env.AUTH_CHALLENGE_PEPPER || process.env.NEXTAUTH_SECRET
+
+  if (pepper) {
+    return pepper
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Configura AUTH_CHALLENGE_PEPPER o NEXTAUTH_SECRET en producción.')
+  }
+
+  return 'contago-dev-pepper'
 }
 
 function hashChallengeCode(code: string) {
@@ -71,25 +81,35 @@ function safeCompareHash(left: string, right: string) {
  * Requisitos:
  *  - id = challengeId
  *  - email coincide (case-insensitive via comparación lower)
- *  - consumedAt no nulo y consumedAt >= ahora - maxAgeSeconds
+ *  - loginConsumedAt nulo (cada challenge sirve para un solo inicio de sesión)
  *  - purpose apto para login
  */
-export async function findVerifiedChallengeForLogin(input: {
+export async function consumeVerifiedChallengeForLogin(input: {
   email: string
   challengeId: string
   maxAgeSeconds?: number
 }): Promise<{ userId: string | null; purpose: EmailChallengePurpose } | null> {
+  const now = new Date()
   const maxAge = (input.maxAgeSeconds ?? 120) * 1000
-  const challenge = await prisma.emailChallenge.findFirst({
-    where: {
-      id: input.challengeId,
-      email: input.email.toLowerCase(),
-      purpose: { in: ['SIGNUP_VERIFY', 'SOCIAL_LOGIN_VERIFY', 'RISK_CHALLENGE'] },
-      consumedAt: { not: null, gte: new Date(Date.now() - maxAge) },
-    },
-    select: { id: true, userId: true, purpose: true },
-  })
+  const where = {
+    id: input.challengeId,
+    email: input.email.toLowerCase(),
+    purpose: { in: ['SIGNUP_VERIFY', 'SOCIAL_LOGIN_VERIFY', 'RISK_CHALLENGE'] },
+    consumedAt: { not: null, gte: new Date(now.getTime() - maxAge) },
+    loginConsumedAt: null,
+  }
 
+  // Un challenge solo puede usarse una vez para iniciar sesión.
+  const claimed = await prisma.emailChallenge.updateMany({
+    where,
+    data: { loginConsumedAt: now },
+  })
+  if (claimed.count !== 1) return null
+
+  const challenge = await prisma.emailChallenge.findUnique({
+    where: { id: input.challengeId },
+    select: { userId: true, purpose: true },
+  })
   if (!challenge) return null
   return {
     userId: challenge.userId,

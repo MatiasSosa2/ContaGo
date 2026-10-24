@@ -36,17 +36,17 @@ function Rubro({ rubro, previo, base, view, inverse = false }: { rubro: BalanceR
     <details className={`ios-disclosure group ${divider}`}>
       <summary className={`${rowGrid} cursor-pointer list-none py-2.5 text-[14px] [&::-webkit-details-marker]:hidden`}>
         <span className="flex min-w-0 items-center gap-1.5 pl-4">
-          <svg className="h-2.5 w-2.5 shrink-0 text-[#C7C7CC] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <svg className="h-2.5 w-2.5 shrink-0 text-[var(--ds-gray-300)] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
-          <span className="truncate text-[#1C1C1E] dark:text-white">{rubro.label}</span>
+          <span className="truncate text-[var(--ds-gray-900)] dark:text-white">{rubro.label}</span>
         </span>
-        <span className="w-[8.5rem] text-right tabular-nums text-[#1C1C1E] sm:w-[9.5rem] dark:text-white">{fmtFull(monto, cur)}</span>
-        <span className="hidden text-right text-[12px] tabular-nums text-[#AEAEB2] sm:inline dark:text-[#636366]">{share}</span>
+        <span className="w-[8.5rem] text-right tabular-nums text-[var(--ds-gray-900)] sm:w-[9.5rem] dark:text-white">{fmtFull(monto, cur)}</span>
+        <span className="hidden text-right text-[12px] tabular-nums text-[var(--ds-gray-400)] sm:inline dark:text-[var(--ds-gray-600)]">{share}</span>
         <Delta value={delta} currency={cur} className="text-[12px]" inverse={inverse} />
       </summary>
       <div className="pb-1">
-        {rubro.items.length === 0 && <p className="py-1.5 pl-14 text-[12px] text-[#8E8E93]">Sin saldo</p>}
+        {rubro.items.length === 0 && <p className="py-1.5 pl-14 text-[12px] text-[var(--ds-gray-500)]">Sin saldo</p>}
         {items.map((it) => {
           // Valor anterior del renglón (de "Otros": la suma de los mismos renglones)
           const anteriores = previo?.items.filter((p) => (it.grupo ? it.grupo.includes(p.label) : p.label === it.label)) ?? []
@@ -55,11 +55,11 @@ function Rubro({ rubro, previo, base, view, inverse = false }: { rubro: BalanceR
           return (
             <div key={it.label} className={`${rowGrid} py-2 text-[13px]`}>
               <span className="flex min-w-0 items-baseline gap-2 pl-9">
-                <span className="truncate text-[#8E8E93]">{it.label}</span>
-                {it.note && <span className="shrink-0 text-[11px] text-[#AEAEB2]">{it.note}</span>}
+                <span className="truncate text-[var(--ds-gray-500)]">{it.label}</span>
+                {it.note && <span className="shrink-0 text-[11px] text-[var(--ds-gray-400)]">{it.note}</span>}
               </span>
-              <span className="w-[8.5rem] text-right tabular-nums text-[#8E8E93] sm:w-[9.5rem]">{fmtFull(m, cur)}</span>
-              <span className="hidden text-right text-[11px] tabular-nums text-[#AEAEB2] sm:inline dark:text-[#636366]">{base > 0 ? fmtPctEs((it.amount / base) * 100) : ''}</span>
+              <span className="w-[8.5rem] text-right tabular-nums text-[var(--ds-gray-500)] sm:w-[9.5rem]">{fmtFull(m, cur)}</span>
+              <span className="hidden text-right text-[11px] tabular-nums text-[var(--ds-gray-400)] sm:inline dark:text-[var(--ds-gray-600)]">{base > 0 ? fmtPctEs((it.amount / base) * 100) : ''}</span>
               <Delta value={m - conv(antes?.amount ?? 0, view.prevRate)} currency={cur} className="text-[11px]" inverse={inverse} />
             </div>
           )
@@ -72,8 +72,8 @@ function Rubro({ rubro, previo, base, view, inverse = false }: { rubro: BalanceR
 function SectionHeader({ label, amount, delta, currency, inverse = false }: { label: string; amount: number; delta: number; currency: string; inverse?: boolean }) {
   return (
     <div className={`${rowGrid} pb-1.5 pt-5`}>
-      <span className="text-[12px] font-medium uppercase tracking-wide text-[#8E8E93]">{label}</span>
-      <span className="w-[8.5rem] text-right text-[15px] font-semibold tabular-nums text-[#1C1C1E] sm:w-[9.5rem] dark:text-white">{fmtFull(amount, currency)}</span>
+      <span className="text-[12px] font-medium uppercase tracking-wide text-[var(--ds-gray-500)]">{label}</span>
+      <span className="w-[8.5rem] text-right text-[15px] font-semibold tabular-nums text-[var(--ds-gray-900)] sm:w-[9.5rem] dark:text-white">{fmtFull(amount, currency)}</span>
       <span className="hidden sm:inline" />
       <Delta value={delta} currency={currency} className="text-[12px]" inverse={inverse} />
     </div>
@@ -99,8 +99,8 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
   if (sinCotizacion) {
     return (
       <Card className="px-5 py-8 text-center" >
-        <p className="text-[15px] text-[#1C1C1E] dark:text-white" style={{ fontFamily: SF_FONT }}>Todavía no hay una cotización registrada</p>
-        <p className="mt-1 text-[13px] text-[#8E8E93]" style={{ fontFamily: SF_FONT }}>Registrá una compra o venta de dólares (cambio de caja) para ver el patrimonio en dólares.</p>
+        <p className="text-[15px] text-[var(--ds-gray-900)] dark:text-white" style={{ fontFamily: SF_FONT }}>Todavía no hay una cotización registrada</p>
+        <p className="mt-1 text-[13px] text-[var(--ds-gray-500)]" style={{ fontFamily: SF_FONT }}>Registrá una compra o venta de dólares (cambio de caja) para ver el patrimonio en dólares.</p>
       </Card>
     )
   }
@@ -126,7 +126,7 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
 
       <Card className="overflow-hidden py-2">
         {/* Encabezado de columnas */}
-        <div className={`${rowGrid} pb-0 pt-1.5 text-[11px] text-[#AEAEB2] dark:text-[#636366]`}>
+        <div className={`${rowGrid} pb-0 pt-1.5 text-[11px] text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]`}>
           <span />
           <span className="w-[8.5rem] text-right sm:w-[9.5rem]">$</span>
           <span className="hidden text-right sm:inline">%</span>
@@ -144,15 +144,15 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
         ))}
 
         <div className="mx-4 mt-3 flex items-baseline justify-between border-t border-black/10 pb-2 pt-4 sm:mx-5 dark:border-white/15">
-          <p className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">Patrimonio neto</p>
-          <p className="text-[22px] font-semibold tracking-tight tabular-nums text-[#0071A4] dark:text-[#64D2FF]">
+          <p className="text-[17px] font-semibold text-[var(--ds-gray-900)] dark:text-white">Patrimonio neto</p>
+          <p className="text-[22px] font-semibold tracking-tight tabular-nums text-[#1B4332] dark:text-[var(--ds-sky)]">
             <AnimatedNumber value={patrimonio} format={(v) => fmtFull(v, currency)} />
           </p>
         </div>
       </Card>
 
       {currency === 'USD' && data.rate && (
-        <p className="px-1 text-[12px] text-[#8E8E93]">Convertido a US$1 = ${data.rate.toLocaleString('es-AR')} (última cotización registrada)</p>
+        <p className="px-1 text-[12px] text-[var(--ds-gray-500)]">Convertido a US$1 = ${data.rate.toLocaleString('es-AR')} (última cotización registrada)</p>
       )}
     </div>
   )
