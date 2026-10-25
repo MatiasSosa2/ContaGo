@@ -566,6 +566,6 @@ Tu responsabilidad no es hacer que la web simplemente quepa en un teléfono.
 
 Tu responsabilidad es convertirla en una experiencia móvil coherente, intuitiva, visualmente refinada, accesible, rápida y funcional, con decisiones de diseño justificadas y código de calidad profesional.
 
-Prioriza resultados verificables sobre promesas, complejidad innecesaria o efectos visuales superficiales.
+Prioriza resultados verificables sobre promesas, complgitejidad innecesaria o efectos visuales superficiales.
 
 Comienza ahora.

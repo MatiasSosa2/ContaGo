@@ -29,7 +29,13 @@ export default async function ResultadosPage({
     seriesYear,
     seriesActiveMonth,
   } = await getReportsViewData(searchParams)
-  const series = await getYearlySeries(seriesYear, 'ARS')
+  const prev = previousPeriodArgs(periodo, selectedYear, selectedMonth)
+  const [series, previousEr] = await Promise.all([
+    getYearlySeries(seriesYear, 'ARS'),
+    prev
+      ? getIncomeStatement(prev.period, prev.from, prev.to, prev.year, prev.month, undefined, undefined, 'ARS')
+      : Promise.resolve(null),
+  ])
 
   // Tendencia de las tarjetas: los meses del año con datos (hasta el mes elegido)
   const upTo = seriesActiveMonth ?? 11
@@ -43,9 +49,7 @@ export default async function ResultadosPage({
 
   // Comparación de las tarjetas: mes anterior (vista mensual) o año anterior (vista anual)
   let previous: ResultsPrevious = null
-  const prev = previousPeriodArgs(periodo, selectedYear, selectedMonth)
-  if (prev) {
-    const er = await getIncomeStatement(prev.period, prev.from, prev.to, prev.year, prev.month, undefined, undefined, 'ARS')
+  if (prev && previousEr) {
     const suma = (items: { amount: number }[]) => items.reduce((acc, i) => acc + i.amount, 0)
     // Por línea y subcategoría ("Sueldos" y "Sueldos›Vendedores"), igual que arma el cuadro
     const porLinea = (items: { label: string; amount: number; sub: string | null }[]) => {
@@ -58,14 +62,14 @@ export default async function ResultadosPage({
       return m
     }
     previous = {
-      ventas: er.ventas,
-      cmv: er.cmv,
-      bruta: er.ventas - er.cmv,
-      neta: er.ventas - er.cmv + suma(er.otherIncomeItems) - suma(er.expenseItems),
-      otros: porLinea(er.otherIncomeItems),
-      ventasCat: er.ventasPorCategoria ?? {},
-      cmvCat: er.cmvPorCategoria ?? {},
-      gastos: porLinea(er.expenseItems),
+      ventas: previousEr.ventas,
+      cmv: previousEr.cmv,
+      bruta: previousEr.ventas - previousEr.cmv,
+      neta: previousEr.ventas - previousEr.cmv + suma(previousEr.otherIncomeItems) - suma(previousEr.expenseItems),
+      otros: porLinea(previousEr.otherIncomeItems),
+      ventasCat: previousEr.ventasPorCategoria ?? {},
+      cmvCat: previousEr.cmvPorCategoria ?? {},
+      gastos: porLinea(previousEr.expenseItems),
       label: prev.label,
     }
   }

@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { getSessionContext } from "@/server/auth/get-session-context";
 import FloatingActionButton from "@/components/FloatingActionButton";
 import { Analytics } from "@vercel/analytics/next";
+import { Suspense } from "react";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -33,7 +34,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+async function AuthenticatedNavigation() {
+  const sessionContext = await getSessionContext();
+  if (!sessionContext?.activeBusiness) return null;
+
+  return (
+    <>
+      <Sidebar businessName={sessionContext.activeBusiness.name} />
+      <FloatingActionButton />
+    </>
+  );
+}
+
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -41,9 +54,6 @@ export default async function RootLayout({
   // No forzamos auth aquí: el root layout aplica también a /auth/* y eso producía
   // un loop infinito de redirects 307 (/auth/login -> requireAuth -> /auth/login).
   // Cada page.tsx protegido invoca `requireBusinessContext()` por su cuenta.
-  const sessionContext = await getSessionContext();
-  const isAuthenticatedWithBusiness = Boolean(sessionContext?.activeBusiness);
-
   return (
     <html lang="es" suppressHydrationWarning>
       {/* Script bloqueante: aplica el tema guardado antes del primer pintado para evitar flash */}
@@ -58,13 +68,12 @@ export default async function RootLayout({
         suppressHydrationWarning
         className={`${inter.variable} ${archivo.variable} ${geistMono.variable} antialiased flex`}
       >
-        {isAuthenticatedWithBusiness && sessionContext?.activeBusiness && (
-          <Sidebar businessName={sessionContext.activeBusiness.name} />
-        )}
+        <Suspense fallback={null}>
+          <AuthenticatedNavigation />
+        </Suspense>
         <main className="min-h-screen w-full flex-1 overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0">
           {children}
         </main>
-        {isAuthenticatedWithBusiness && <FloatingActionButton />}
         <Analytics />
       </body>
     </html>
