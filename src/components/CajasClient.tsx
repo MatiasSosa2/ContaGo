@@ -594,7 +594,7 @@ function HistorialCard(props: HistorialProps) {
 
   return (
     <>
-      <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--ds-neutral-200)] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[var(--ds-ink)]">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-2xl bg-white dark:border dark:border-white/10 dark:bg-[var(--ds-ink)]">
         {/* Sin fila de título: el selector de moneda flota en la esquina y el gráfico usa todo el alto */}
         <div className="absolute right-3 top-3 z-10 bg-white/80 backdrop-blur-sm dark:bg-[var(--ds-ink)]/80">
           <CurrencyToggle value={currency} onChange={setCurrency} size="xs" />
@@ -793,7 +793,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
   ]
 
   return (
-    <div ref={panelRef} className="scroll-mt-4 overflow-hidden rounded-2xl border border-[var(--ds-neutral-200)] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-white/10 dark:bg-[var(--ds-ink)] dark:shadow-none">
+    <div ref={panelRef} className="scroll-mt-4 overflow-hidden rounded-2xl bg-white dark:border dark:border-white/10 dark:bg-[var(--ds-ink)]">
       <div className="border-b border-[var(--ds-sand-warm)] bg-[#FAFBFC] px-5 pb-4 pt-5 dark:border-white/10 dark:bg-[#171717]">
         <div className="flex items-center gap-3 mb-4">
           <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military dark:bg-[#162019] dark:text-[#9AC7A8]">
@@ -901,7 +901,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                   type="button"
                   onClick={() => setDetalle(mov)}
                   aria-label={`Ver movimiento: ${mov.isTransfer ? 'Cambio de caja' : mov.category?.name ?? getSubTypeLabel(mov.subType)}, ${fmtMoney(mov.amount, mov.currency)}, ${fmtDate(mov.date)}`}
-                  className={`flex min-h-[88px] w-full items-center justify-between gap-3 rounded-xl border border-black/[0.07] border-l-4 bg-white px-3 py-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors active:bg-black/[0.025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ds-blue)] dark:border-white/10 dark:bg-[#16181b] dark:active:bg-white/[0.04] ${
+                  className={`flex min-h-[88px] w-full items-center justify-between gap-3 rounded-xl border-0 border-l-4 bg-white px-3 py-3 text-left transition-colors active:bg-black/[0.025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ds-blue)] dark:border dark:border-white/10 dark:border-l-4 dark:bg-[#16181b] dark:active:bg-white/[0.04] ${
                     mov.isTransfer ? 'border-l-[#71717A]' : isIncome ? 'border-l-[#2D6A4F]' : 'border-l-[#B42318]'
                   } ${highlight && mov.id === targetRowId ? 'bg-[#FEF3F2] dark:bg-[#1E2A1E]' : ''}`}
                 >
@@ -956,7 +956,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                       id={`mov-${mov.id}`}
                       onClick={() => setDetalle(mov)}
                       title="Ver detalle"
-                      className={`cursor-pointer border-b border-[var(--ds-sand-warm)] transition-colors duration-700 hover:bg-[#FAFBFA] dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
+                      className={`cursor-pointer transition-colors duration-700 hover:bg-[#FAFBFA] dark:border-b dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
                         mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[#1B4332]' : 'border-l-[#B42318]'
                       } ${highlight && mov.id === targetRowId ? 'bg-[#FEF3F2] dark:bg-[#1E2A1E]' : ''}`}
                     >
