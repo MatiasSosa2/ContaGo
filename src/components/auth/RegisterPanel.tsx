@@ -4,10 +4,17 @@ import { useState, useTransition } from 'react'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 
 import { registerWithCredentials } from '@/app/auth/actions'
 
-export default function RegisterPanel() {
+export default function RegisterPanel({
+  googleEnabled,
+  microsoftEnabled,
+}: {
+  googleEnabled: boolean
+  microsoftEnabled: boolean
+}) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -22,16 +29,56 @@ export default function RegisterPanel() {
         return
       }
 
+      if (!result.data?.verificationRequired) {
+        router.push(`/auth/login?email=${encodeURIComponent(result.data?.email || '')}&registered=1`)
+        router.refresh()
+        return
+      }
+
       router.push(`/auth/verify-code?email=${encodeURIComponent(result.data?.email || '')}&purpose=SIGNUP_VERIFY`)
       router.refresh()
+    })
+  }
+
+  function handleProviderSignUp(provider: 'google' | 'azure-ad') {
+    startTransition(async () => {
+      setError(null)
+      try {
+        await signIn(provider, { callbackUrl: '/select-business' })
+      } catch {
+        setError('No pudimos iniciar el registro con ese proveedor. Inténtalo nuevamente.')
+      }
     })
   }
 
   return (
     <div className="space-y-6">
       <p className="text-sm leading-6 text-gray-500">
-        Completa tus datos y te enviaremos un código para confirmar tu email. No necesitas cargar información contable ahora.
+        Crea tu cuenta con Google, Microsoft o email. Confirmaremos tu correo antes de iniciar y no necesitas cargar información contable ahora.
       </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          disabled={!googleEnabled || isPending}
+          onClick={() => handleProviderSignUp('google')}
+          className="min-h-11 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Registrarme con Google
+        </button>
+        <button
+          type="button"
+          disabled={!microsoftEnabled || isPending}
+          onClick={() => handleProviderSignUp('azure-ad')}
+          className="min-h-11 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Registrarme con Microsoft
+        </button>
+      </div>
+      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-gray-300">
+        <div className="h-px flex-1 bg-gray-200" />
+        o con email
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
       <form action={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <label htmlFor="name" className="text-xs font-medium text-gray-500">Nombre</label>

@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useTransition, useState } from 'react'
+import { useEffect, useRef, useTransition, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useStoredValue } from '@/lib/useStoredValue'
@@ -91,6 +91,8 @@ const GOLD = '#E3CB8F'
 export default function Sidebar({ businessName }: { businessName?: string }) {
   const pathname = usePathname()
   const [isSigningOut, startSignOut] = useTransition()
+  const closeMoreRef = useRef<HTMLButtonElement>(null)
+  const mobileMoreRef = useRef<HTMLElement>(null)
   // Contraído o no: se guarda en el navegador
   const [savedCollapsed, setSavedCollapsed] = useStoredValue('sidebar-collapsed')
   const collapsed = savedCollapsed === 'true'
@@ -98,6 +100,47 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
 
   // Cerrar sesión pide confirmación (cartel estilo iOS)
   const [confirmSignOut, setConfirmSignOut] = useState(false)
+  const [showMobileMore, setShowMobileMore] = useState(false)
+  const mobileMoreIsActive = pathname.startsWith('/creditos') ||
+    pathname.startsWith('/reports') ||
+    pathname.startsWith('/auth/change-password')
+
+  useEffect(() => {
+    if (!showMobileMore) return
+
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    closeMoreRef.current?.focus()
+
+    function handleDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setShowMobileMore(false)
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const focusable = mobileMoreRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      )
+      if (!focusable?.length) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleDialogKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleDialogKeyDown)
+      if (previousFocus?.isConnected) previousFocus.focus()
+    }
+  }, [showMobileMore])
   function handleSignOut() {
     setConfirmSignOut(true)
   }
@@ -113,7 +156,7 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
   return (
     <>
     <aside
-      className={`sticky top-0 z-20 hidden h-screen shrink-0 bg-[#F2F2F7] p-2 pr-0 transition-all dark:bg-black duration-300 md:block ${collapsed ? 'w-[76px]' : 'w-[232px]'}`}
+      className={`sticky top-0 z-20 hidden h-screen shrink-0 bg-[#F2F2F7] p-2 pr-0 transition-all dark:bg-black duration-300 lg:block ${collapsed ? 'w-[76px]' : 'w-[232px]'}`}
     >
       {/* Panel flotante con esquinas redondeadas y degradé verde oscuro */}
       <div
@@ -228,16 +271,19 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
 
     {/* ── Barra de navegación inferior — solo mobile ── */}
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-50 flex"
+      aria-label="Navegación principal"
+      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 lg:hidden"
       style={{ background: '#1B4332', paddingBottom: 'env(safe-area-inset-bottom)', boxShadow: '0 -1px 16px rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
     >
-      {NAV_ITEMS.map(item => {
+      {NAV_ITEMS.filter((item) => ['/', '/cajas', '/stock'].includes(item.href)).map(item => {
         const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
         return (
           <Link
             key={item.href}
             href={item.href}
-            className="flex-1 relative flex flex-col items-center justify-center py-2 gap-0.5 min-w-0 active:opacity-70 transition-opacity"
+            aria-label={item.label}
+            aria-current={isActive ? 'page' : undefined}
+            className="relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center transition-colors active:bg-white/[0.08] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#E3CB8F]"
           >
             {isActive && (
               <span
@@ -245,34 +291,98 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
                 style={{ background: '#C5A065' }}
               />
             )}
-            <span style={{ color: isActive ? '#6EE7B7' : 'rgba(255,255,255,0.45)' }}>
+            <span className="flex h-5 w-5 items-center justify-center" style={{ color: isActive ? '#E3CB8F' : 'rgba(255,255,255,0.72)' }}>
               {item.icon}
             </span>
             <span
-              className="text-[10px] font-medium leading-none truncate px-1"
-              style={{ color: isActive ? '#6EE7B7' : 'rgba(255,255,255,0.45)' }}
+              className="max-w-full truncate text-[10px] font-medium leading-none"
+              style={{ color: isActive ? '#E3CB8F' : 'rgba(255,255,255,0.72)' }}
             >
-              {item.label}
+              {item.label === 'Balance General' ? 'Inicio' : item.label === 'Inventario' ? 'Stock' : item.label}
             </span>
           </Link>
         )
       })}
-      {/* Botón cerrar sesión mobile */}
       <button
-        onClick={handleSignOut}
-        disabled={isSigningOut}
-        className="flex-1 relative flex flex-col items-center justify-center py-2 gap-0.5 min-w-0 active:opacity-70 transition-opacity disabled:opacity-50"
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={showMobileMore}
+        aria-current={mobileMoreIsActive ? 'page' : undefined}
+        onClick={() => setShowMobileMore(true)}
+        className={`relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center transition-colors active:bg-white/[0.08] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#E3CB8F] ${showMobileMore ? 'text-[#E3CB8F]' : 'text-white/75'}`}
       >
-        <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#FCA5A5" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9l3 3m0 0-3 3m3-3H3.75" />
+        {(pathname.startsWith('/creditos') || pathname.startsWith('/reports') || pathname.startsWith('/auth/change-password')) && (
+          <span aria-hidden className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 bg-[#C5A065]" />
+        )}
+        <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
         </svg>
-        <span className="text-[10px] font-medium leading-none" style={{ color: '#FCA5A5' }}>
-          {isSigningOut ? '...' : 'Salir'}
-        </span>
+        <span className="text-[10px] font-medium leading-none">Más</span>
       </button>
     </nav>
+    {showMobileMore && (
+      <>
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-[60] bg-black/35 lg:hidden"
+          onClick={() => setShowMobileMore(false)}
+        />
+        <section
+          ref={mobileMoreRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-more-title"
+          className="fixed inset-x-0 bottom-0 z-[61] rounded-t-2xl border border-black/10 bg-white px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.2)] dark:border-white/10 dark:bg-[var(--ds-gray-900)] lg:hidden"
+        >
+          <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-black/15 dark:bg-white/20" aria-hidden />
+          <div className="mb-2 flex items-center justify-between">
+            <h2 id="mobile-more-title" className="text-base font-semibold text-[var(--ds-gray-900)] dark:text-white">Más opciones</h2>
+            <button ref={closeMoreRef} type="button" onClick={() => setShowMobileMore(false)} aria-label="Cerrar menú" className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--ds-gray-600)] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C5A065] dark:text-white dark:hover:bg-white/10">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M18 6 6 18" /></svg>
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {NAV_ITEMS.filter((item) => ['/creditos', '/reports'].includes(item.href)).map((item) => {
+              const isActive = pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={() => setShowMobileMore(false)}
+                  className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C5A065] ${isActive ? 'border-[#C5A065]/50 bg-[#C5A065]/10 text-[#76552B] dark:text-[#E3CB8F]' : 'border-black/10 text-[var(--ds-gray-800)] dark:border-white/10 dark:text-white'}`}
+                >
+                  <span className="h-5 w-5 shrink-0">{item.icon}</span>
+                  {item.label}
+                </Link>
+              )
+            })}
+            <Link
+              href="/auth/change-password"
+              onClick={() => setShowMobileMore(false)}
+              className="col-span-2 flex min-h-12 items-center rounded-xl border border-black/10 px-3 text-sm font-medium text-[var(--ds-gray-800)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C5A065] dark:border-white/10 dark:text-white"
+            >
+              Seguridad y contraseña
+            </Link>
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-black/10 pt-3 dark:border-white/10">
+            <div className="w-40">
+              <ThemeToggle className="min-h-11 rounded-lg border-black/10 px-2 text-[var(--ds-gray-700)] dark:text-white" />
+            </div>
+            <button
+              type="button"
+              onClick={() => { setShowMobileMore(false); handleSignOut() }}
+              disabled={isSigningOut}
+              className="flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-[#A33C32] hover:bg-[#A33C32]/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#A33C32] disabled:opacity-50 dark:text-[#FCA5A5]"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0-3 3m3-3H3.75" /></svg>
+              {isSigningOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
+            </button>
+          </div>
+        </section>
+      </>
+    )}
     </>
   )
 }
-

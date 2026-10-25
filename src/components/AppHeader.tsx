@@ -1,4 +1,6 @@
 
+import Link from 'next/link'
+
 type Role = 'ADMIN' | 'COLLABORATOR' | 'VIEWER'
 type Provider = 'google' | 'apple' | 'azure-ad' | 'credentials' | 'mock'
 
@@ -43,7 +45,7 @@ function UserInfoCard({
   return (
     <div
       className="
-        hidden sm:flex items-center gap-2.5 shrink-0
+        hidden lg:flex items-center gap-2.5 shrink-0
         rounded-2xl
         border border-[var(--ui-border)]
         bg-[var(--ui-header)]
@@ -102,8 +104,16 @@ export default function AppHeader({ title, icon, actions, sessionContext }: AppH
 
         {/* ── Acciones (PeriodSelector, PrintButton, etc.) ─── */}
         <div className="min-w-0 flex-1">
+          {title && <h1 className="mb-1 truncate text-[15px] font-semibold tracking-tight text-[var(--ui-label)] lg:hidden">{title}</h1>}
           {actions}
         </div>
+
+        <Link
+          href="/auth/change-password"
+          className="hidden shrink-0 rounded-xl px-2 py-2 text-xs font-medium text-[var(--ui-accent-text)] transition hover:bg-[var(--ui-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-accent-text)] lg:inline-flex lg:px-3"
+        >
+          Seguridad
+        </Link>
 
         {/* ── Info del usuario (card del mismo estilo que las demás) ─── */}
         <UserInfoCard

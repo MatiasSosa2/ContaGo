@@ -357,7 +357,7 @@ export default function FloatingActionButton() {
         aria-hidden
       />
       <div
-        className="pointer-events-none fixed bottom-20 right-4 z-50 h-14 w-14 md:bottom-6 md:right-6"
+        className="pointer-events-none fixed bottom-20 right-4 z-50 h-14 w-14 lg:bottom-6 lg:right-6"
         style={{ transform: menuOpen ? FAB_LIFT : 'none', transition: `transform 380ms ${SPRING}` }}
       >
         {/* Secundarias: chips grises en fila, debajo del "+" */}
@@ -411,7 +411,7 @@ export default function FloatingActionButton() {
       {/* Botón flotante */}
       <button
         onClick={() => setMenuOpen((v) => !v)}
-        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl active:scale-95 md:bottom-6 md:right-6"
+        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl active:scale-95 lg:bottom-6 lg:right-6"
         style={{
           // Dorado de la marca: no se confunde con Ingresos (verde), Egresos (rojo) ni las grises
           background: 'linear-gradient(135deg, #2D6A4F 0%, #6B7280 100%)',
@@ -549,4 +549,3 @@ export default function FloatingActionButton() {
     </>
   )
 }
-

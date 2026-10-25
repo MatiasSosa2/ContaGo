@@ -7,7 +7,10 @@ export default function RegisterPage() {
       title="Crea tu cuenta"
       subtitle="Empieza con tus datos básicos. Confirmaremos tu email antes de iniciar."
     >
-      <RegisterPanel />
+      <RegisterPanel
+        googleEnabled={Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)}
+        microsoftEnabled={Boolean(process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET)}
+      />
     </AuthShell>
   )
 }

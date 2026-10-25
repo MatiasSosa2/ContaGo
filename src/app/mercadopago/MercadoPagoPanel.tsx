@@ -69,7 +69,7 @@ export default function MercadoPagoPanel({ lastSyncAt, defaultFrom, defaultTo, p
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg bg-white p-4 shadow-sm">
+      <section className="rounded-lg bg-white p-3 shadow-sm sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold">Cuenta vinculada</h2>
@@ -91,14 +91,14 @@ export default function MercadoPagoPanel({ lastSyncAt, defaultFrom, defaultTo, p
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="text-sm">
+        <div className="mt-4 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="flex flex-col gap-1 text-sm">
             Desde
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="ml-2 rounded-md border px-2 py-1" />
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="min-h-11 rounded-md border px-3 py-2 sm:min-h-0 sm:px-2 sm:py-1" />
           </label>
-          <label className="text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             Hasta
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="ml-2 rounded-md border px-2 py-1" />
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="min-h-11 rounded-md border px-3 py-2 sm:min-h-0 sm:px-2 sm:py-1" />
           </label>
           <button
             type="button"
@@ -112,7 +112,7 @@ export default function MercadoPagoPanel({ lastSyncAt, defaultFrom, defaultTo, p
                 },
               )
             }
-            className="rounded-md bg-[#009EE3] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="min-h-11 rounded-md bg-[#009EE3] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:min-h-0"
           >
             {isPending ? 'Procesando…' : 'Sincronizar'}
           </button>
@@ -122,13 +122,90 @@ export default function MercadoPagoPanel({ lastSyncAt, defaultFrom, defaultTo, p
         {info && <p className="mt-3 text-sm text-ds-green-700" role="status">{info}</p>}
       </section>
 
-      <section className="rounded-lg bg-white p-4 shadow-sm">
+      <section className="rounded-lg bg-white p-3 shadow-sm sm:p-4">
         <h2 className="text-lg font-semibold">Pendientes de revisión ({pending.length})</h2>
         {pending.length === 0 ? (
           <p className="mt-2 text-sm text-gray-600">No hay pagos pendientes. Sincronizá un rango de fechas para traerlos.</p>
         ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-sm">
+          <>
+          <div className="mt-3 space-y-3 md:hidden">
+            {pending.map((p) => (
+              <article key={p.id} className="space-y-3 rounded-xl border border-gray-200 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-medium">{p.description || 'Cobro Mercado Pago'}</p>
+                    <p className="mt-0.5 break-all text-xs text-gray-500">#{p.mpPaymentId}{p.paymentMethod ? ` · ${p.paymentMethod}` : ''}</p>
+                  </div>
+                  <time className="shrink-0 text-xs text-gray-500">
+                    {new Date(p.dateApproved).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}
+                  </time>
+                </div>
+                <dl className="grid grid-cols-3 gap-2 text-right">
+                  <div className="min-w-0 text-left">
+                    <dt className="text-xs text-gray-500">Bruto</dt>
+                    <dd className="break-words text-sm tabular-nums">{money(p.amountGross, p.currency)}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-gray-500">Comisión</dt>
+                    <dd className="break-words text-sm tabular-nums">{money(p.feeAmount, p.currency)}</dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-gray-500">Neto</dt>
+                    <dd className="break-words text-sm font-medium tabular-nums">{money(p.amountNet, p.currency)}</dd>
+                  </div>
+                </dl>
+                <div className="grid grid-cols-1 gap-2">
+                  <label className="text-xs text-gray-600">
+                    Cuenta
+                    <select
+                      aria-label={`Cuenta para pago ${p.mpPaymentId}`}
+                      value={pickAccount(p.id)}
+                      onChange={(e) => updateSelection(p.id, { accountId: e.target.value })}
+                      className="mt-1 min-h-11 w-full rounded-md border px-3 py-2 text-sm"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs text-gray-600">
+                    Categoría
+                    <select
+                      aria-label={`Categoría para pago ${p.mpPaymentId}`}
+                      value={pickCategory(p.id)}
+                      onChange={(e) => updateSelection(p.id, { categoryId: e.target.value })}
+                      className="mt-1 min-h-11 w-full rounded-md border px-3 py-2 text-sm"
+                    >
+                      <option value="">Por defecto</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={isPending || !pickAccount(p.id)}
+                    onClick={() => run(() => importMercadoPagoPayment(p.id, pickAccount(p.id), pickCategory(p.id) || undefined))}
+                    className="min-h-11 rounded-md bg-ds-green-600 px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    Importar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => run(() => ignoreMercadoPagoPayment(p.id))}
+                    className="min-h-11 rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Ignorar
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="mt-3 hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[1000px] text-left text-sm">
               <thead className="text-gray-500">
                 <tr>
                   <th className="py-2 pr-3">Fecha</th>
@@ -200,6 +277,7 @@ export default function MercadoPagoPanel({ lastSyncAt, defaultFrom, defaultTo, p
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
     </div>

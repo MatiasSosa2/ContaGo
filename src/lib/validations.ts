@@ -303,6 +303,15 @@ export const resetPasswordWithCodeSchema = z.object({
   password: passwordSchema,
 })
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().max(72, 'La contraseña es demasiado larga').optional(),
+  newPassword: passwordSchema,
+  confirmPassword: z.string(),
+}).refine((input) => input.newPassword === input.confirmPassword, {
+  message: 'Las contraseñas nuevas no coinciden',
+  path: ['confirmPassword'],
+})
+
 // ---- Helpers ----
 export type DateRange = { from?: Date; to?: Date }
 

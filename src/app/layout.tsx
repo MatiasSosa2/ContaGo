@@ -61,7 +61,7 @@ export default async function RootLayout({
         {isAuthenticatedWithBusiness && sessionContext?.activeBusiness && (
           <Sidebar businessName={sessionContext.activeBusiness.name} />
         )}
-        <main className="flex-1 w-full min-h-screen overflow-y-auto pb-16 md:pb-0">
+        <main className="min-h-screen w-full flex-1 overflow-y-auto pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0">
           {children}
         </main>
         {isAuthenticatedWithBusiness && <FloatingActionButton />}
@@ -70,4 +70,3 @@ export default async function RootLayout({
     </html>
   );
 }
-

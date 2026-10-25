@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import {
   registerWithCredentialsSchema,
   requestEmailChallengeSchema,
+  changePasswordSchema,
   resetPasswordWithCodeSchema,
   type ActionResult,
   verifyEmailChallengeSchema,
@@ -13,10 +14,13 @@ import { createEmailChallenge, verifyEmailChallenge } from '@/server/auth/challe
 import { sendAuthCodeEmail } from '@/server/auth/email'
 import { ensureUserBusinessMembership } from '@/server/auth/business-context'
 import { requireAuth } from '@/server/auth/require-auth'
-import { hashPassword, requestPasswordResetFlow, resetPasswordWithCodeFlow } from '@/server/auth/passwords'
-import { setupContableAccountsForBusiness } from '@/server/accounting/setup-contable-accounts'
-
-const DEFAULT_EXPENSE_CATEGORIES = ['Sueldos', 'Alquiler', 'Publicidad', 'Impuestos']
+import {
+  changePasswordFlow,
+  hashPassword,
+  requestPasswordResetFlow,
+  resetPasswordWithCodeFlow,
+} from '@/server/auth/passwords'
+import { createInitialBusinessForUser } from '@/server/auth/provisioning'
 
 // El mock nunca se activa en producción (sería un bypass de autenticación).
 const allowMock = process.env.NODE_ENV !== 'production'
@@ -34,7 +38,7 @@ const EMAIL_CODE_MAX_PER_WINDOW = 3
 async function sendSignupVerification(email: string, userId: string): Promise<boolean> {
   const windowStart = new Date(Date.now() - EMAIL_CODE_WINDOW_MS)
   const recentCount = await prisma.emailChallenge.count({
-    where: { email, createdAt: { gte: windowStart } },
+    where: { email, purpose: 'SIGNUP_VERIFY', createdAt: { gte: windowStart } },
   })
   if (recentCount >= EMAIL_CODE_MAX_PER_WINDOW) return true
 
@@ -53,9 +57,11 @@ async function sendSignupVerification(email: string, userId: string): Promise<bo
   }
 }
 
-export async function registerWithCredentials(formData: FormData): Promise<ActionResult<{ email: string }>> {
+export async function registerWithCredentials(
+  formData: FormData,
+): Promise<ActionResult<{ email: string; verificationRequired: boolean }>> {
   if (USE_MOCK) {
-    return { success: true, data: { email: 'demo@finarg.com' } }
+    return { success: true, data: { email: 'demo@finarg.com', verificationRequired: true } }
   }
 
   const raw = {
@@ -86,7 +92,10 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
         return { success: false, error: 'No pudimos enviar el código ahora. Inténtalo nuevamente en unos minutos.' }
       }
     }
-    return { success: true, data: { email } }
+    return {
+      success: true,
+      data: { email, verificationRequired: !existingUser.emailVerified },
+    }
   }
 
   const createdUser = await prisma.$transaction(async (tx) => {
@@ -99,47 +108,10 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
       select: { id: true },
     })
 
-    const business = await tx.business.create({
-      data: {
-        name: businessName,
-        currency: 'ARS',
-        operatingModel,
-      },
-      select: { id: true },
-    })
-
-    await tx.account.create({
-      data: {
-        name: 'Caja principal',
-        type: 'CASH',
-        currency: 'ARS',
-        currentBalance: 0,
-        businessId: business.id,
-      },
-    })
-
-    await tx.businessMember.create({
-      data: {
-        userId: user.id,
-        businessId: business.id,
-        role: 'ADMIN',
-        status: 'ACTIVE',
-        acceptedAt: new Date(),
-      },
-    })
-
-    // Categorías de egreso que vienen por defecto en la pestaña de registración
-    for (const nombre of DEFAULT_EXPENSE_CATEGORIES) {
-      await tx.category.create({
-        data: { name: nombre, type: 'EXPENSE', businessId: business.id },
-      })
-    }
-
-    await setupContableAccountsForBusiness(business.id, tx)
-
-    await tx.user.update({
-      where: { id: user.id },
-      data: { defaultBusinessId: business.id },
+    await createInitialBusinessForUser(tx, {
+      userId: user.id,
+      businessName,
+      operatingModel,
     })
 
     return user
@@ -150,7 +122,7 @@ export async function registerWithCredentials(formData: FormData): Promise<Actio
     return { success: false, error: 'No pudimos enviar el código ahora. Inténtalo nuevamente en unos minutos con el mismo email.' }
   }
 
-  return { success: true, data: { email } }
+  return { success: true, data: { email, verificationRequired: true } }
 }
 
 export async function requestEmailVerification(formData: FormData): Promise<ActionResult> {
@@ -184,7 +156,11 @@ export async function requestEmailVerification(formData: FormData): Promise<Acti
   // Límite por email: evita que un tercero dispare correos en masa.
   const windowStart = new Date(Date.now() - EMAIL_CODE_WINDOW_MS)
   const recentCount = await prisma.emailChallenge.count({
-    where: { email: parsed.data.email, createdAt: { gte: windowStart } },
+    where: {
+      email: parsed.data.email,
+      purpose: parsed.data.purpose,
+      createdAt: { gte: windowStart },
+    },
   })
   if (recentCount >= EMAIL_CODE_MAX_PER_WINDOW) {
     return { success: true }
@@ -266,14 +242,19 @@ export async function requestPasswordReset(formData: FormData): Promise<ActionRe
     return { success: true }
   }
 
-  const email = formData.get('email') as string
+  const email = String(formData.get('email') ?? '')
   const parsed = requestEmailChallengeSchema.safeParse({ email, purpose: 'PASSWORD_RESET' })
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message }
   }
 
-  await requestPasswordResetFlow(parsed.data.email)
-  return { success: true }
+  try {
+    await requestPasswordResetFlow(parsed.data.email)
+    return { success: true }
+  } catch (error) {
+    console.error('[requestPasswordReset] failed', error)
+    return { success: false, error: 'No pudimos enviar el código ahora. Inténtalo nuevamente en unos minutos.' }
+  }
 }
 
 export async function resetPasswordWithCode(formData: FormData): Promise<ActionResult> {
@@ -282,9 +263,9 @@ export async function resetPasswordWithCode(formData: FormData): Promise<ActionR
   }
 
   const raw = {
-    email: formData.get('email') as string,
-    code: formData.get('code') as string,
-    password: formData.get('password') as string,
+    email: String(formData.get('email') ?? ''),
+    code: String(formData.get('code') ?? ''),
+    password: String(formData.get('password') ?? ''),
   }
 
   const parsed = resetPasswordWithCodeSchema.safeParse(raw)
@@ -292,7 +273,39 @@ export async function resetPasswordWithCode(formData: FormData): Promise<ActionR
     return { success: false, error: parsed.error.issues[0].message }
   }
 
-  return resetPasswordWithCodeFlow(parsed.data)
+  try {
+    return await resetPasswordWithCodeFlow(parsed.data)
+  } catch (error) {
+    console.error('[resetPasswordWithCode] failed', error)
+    return { success: false, error: 'No pudimos actualizar la contraseña ahora. Inténtalo nuevamente.' }
+  }
+}
+
+export async function changePassword(formData: FormData): Promise<ActionResult> {
+  if (USE_MOCK) {
+    return { success: true }
+  }
+
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: String(formData.get('currentPassword') ?? ''),
+    newPassword: String(formData.get('newPassword') ?? ''),
+    confirmPassword: String(formData.get('confirmPassword') ?? ''),
+  })
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message }
+  }
+
+  const sessionContext = await requireAuth()
+  try {
+    return await changePasswordFlow(prisma, {
+      userId: sessionContext.user.id,
+      currentPassword: parsed.data.currentPassword ?? '',
+      newPassword: parsed.data.newPassword,
+    })
+  } catch (error) {
+    console.error('[changePassword] failed', error)
+    return { success: false, error: 'No pudimos actualizar la contraseña ahora. Inténtalo nuevamente.' }
+  }
 }
 
 export async function setActiveBusiness(formData: FormData): Promise<ActionResult> {

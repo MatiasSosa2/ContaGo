@@ -71,9 +71,8 @@ function variationClass(state: ReturnType<typeof variationState>) {
 
 // ── Async content component ────────────────────────────────────────────────────
 async function DashboardContent({
-  businessId, periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
+  periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
 }: {
-  businessId: string
   periodo: PeriodKey
   customFrom?: string
   customTo?: string
@@ -148,29 +147,29 @@ async function DashboardContent({
       <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
 
         {/* KPI Ingresos — verde */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-[#D5E3D8] bg-white p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#1E3627] dark:bg-[var(--ds-ink)] dark:shadow-none">
+        <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-[#D5E3D8] bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] sm:p-7 dark:border-[#1E3627] dark:bg-[var(--ds-ink)] dark:shadow-none">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2D6A4F] dark:text-[#8FD0A7]">Ingresos</span>
             <span title={incomeV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(incomeV)}`}>{incomeV.label}</span>
           </div>
-          <p className="mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] num-tabular">
+          <p className="mt-3 break-all font-mono text-[clamp(22px,7vw,34px)] font-bold leading-tight tracking-[-0.03em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] num-tabular">
             <KpiNumber id="ingresos" value={kpis.income} />
           </p>
         </div>
 
         {/* KPI Egresos — rojo */}
-        <div className="flex flex-col gap-3 rounded-2xl border border-[#FEE4E2] bg-white p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:border-[#2E1919] dark:bg-[var(--ds-ink)] dark:shadow-none">
+        <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-[#FEE4E2] bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] sm:p-7 dark:border-[#2E1919] dark:bg-[var(--ds-ink)] dark:shadow-none">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#B91C1C] dark:text-[#F87171]">Egresos</span>
             <span title={expenseV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(expenseV)}`}>{expenseV.label}</span>
           </div>
-          <p className="mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] num-tabular">
+          <p className="mt-3 break-all font-mono text-[clamp(22px,7vw,34px)] font-bold leading-tight tracking-[-0.03em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] num-tabular">
             <KpiNumber id="egresos" value={kpis.expense} />
           </p>
         </div>
 
         {/* KPI Variación neta de caja (entró − salió ± cambio de moneda) — celeste */}
-        <div className={`flex flex-col gap-3 rounded-2xl border p-7 shadow-[0_2px_8px_rgba(0,0,0,0.05)] dark:shadow-none ${
+        <div className={`flex min-w-0 flex-col gap-3 rounded-2xl border p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] sm:p-7 dark:shadow-none ${
           gainIsPositive ? 'border-[#C6F0D8] bg-white dark:border-[#15321F] dark:bg-[var(--ds-ink)]' : 'border-[#FEE4E2] bg-white dark:border-[#2E1919] dark:bg-[var(--ds-ink)]'
         }`}>
           <div className="flex items-center justify-between">
@@ -179,7 +178,7 @@ async function DashboardContent({
             </span>
             <span title={gainV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(gainV)}`}>{gainV.label}</span>
           </div>
-          <p className={`mt-3 font-mono text-[34px] font-bold leading-none tracking-[-0.03em] num-tabular ${
+          <p className={`mt-3 break-all font-mono text-[clamp(22px,7vw,34px)] font-bold leading-tight tracking-[-0.03em] num-tabular ${
             gainIsPositive ? 'text-[#1B4332] dark:text-[#5B9A78]' : 'text-[#B91C1C] dark:text-[#F87171]'
           }`}>
             <KpiNumber id="variacion" value={kpis.gain} conSigno />
@@ -208,7 +207,7 @@ async function DashboardContent({
         {/* Caja */}
         <Link
           href="/cajas"
-          className="group flex flex-col rounded-2xl border-2 border-[#2D5A41]/20 bg-[var(--ds-white)] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#2D5A41]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#9AC7A8]/40 dark:hover:border-[#9AC7A8]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
+          className="group flex min-h-[150px] min-w-0 flex-col rounded-2xl border-2 border-[#2D5A41]/20 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#2D5A41]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] sm:min-h-[180px] sm:p-7 dark:border-[#9AC7A8]/40 dark:hover:border-[#9AC7A8]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F0F5F2] text-[#4F7A63] dark:bg-[#1F3428] dark:text-[#9AC7A8]">
@@ -218,7 +217,7 @@ async function DashboardContent({
           </div>
           {/* Monto centrado en el espacio que queda debajo del título */}
           <div className="flex flex-1 flex-col justify-center">
-          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{cajaTotal < 0 ? '−' : ''}{fmt(cajaTotal)}</p>
+          <p className="break-all font-mono text-[clamp(18px,5vw,32px)] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{cajaTotal < 0 ? '−' : ''}{fmt(cajaTotal)}</p>
           {cajaUsd !== 0 && (
             <p className="mt-1 font-mono text-sm font-semibold num-tabular text-gray-500 dark:text-gray-400">
               {cajaUsd < 0 ? '− ' : '+ '}US${Math.abs(cajaUsd).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
@@ -230,7 +229,7 @@ async function DashboardContent({
         {/* Créditos / Deudas */}
         <Link
           href="/creditos"
-          className="group flex flex-col rounded-2xl border-2 border-[#B42318]/20 bg-[var(--ds-white)] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#B42318]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[#B42318]/40 dark:hover:border-[#B42318]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
+          className="group flex min-h-[150px] min-w-0 flex-col rounded-2xl border-2 border-[#B42318]/20 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#B42318]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] sm:min-h-[180px] sm:p-7 dark:border-[#B42318]/40 dark:hover:border-[#B42318]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FEF3F2] text-[#F97066] dark:bg-[#1F1514] dark:text-[#B42318]">
@@ -243,11 +242,11 @@ async function DashboardContent({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
               <p className="text-[10px] font-semibold text-ds-green-500/80 dark:text-ds-green-400">A cobrar</p>
-              <p className="font-mono text-[1.15rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] whitespace-nowrap">{fmt(totalACobrar)}</p>
+              <p className="max-w-[65%] break-all text-right font-mono text-[clamp(12px,3.8vw,18px)] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{fmt(totalACobrar)}</p>
             </div>
             <div className="flex items-baseline justify-between gap-2">
               <p className="text-[10px] font-semibold text-ds-red-600/80 dark:text-ds-red-300">A pagar</p>
-              <p className="font-mono text-[1.15rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] whitespace-nowrap">{fmt(totalAPagar)}</p>
+              <p className="max-w-[65%] break-all text-right font-mono text-[clamp(12px,3.8vw,18px)] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{fmt(totalAPagar)}</p>
             </div>
           </div>
           </div>
@@ -365,8 +364,6 @@ export default async function Home({
   searchParams: Promise<{ periodo?: string; from?: string; to?: string; year?: string; month?: string; day?: string; weekStart?: string }>
 }) {
   const [sessionContext, sp] = await Promise.all([requireBusinessContext(), searchParams])
-  const businessId = sessionContext.activeBusiness.id
-
   const periodo = (sp.periodo ?? 'mensual') as PeriodKey
   const customFrom = sp.from
   const customTo = sp.to
@@ -413,7 +410,6 @@ export default async function Home({
       {/* ── Dashboard streaming ──────────────────────────────────────────────── */}
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardContent
-          businessId={businessId}
           periodo={periodo}
           customFrom={customFrom}
           customTo={customTo}
@@ -426,4 +422,3 @@ export default async function Home({
     </div>
   )
 }
-

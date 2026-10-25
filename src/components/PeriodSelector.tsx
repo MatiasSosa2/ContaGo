@@ -19,11 +19,7 @@ const TABS: Array<{ key: PeriodKey; label: string }> = [
   { key: 'custom', label: 'Personalizado' },
 ]
 
-const MONTH_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
-const DAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-
-const VISIBLE_COUNT = 7
-const HALF = Math.floor(VISIBLE_COUNT / 2)
+const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 interface PeriodSelectorProps {
   active: PeriodKey
@@ -93,8 +89,6 @@ export default function PeriodSelector({
   const mounted = useHydrated()
 
   const now = useMemo(() => new Date(), [])
-  const todayISO = toISO(now)
-  const todayWeekISO = toISO(getMondayOf(now))
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1
 
@@ -103,12 +97,6 @@ export default function PeriodSelector({
   const selectedWeekMonday = getMondayOf(selectedWeekDate)
   const effectiveYear = selectedYear ?? currentYear
   const effectiveMonth = selectedMonth ?? currentMonth
-
-  // Window center per tab (offset relative to selected/today; nav arrows shift)
-  const [dayOffset, setDayOffset] = useState(0)
-  const [weekOffset, setWeekOffset] = useState(0)
-  const [monthOffset, setMonthOffset] = useState(0)
-  const [yearOffset, setYearOffset] = useState(0)
 
   const [customDraft, setCustomDraft] = useState<{ from: string; to: string }>({
     from: customFrom ?? '',
@@ -181,8 +169,6 @@ export default function PeriodSelector({
       params.set('periodo', next)
       clearAllPeriodParams(params)
     })
-    // reset window offsets when switching tabs
-    setDayOffset(0); setWeekOffset(0); setMonthOffset(0); setYearOffset(0)
   }
 
   function selectDay(date: Date) {
@@ -230,7 +216,6 @@ export default function PeriodSelector({
   }
 
   function goToday() {
-    setDayOffset(0); setWeekOffset(0); setMonthOffset(0); setYearOffset(0)
     if (active === 'diario') selectDay(now)
     else if (active === 'semanal') selectWeek(getMondayOf(now))
     else if (active === 'anual') selectYear(currentYear)
@@ -264,88 +249,6 @@ export default function PeriodSelector({
     })
   }
 
-  // ── Build items for current tab ────────────────────────────────────────────
-  type Item = {
-    key: string
-    primary: string
-    secondary?: string
-    isActive: boolean
-    isToday: boolean
-    onClick: () => void
-  }
-
-  // Lista corta (≈7 botones): se arma en cada render, más simple que memorizarla
-  const items: Item[] = (() => {
-    const list: Item[] = []
-    if (active === 'diario') {
-      const center = addDays(selectedDayDate, dayOffset)
-      for (let i = -HALF; i <= HALF; i++) {
-        const d = addDays(center, i)
-        const iso = toISO(d)
-        list.push({
-          key: iso,
-          primary: `${pad2(d.getDate())} ${MONTH_SHORT[d.getMonth()]}`,
-          secondary: DAY_SHORT[d.getDay()],
-          isActive: iso === toISO(selectedDayDate),
-          isToday: iso === todayISO,
-          onClick: () => selectDay(d),
-        })
-      }
-    } else if (active === 'semanal') {
-      const center = addDays(selectedWeekMonday, weekOffset * 7)
-      for (let i = -HALF; i <= HALF; i++) {
-        const monday = addDays(center, i * 7)
-        const sunday = addDays(monday, 6)
-        const iso = toISO(monday)
-        const sameMonth = monday.getMonth() === sunday.getMonth()
-        const primary = sameMonth
-          ? `${monday.getDate()} - ${sunday.getDate()} ${MONTH_SHORT[sunday.getMonth()].toLowerCase()}`
-          : `${monday.getDate()} ${MONTH_SHORT[monday.getMonth()].toLowerCase()} - ${sunday.getDate()} ${MONTH_SHORT[sunday.getMonth()].toLowerCase()}`
-        list.push({
-          key: iso,
-          primary,
-          isActive: iso === toISO(selectedWeekMonday),
-          isToday: iso === todayWeekISO,
-          onClick: () => selectWeek(monday),
-        })
-      }
-    } else if (active === 'mensual') {
-      const center = addMonths(effectiveYear, effectiveMonth, monthOffset)
-      for (let i = -HALF; i <= HALF; i++) {
-        const m = addMonths(center.year, center.month, i)
-        const key = `${m.year}-${pad2(m.month)}`
-        list.push({
-          key,
-          primary: MONTH_SHORT[m.month - 1],
-          secondary: String(m.year),
-          isActive: m.year === effectiveYear && m.month === effectiveMonth,
-          isToday: m.year === currentYear && m.month === currentMonth,
-          onClick: () => selectMonth(m.year, m.month),
-        })
-      }
-    } else if (active === 'anual') {
-      const center = effectiveYear + yearOffset
-      for (let i = -HALF; i <= HALF; i++) {
-        const y = center + i
-        list.push({
-          key: String(y),
-          primary: String(y),
-          isActive: y === effectiveYear,
-          isToday: y === currentYear,
-          onClick: () => selectYear(y),
-        })
-      }
-    }
-    return list
-  })()
-
-  function shiftWindow(direction: -1 | 1) {
-    if (active === 'diario') setDayOffset((v) => v + direction)
-    else if (active === 'semanal') setWeekOffset((v) => v + direction)
-    else if (active === 'mensual') setMonthOffset((v) => v + direction)
-    else if (active === 'anual') setYearOffset((v) => v + direction)
-  }
-
   // ── Custom range summary ───────────────────────────────────────────────────
   const customSummary = (() => {
     const f = customDraft.from || customFrom
@@ -362,20 +265,50 @@ export default function PeriodSelector({
     }
   })()
 
-  const tabBaseClass = 'rounded-lg px-2.5 py-1 text-[11px] font-semibold leading-none transition-colors'
-  // Flechas de la franja (sin display: cada una decide si se ve en angosta o ancha)
+  // Flechas para avanzar o retroceder un período.
   const arrowBtnClass = 'h-7 w-7 shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/[0.05] dark:hover:text-ds-green-300'
 
-  const navBtnClass = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:border-[#1B4332]/40 hover:text-[#1B4332] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-gray-300 dark:hover:text-ds-green-300'
+  const selectClass = 'min-h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 outline-none transition focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/15 disabled:opacity-50 dark:border-white/[0.08] dark:bg-[#0d0e10] dark:text-gray-100'
+  const yearOptions = Array.from({ length: 56 }, (_, index) => currentYear - 50 + index)
+  if (Number.isInteger(effectiveYear) && !yearOptions.includes(effectiveYear)) {
+    yearOptions.push(effectiveYear)
+    yearOptions.sort((a, b) => a - b)
+  }
+  const periodDropdown = (
+    <label className="flex shrink-0 items-center gap-2">
+      <span className="sr-only">Período</span>
+      <select
+        aria-label="Período"
+        value={active}
+        disabled={pending}
+        onChange={(event) => {
+          const next = PERIOD_KEYS.find((key) => key === event.target.value)
+          if (next) selectTab(next)
+        }}
+        className={`${selectClass} max-w-[min(11rem,42vw)]`}
+      >
+        {TABS.map((tab) => <option key={tab.key} value={tab.key}>{tab.label}</option>)}
+      </select>
+    </label>
+  )
 
-  // Calendario iOS del ícono 📅 (salta a cualquier día/semana/mes/año) y el de rango (Personalizado)
+  // El selector del período abre un calendario o un panel de mes/año, según el tipo elegido.
   const calRef = useRef<HTMLButtonElement>(null)
   const rangoRef = useRef<HTMLButtonElement>(null)
   const [calOpen, setCalOpen] = useState(false)
   const [rangoOpen, setRangoOpen] = useState(false)
+  const [datePickerDraft, setDatePickerDraft] = useState({ year: effectiveYear, month: effectiveMonth })
+
+  function toggleDatePicker() {
+    if (calOpen) {
+      setCalOpen(false)
+      return
+    }
+    setDatePickerDraft({ year: effectiveYear, month: effectiveMonth })
+    setCalOpen(true)
+  }
 
   function irAFecha(d: Date) {
-    setDayOffset(0); setWeekOffset(0); setMonthOffset(0); setYearOffset(0)
     if (active === 'diario') selectDay(d)
     else if (active === 'semanal') selectWeek(getMondayOf(d))
     else if (active === 'anual') selectYear(d.getFullYear())
@@ -387,6 +320,13 @@ export default function PeriodSelector({
       : active === 'semanal' ? selectedWeekMonday
       : active === 'anual' ? new Date(effectiveYear, 0, 1)
       : new Date(effectiveYear, effectiveMonth - 1, 1)
+  const selectedPeriodLabel = active === 'diario'
+    ? selectedDayDate.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+    : active === 'semanal'
+      ? `${selectedWeekMonday.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} - ${addDays(selectedWeekMonday, 6).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      : active === 'anual'
+        ? String(effectiveYear)
+        : new Date(effectiveYear, effectiveMonth - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
   const rangoActual = (() => {
     const f = customDraft.from || customFrom
     const t = customDraft.to || customTo
@@ -398,132 +338,130 @@ export default function PeriodSelector({
 
   return (
     <div className="w-full print:hidden">
-      {/* Linea única: tabs + navegación + Hoy */}
+      {/* Período y fecha seleccionables en todos los tamaños */}
       {active !== 'custom' ? (
         <div className="flex flex-wrap items-center gap-1.5 lg:flex-nowrap lg:gap-2">
-          <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-gray-200 bg-gray-50/80 p-1 dark:border-white/[0.05] dark:bg-[#17191c]">
-            {TABS.map((tab) => {
-              const isActive = tab.key === active
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  disabled={pending}
-                  onClick={() => selectTab(tab.key)}
-                  className={
-                    isActive
-                      ? `${tabBaseClass} bg-[#1B4332] text-[#D8F3DC] shadow-sm`
-                      : `${tabBaseClass} text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-[#0d0e10]`
-                  }
-                >
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
+          {periodDropdown}
 
-          {/* @container: si la franja queda angosta, se ve solo el período elegido y las flechas lo cambian */}
-          <div className="@container flex min-w-0 flex-1 items-center gap-1 rounded-xl border border-gray-200 bg-white px-1 py-1 dark:border-white/[0.05] dark:bg-[#0d0e10]">
-            {/* Angosta: cambia el período elegido. Ancha: corre la franja */}
-            <button type="button" onClick={() => stepSelected(-1)} disabled={pending} aria-label="Período anterior" className={`flex @[30rem]:hidden ${arrowBtnClass}`}>
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button type="button" onClick={() => shiftWindow(-1)} disabled={pending} aria-label="Anterior" className={`hidden @[30rem]:flex ${arrowBtnClass}`}>
+          <div className="flex min-w-0 flex-1 items-center gap-1 rounded-xl border border-gray-200 bg-white px-1 py-1 dark:border-white/[0.05] dark:bg-[#0d0e10]">
+            <button
+              type="button"
+              onClick={() => stepSelected(-1)}
+              disabled={pending}
+              aria-label="Período anterior"
+              className={`flex ${arrowBtnClass}`}
+            >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
 
-            <div className="flex min-w-0 flex-1 items-stretch justify-between gap-0.5">
-              {items.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  disabled={pending}
-                  onClick={item.onClick}
-                  className={
-                    item.isActive
-                      ? 'relative flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg bg-[#FEE4E2] px-1.5 py-1 text-gray-900 ring-1 ring-[#9AC7A8]/70 transition dark:bg-[#FEE4E2]/95'
-                      : 'relative hidden @[30rem]:flex flex-1 min-w-0 flex-col items-center justify-center rounded-lg px-1.5 py-1 text-gray-600 transition hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.05]'
-                  }
-                >
-                  <span className={`truncate text-[11px] font-semibold capitalize leading-tight ${item.isToday && !item.isActive ? 'text-[#1B4332] dark:text-ds-green-300' : ''}`}>
-                    {item.primary}
-                  </span>
-                  {item.secondary && (
-                    <span className="text-[9px] font-medium leading-tight text-gray-500 dark:text-gray-400">{item.secondary}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <button type="button" onClick={() => stepSelected(1)} disabled={pending} aria-label="Período siguiente" className={`flex @[30rem]:hidden ${arrowBtnClass}`}>
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            <button
+              ref={calRef}
+              type="button"
+              onClick={toggleDatePicker}
+              disabled={pending}
+              aria-label={`Seleccionar período: ${selectedPeriodLabel}`}
+              aria-expanded={calOpen}
+              className="flex min-h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-2 text-sm font-semibold capitalize text-gray-800 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4332]/20 disabled:opacity-50 dark:text-gray-100 dark:hover:bg-white/[0.05]"
+            >
+              <span className="truncate">{selectedPeriodLabel}</span>
+              <svg className={`h-4 w-4 shrink-0 text-gray-500 transition-transform ${calOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
               </svg>
             </button>
-            <button type="button" onClick={() => shiftWindow(1)} disabled={pending} aria-label="Siguiente" className={`hidden @[30rem]:flex ${arrowBtnClass}`}>
+
+            <button
+              type="button"
+              onClick={() => stepSelected(1)}
+              disabled={pending}
+              aria-label="Período siguiente"
+              className={`flex ${arrowBtnClass}`}
+            >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
-
-          <button
-            ref={calRef}
-            type="button"
-            onClick={() => setCalOpen((v) => !v)}
-            disabled={pending}
-            aria-label="Elegir fecha"
-            aria-expanded={calOpen}
-            title="Elegir fecha"
-            className={navBtnClass}
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-            </svg>
-          </button>
           <CalendarPopover anchorRef={calRef} open={calOpen} onClose={() => setCalOpen(false)} align="right">
-            <SingleCalendar
-              selected={fechaElegida}
-              onSelect={irAFecha}
-              footer={
-                <button
-                  type="button"
-                  onClick={() => { goToday(); setCalOpen(false) }}
-                  className="mt-2 w-full border-t border-black/[0.06] pt-2 text-center text-[14px] font-medium text-[var(--ds-blue)] dark:border-white/10 dark:text-[var(--ds-blue-dark)]"
-                >
-                  Hoy
-                </button>
-              }
-            />
+            {active === 'mensual' || active === 'anual' ? (
+              <div className="w-[min(20rem,calc(100vw-2rem))] p-4">
+                <h2 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+                  {active === 'mensual' ? 'Elegir mes' : 'Elegir año'}
+                </h2>
+                <div className={`grid gap-3 ${active === 'mensual' ? 'grid-cols-[minmax(0,1fr)_7rem]' : 'grid-cols-1'}`}>
+                  {active === 'mensual' && (
+                    <label className="min-w-0">
+                      <span className="mb-1 block text-xs text-gray-500">Mes</span>
+                      <select
+                        aria-label="Mes"
+                        value={datePickerDraft.month}
+                        onChange={(event) => setDatePickerDraft((draft) => ({ ...draft, month: Number(event.target.value) }))}
+                        className={`${selectClass} w-full`}
+                      >
+                        {MONTH_NAMES.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  <label className="min-w-0">
+                    <span className="mb-1 block text-xs text-gray-500">Año</span>
+                    <select
+                      aria-label="Año"
+                      value={datePickerDraft.year}
+                      onChange={(event) => setDatePickerDraft((draft) => ({ ...draft, year: Number(event.target.value) }))}
+                      className={`${selectClass} w-full`}
+                    >
+                      {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDatePickerDraft({ year: currentYear, month: currentMonth })
+                      if (active === 'mensual') selectMonth(currentYear, currentMonth)
+                      else selectYear(currentYear)
+                      setCalOpen(false)
+                    }}
+                    className="min-h-10 rounded-lg px-2 text-sm font-medium text-[#1B4332] hover:bg-gray-100 dark:text-ds-green-300 dark:hover:bg-white/[0.05]"
+                  >
+                    {active === 'mensual' ? 'Este mes' : 'Este año'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (active === 'mensual') selectMonth(datePickerDraft.year, datePickerDraft.month)
+                      else selectYear(datePickerDraft.year)
+                      setCalOpen(false)
+                    }}
+                    className="min-h-10 rounded-lg bg-[#1B4332] px-4 text-sm font-semibold text-white transition hover:bg-[#163a2b]"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <SingleCalendar
+                selected={fechaElegida}
+                onSelect={irAFecha}
+                footer={
+                  <button
+                    type="button"
+                    onClick={() => { goToday(); setCalOpen(false) }}
+                    className="mt-2 w-full border-t border-black/[0.06] pt-2 text-center text-[14px] font-medium text-[var(--ds-blue)] dark:border-white/10 dark:text-[var(--ds-blue-dark)]"
+                  >
+                    Hoy
+                  </button>
+                }
+              />
+            )}
           </CalendarPopover>
         </div>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-1.5">
-            <div className="flex flex-wrap items-center gap-0.5 rounded-xl border border-gray-200 bg-gray-50/80 p-1 dark:border-white/[0.05] dark:bg-[#17191c]">
-              {TABS.map((tab) => {
-                const isActive = tab.key === active
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    disabled={pending}
-                    onClick={() => selectTab(tab.key)}
-                    className={
-                      isActive
-                        ? `${tabBaseClass} bg-[#1B4332] text-[#D8F3DC] shadow-sm`
-                        : `${tabBaseClass} text-gray-600 hover:bg-white hover:text-gray-900 dark:text-gray-300 dark:hover:bg-[#0d0e10]`
-                    }
-                  >
-                    {tab.label}
-                  </button>
-                )
-              })}
-            </div>
+            {periodDropdown}
             <button
               type="button"
               onClick={clearCustom}

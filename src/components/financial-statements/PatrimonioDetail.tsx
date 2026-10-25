@@ -142,7 +142,7 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
       </Card>
 
       {/* Resumen en 3 tarjetitas: monto y, muy sutil, la variación vs el cierre anterior */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
         {([
           ['Activo', activo, activoPrev, 'ingreso', false],
           ['Pasivo', pasivo, pasivoPrev, 'egreso', true],
@@ -150,7 +150,7 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
         ] as const).map(([titulo, monto, antes, tono, inverse]) => (
           <Card key={titulo} className="px-4 py-3">
             <p className="truncate text-[12px] text-[#8E8E93]">{titulo}</p>
-            <p className={`mt-0.5 truncate text-[15px] font-semibold tracking-tight tabular-nums sm:text-[17px] ${TONO_MONTO[tono]}`}>{fmtFull(monto, currency)}</p>
+            <p className={`mt-0.5 break-words text-[15px] font-semibold tracking-tight tabular-nums sm:text-[17px] ${TONO_MONTO[tono]}`}>{fmtFull(monto, currency)}</p>
             <p className="mt-0.5 flex h-3 items-center gap-1 text-[9px] leading-3 opacity-60">
               <Variacion actual={monto} anterior={antes} inverse={inverse} vs={prevLabel} className="!w-auto !text-left !text-[9px]" />
               <span className="text-[#C7C7CC] dark:text-[#5A5A5E]">vs {prevLabel}</span>

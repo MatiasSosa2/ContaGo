@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality and integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: file:./prisma/ci-validation.db
+      USE_MOCK_DATA: "true"
+      NEXTAUTH_SECRET: ci-only-secret-value-longer-than-thirty-two-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma validate
+      - run: pnpm exec prisma generate
+      - run: pnpm lint
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm test:unit
+      - run: pnpm test:zod
+      - run: pnpm exec prisma migrate deploy
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm test:e2e
+      - name: Build production bundle
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          NEXTAUTH_URL: https://contago-ci.example
+          TURSO_DATABASE_URL: libsql://contago-ci.example
+          TURSO_AUTH_TOKEN: ci-only-dummy-token
+          AUTH_EMAIL_PROVIDER: resend
+          RESEND_API_KEY: ci-only-dummy-key
+          AUTH_EMAIL_FROM: ContaGo <ci@example.com>
+          UPSTASH_REDIS_REST_URL: https://redis-ci.example
+          UPSTASH_REDIS_REST_TOKEN: ci-only-dummy-token

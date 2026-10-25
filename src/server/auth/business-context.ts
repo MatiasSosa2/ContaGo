@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma'
+import type { AppRole } from './business-access'
 
-export type AppRole = 'ADMIN' | 'COLLABORATOR' | 'VIEWER'
+export type { AppRole } from './business-access'
 
 export type OperatingModel = 'SERVICES' | 'PRODUCTS' | 'BOTH'
 

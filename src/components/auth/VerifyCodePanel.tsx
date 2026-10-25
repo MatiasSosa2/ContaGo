@@ -29,7 +29,7 @@ export default function VerifyCodePanel({
   purpose,
 }: {
   email: string
-  purpose: 'SIGNUP_VERIFY' | 'SOCIAL_LOGIN_VERIFY' | 'PASSWORD_RESET' | 'RISK_CHALLENGE'
+  purpose: 'SIGNUP_VERIFY' | 'SOCIAL_LOGIN_VERIFY' | 'RISK_CHALLENGE'
 }) {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -44,11 +44,6 @@ export default function VerifyCodePanel({
       const result = await verifyEmailCode(formData)
       if (!result.success) {
         setError(result.error)
-        return
-      }
-
-      if (purpose === 'PASSWORD_RESET') {
-        setMessage('Codigo validado. Ya puedes continuar con el cambio de contraseña.')
         return
       }
 
@@ -102,19 +97,19 @@ export default function VerifyCodePanel({
       <form action={handleVerify} className="space-y-4">
         <div className="space-y-1.5">
           <label htmlFor="code" className="text-xs font-medium text-gray-500">Código de 6 dígitos</label>
-          <input id="code" name="code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-lg tracking-[0.45em] text-gray-900 outline-none transition focus:border-brand-military" />
+          <input id="code" name="code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required className="min-h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-lg tracking-[0.45em] text-gray-900 outline-none transition focus:border-brand-military focus-visible:ring-2 focus-visible:ring-brand-military/30" />
         </div>
 
         {error && <div className="rounded-2xl border border-ds-red-100 bg-ds-red-50 px-4 py-3 text-sm text-ds-red-600">{error}</div>}
         {message && <div className="rounded-2xl border border-ds-green-200 bg-ds-green-50 px-4 py-3 text-sm text-ds-green-700">{message}</div>}
 
-        <button type="submit" disabled={isPending} className="w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="submit" disabled={isPending} className="min-h-11 w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
           {isPending ? 'Validando...' : 'Validar código'}
         </button>
       </form>
 
       <div className="flex items-center justify-between text-sm text-gray-500">
-        <button type="button" onClick={handleResend} disabled={isPending} className="font-medium text-brand-military hover:text-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="button" onClick={handleResend} disabled={isPending} className="min-h-11 rounded-lg px-2 font-medium text-brand-military hover:text-brand-military-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-military disabled:cursor-not-allowed disabled:opacity-60">
           Reenviar codigo
         </button>
         <Link href="/auth/login" className="hover:text-gray-700">Ir al login</Link>

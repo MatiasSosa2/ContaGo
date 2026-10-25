@@ -754,7 +754,8 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
   const [highlight, setHighlight] = useState(true)
   useEffect(() => {
     if (!targetRowId) return
-    document.getElementById(`mov-${targetRowId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const rowPrefix = window.matchMedia('(min-width: 1280px)').matches ? 'mov-' : 'mov-mobile-'
+    document.getElementById(`${rowPrefix}${targetRowId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     const t = setTimeout(() => setHighlight(false), 2500)
     return () => clearTimeout(t)
   }, [targetRowId])
@@ -825,7 +826,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                 onChange={e => { setQuery(e.target.value); setPage(1) }}
                 placeholder="Descripción, cliente, proveedor, categoría, producto…"
                 aria-label="Buscar movimientos"
-                className="h-[38px] w-full border border-[var(--ds-neutral-200)] bg-white pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-200"
+                className="h-11 w-full border border-[var(--ds-neutral-200)] bg-white pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-200"
               />
             </div>
           </div>
@@ -838,7 +839,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                   key={key}
                   type="button"
                   onClick={() => toggleOrigin(key)}
-                  className={`h-[36px] border px-3 text-[11px] font-semibold uppercase tracking-[0.12em] transition ${origins.has(key) ? active : idle}`}
+                  className={`min-h-11 border px-3 text-[11px] font-semibold uppercase tracking-[0.12em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military ${origins.has(key) ? active : idle}`}
                 >
                   {label}
                 </button>
@@ -854,7 +855,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
               type="button"
               onClick={() => setFechasOpen((v) => !v)}
               aria-expanded={fechasOpen}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-[14px] text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition active:scale-[0.99] dark:bg-[var(--ds-gray-900)] dark:text-white dark:ring-white/10"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-3 py-2 text-[14px] text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ds-blue)] dark:bg-[var(--ds-gray-900)] dark:text-white dark:ring-white/10"
             >
               <svg className="h-4 w-4 text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -878,7 +879,61 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No hay movimientos que coincidan.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-2 p-3 xl:hidden">
+            {paginated.map((mov) => {
+              const isIncome = mov.type === 'INCOME'
+              const esCredito = mov.esCredito ?? false
+              const isPartial = Boolean(mov.parts && mov.parts.some((part) => part.esCredito) && mov.parts.some((part) => !part.esCredito))
+              const status = mov.isTransfer
+                ? (isIncome ? 'Entra' : 'Sale')
+                : isPartial
+                  ? 'Parcial'
+                  : mov.parts
+                    ? (mov.parts.every((part) => part.esCredito) ? (isIncome ? 'A cobrar' : 'A pagar') : (isIncome ? 'Ingreso' : 'Egreso'))
+                    : esCredito
+                      ? (isIncome ? 'A cobrar' : 'A pagar')
+                      : (isIncome ? 'Ingreso' : 'Egreso')
+              return (
+                <button
+                  key={mov.id}
+                  id={`mov-mobile-${mov.id}`}
+                  type="button"
+                  onClick={() => setDetalle(mov)}
+                  aria-label={`Ver movimiento: ${mov.isTransfer ? 'Cambio de caja' : mov.category?.name ?? getSubTypeLabel(mov.subType)}, ${fmtMoney(mov.amount, mov.currency)}, ${fmtDate(mov.date)}`}
+                  className={`flex min-h-[88px] w-full items-center justify-between gap-3 rounded-xl border border-black/[0.07] border-l-4 bg-white px-3 py-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors active:bg-black/[0.025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ds-blue)] dark:border-white/10 dark:bg-[#16181b] dark:active:bg-white/[0.04] ${
+                    mov.isTransfer ? 'border-l-[#71717A]' : isIncome ? 'border-l-[#2D6A4F]' : 'border-l-[#B42318]'
+                  } ${highlight && mov.id === targetRowId ? 'bg-[#FEF3F2] dark:bg-[#1E2A1E]' : ''}`}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] text-[var(--ds-gray-500)]">{fmtDate(mov.date)}</span>
+                    <span className="mt-0.5 block truncate text-[14px] font-semibold text-[var(--ds-gray-900)] dark:text-white">
+                      {mov.isTransfer ? 'Cambio de caja' : mov.category?.name ?? getSubTypeLabel(mov.subType)}
+                    </span>
+                    <span className="mt-1 block truncate text-[12px] text-[var(--ds-gray-600)] dark:text-[var(--ds-gray-300)]">
+                      {mov.contact?.name || mov.transferLabel || mov.account?.name || mov.subcategory?.name || 'Sin contacto asociado'}
+                    </span>
+                  </span>
+                  <span className="max-w-[42%] shrink-0 text-right [overflow-wrap:anywhere]">
+                    <span className={`block text-[clamp(11px,3.2vw,14px)] font-bold tabular-nums ${
+                      mov.isTransfer ? 'text-gray-600 dark:text-gray-300'
+                        : isIncome ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#B42318] dark:text-[#F97066]'
+                    }`}>
+                      {isIncome ? '+' : '−'}{fmtMoney(mov.amount, mov.currency)}
+                    </span>
+                    <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--ds-gray-500)]">
+                      {status}
+                    </span>
+                    <span className="mt-1 block max-w-full truncate text-[10px] text-[var(--ds-gray-500)]">
+                      {mov.isTransfer ? mov.transferLabel : mov.account?.name ?? 'Ver caja'}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="hidden overflow-x-auto xl:block">
             <table className="w-full min-w-[860px] border-collapse text-xs">
               <thead>
                 <tr className="border-y border-[var(--ds-sand-warm)] bg-[#FAFBFC] text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-neutral-500)] dark:border-white/10 dark:bg-[#171717] dark:text-gray-400">
@@ -954,6 +1009,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {filtered.length > 0 && (
@@ -965,7 +1021,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
               <button
                 type="button"
                 onClick={() => setPage(p => p + 1)}
-                className="border border-[var(--ds-neutral-200)] bg-white px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-600 transition hover:border-brand-military hover:text-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-300"
+                className="min-h-11 border border-[var(--ds-neutral-200)] bg-white px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-600 transition hover:border-brand-military hover:text-brand-military focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-300"
               >
                 Ver más ({filtered.length - paginated.length} restantes)
               </button>

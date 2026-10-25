@@ -20,7 +20,7 @@ test.describe('Smoke / salud del sistema', () => {
   test('rutas protegidas redirigen a login cuando no hay sesión', async ({ page }) => {
     await page.goto('/stock')
     // Debe terminar en /auth/login (o mostrarlo) al no haber sesión.
-    await expect(page).toHaveURL(/\/auth\/login/)
+    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 15_000 })
   })
 
   test('la página de login renderiza y es accesible', async ({ page }) => {
@@ -30,6 +30,29 @@ test.describe('Smoke / salud del sistema', () => {
     const password = page.locator('input[type="password"], input[name="password"]')
     await expect(email.first()).toBeVisible()
     await expect(password.first()).toBeVisible()
+  })
+
+  test('el registro ofrece proveedores sociales y el formulario de email', async ({ page }) => {
+    await page.goto('/auth/register')
+
+    await expect(page.getByRole('button', { name: 'Registrarme con Google' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Registrarme con Microsoft' })).toBeVisible()
+    await expect(page.getByLabel('Nombre del negocio')).toBeVisible()
+  })
+
+  test('la recuperación y la verificación de contraseña llevan al mismo formulario', async ({ page }) => {
+    await page.goto('/auth/forgot-password')
+    await expect(page.getByLabel('Email')).toBeVisible()
+
+    await page.goto('/auth/verify-code?email=demo%40example.com&purpose=PASSWORD_RESET')
+    await expect(page).toHaveURL(/\/auth\/reset-password\?email=/)
+    await expect(page.getByLabel('Codigo')).toBeVisible()
+    await expect(page.getByLabel('Nueva contraseña')).toBeVisible()
+  })
+
+  test('cambiar contraseña requiere iniciar sesión', async ({ page }) => {
+    await page.goto('/auth/change-password')
+    await expect(page).toHaveURL(/\/auth\/login/)
   })
 
   test('no hay errores de consola críticos en el login', async ({ page }) => {

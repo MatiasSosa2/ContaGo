@@ -416,20 +416,20 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
 
       {/* Lo vendido a precio de venta (Estado de resultados) contra su costo: la ganancia bruta del período */}
       {ventasPeriodo > 0 && (
-        <div className="flex items-center justify-between gap-3 ds-panel px-5 py-2.5">
-          <div className="text-center">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1 ds-panel px-2 py-2.5 sm:gap-3 sm:px-5">
+          <div className="min-w-0 text-center">
             <p className="text-[11px] text-[var(--ds-gray-500)]">Ventas</p>
-            <p className="text-[15px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">${fmtEntero(ventasPeriodo)}</p>
+            <p className="whitespace-nowrap text-[clamp(11px,3.4vw,15px)] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">${fmtEntero(ventasPeriodo)}</p>
           </div>
           <span className="text-[15px] text-[var(--ds-gray-300)]" aria-hidden>−</span>
-          <div className="text-center">
-            <p className="text-[11px] text-[var(--ds-gray-500)]">Costo vendido</p>
-            <p className="text-[15px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">${fmtEntero(inventarioVendido)}</p>
+          <div className="min-w-0 text-center">
+            <p className="text-[10px] text-[var(--ds-gray-500)] sm:text-[11px]">Costo vendido</p>
+            <p className="whitespace-nowrap text-[clamp(11px,3.4vw,15px)] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">${fmtEntero(inventarioVendido)}</p>
           </div>
           <span className="text-[15px] text-[var(--ds-gray-300)]" aria-hidden>=</span>
-          <div className="text-center">
-            <p className="text-[11px] text-[var(--ds-gray-500)]">Ganancia bruta</p>
-            <p className="text-[15px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">
+          <div className="min-w-0 text-center">
+            <p className="text-[10px] text-[var(--ds-gray-500)] sm:text-[11px]">Ganancia bruta</p>
+            <p className="whitespace-nowrap text-[clamp(11px,3.4vw,15px)] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">
               ${fmtEntero(ventasPeriodo - inventarioVendido)}
               <span className="ml-1 text-[10px] font-normal text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)]">{Math.round(pctMargen(ventasPeriodo - inventarioVendido, ventasPeriodo))}%</span>
             </p>
@@ -438,10 +438,10 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
       )}
 
       <div className="executive-panel overflow-clip">
-        <div className="px-5 pb-1 pt-4">
+        <div className="px-3 pb-2 pt-3 sm:px-5 sm:pb-1 sm:pt-4">
           <div className="flex items-center gap-2">
             {/* Buscador estilo iOS */}
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-black/[0.05] px-3 py-2 dark:bg-white/[0.08]">
+            <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl bg-black/[0.05] px-3 py-2 dark:bg-white/[0.08]">
               <svg className="h-4 w-4 shrink-0 text-[var(--ds-gray-500)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
               </svg>
@@ -453,7 +453,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                 className="ios-bare w-full bg-transparent text-[14px] text-[var(--ds-gray-900)] outline-none placeholder:text-[var(--ds-gray-500)] dark:text-white"
               />
               {busqueda && (
-                <button type="button" onClick={() => setBusqueda('')} aria-label="Borrar búsqueda" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--ds-gray-400)] text-white dark:bg-[var(--ds-gray-600)]">
+                <button type="button" onClick={() => setBusqueda('')} aria-label="Borrar búsqueda"                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ds-gray-400)] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ds-blue)] dark:bg-[var(--ds-gray-600)]">
                   <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                 </button>
               )}
@@ -464,7 +464,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                 onClick={() => setShowExportMenu(v => !v)}
                 aria-label="Más opciones"
                 title="Precios, subtotales, exportar o imprimir"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] text-[var(--ds-gray-700)] transition active:scale-95 dark:bg-white/10 dark:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-xl bg-black/[0.05] text-[var(--ds-gray-700)] transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ds-blue)] dark:bg-white/10 dark:text-white"
               >
                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
               </button>
@@ -486,7 +486,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
               onClick={() => { setShowForm(true); setEditingId(null) }}
               aria-label="Nuevo producto"
               title="Nuevo producto"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--ds-blue)] text-white transition active:scale-95 dark:bg-[var(--ds-blue-dark)]"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--ds-blue)] text-white transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ds-blue)] dark:bg-[var(--ds-blue-dark)]"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m7-7H5" /></svg>
             </button>
@@ -521,7 +521,121 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
             )}
           </div>
         ) : (
-          <div id="inventario-tabla" className="overflow-x-auto lg:overflow-x-visible">
+          <>
+          <div id="inventario-mobile-list" className="space-y-3 px-3 pb-4 md:hidden print:hidden">
+            <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-black/[0.035] px-3 text-[13px] text-[var(--ds-gray-600)] dark:bg-white/[0.06] dark:text-[var(--ds-gray-300)]">
+              <span>Ordenar por</span>
+              <select
+                value={orden}
+                onChange={(event) => setOrden(event.target.value as OrdenCol)}
+                aria-label="Ordenar inventario"
+                className="min-h-10 min-w-0 bg-transparent text-right font-medium text-[var(--ds-gray-900)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-blue)] dark:text-white"
+              >
+                <option value="nombre">Nombre</option>
+                <option value="unidades">Unidades</option>
+                <option value="valorizado">Valorizado</option>
+                <option value="proyeccion">Proyección</option>
+              </select>
+            </label>
+
+            {gruposInventario.map((grupo) => {
+              const cerrada = plegadas.has(grupo.categoria)
+              const articulosOrden = orden === 'nombre'
+                ? [...grupo.articulos].sort((a, b) => (a.subcategoria ?? '').localeCompare(b.subcategoria ?? '', 'es') || a.nombre.localeCompare(b.nombre, 'es'))
+                : [...grupo.articulos].sort((a, b) => {
+                    const valorDe = (articulo: ArticuloVista) => {
+                      const total = sumaDe(articulo)
+                      return orden === 'unidades' ? total.unidades : orden === 'valorizado' ? total.valorizado : total.ingresos
+                    }
+                    return valorDe(b) - valorDe(a)
+                  })
+
+              return (
+                <section key={grupo.categoria} className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white dark:border-white/[0.1] dark:bg-white/[0.035]">
+                  <button
+                    type="button"
+                    aria-expanded={!cerrada}
+                    onClick={() => togglePlegada(grupo.categoria)}
+                    className="flex min-h-12 w-full items-center justify-between gap-3 bg-black/[0.025] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--ds-blue)] dark:bg-white/[0.045]"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-[var(--ds-gray-800)] dark:text-white">
+                      <svg className={`h-3.5 w-3.5 shrink-0 transition-transform ${cerrada ? '' : 'rotate-90'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                      <span className="truncate">{grupo.categoria}</span>
+                    </span>
+                    <span className="shrink-0 text-[11px] text-[var(--ds-gray-500)]">{grupo.articulos.length} producto{grupo.articulos.length !== 1 ? 's' : ''}</span>
+                  </button>
+
+                  {!cerrada && (
+                    <div className="divide-y divide-black/[0.06] dark:divide-white/[0.08]">
+                      {articulosOrden.map((articulo) => {
+                        const total = sumaDe(articulo)
+                        const multi = articulo.variantes.length > 1
+                        const abierto = multi && abiertos.has(articulo.key)
+                        const sinExistencias = articulo.variantes.every((variante) => variante.stockActual <= 0)
+                        const stockBajo = !sinExistencias && articulo.variantes.some((variante) =>
+                          variante.stockActual > 0 && variante.stockActual <= (variante.alertaStock ?? 2),
+                        )
+                        return (
+                          <article key={articulo.key}>
+                            <button
+                              type="button"
+                              aria-expanded={multi ? abierto : undefined}
+                              onClick={() => (multi ? toggleAbierto(articulo.key) : abrirFicha(articulo))}
+                              className="flex min-h-[76px] w-full items-center gap-3 px-3 py-3 text-left transition-colors active:bg-black/[0.035] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--ds-blue)] dark:active:bg-white/[0.06]"
+                            >
+                              <Foto src={articulo.fotoSrc} alt="" className="h-11 w-11 shrink-0 rounded-xl" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[14px] font-semibold text-[var(--ds-gray-900)] dark:text-white">{articulo.nombre}</span>
+                                <span className="mt-0.5 block truncate text-[12px] text-[var(--ds-gray-500)]">
+                                  {[articulo.marca, multi ? resumenAtributos(articulo.atributos) : articulo.subcategoria].filter(Boolean).join(' · ') || 'Sin detalle adicional'}
+                                </span>
+                                <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${sinExistencias ? 'bg-black/[0.06] text-[var(--ds-gray-600)] dark:bg-white/[0.1] dark:text-[var(--ds-gray-300)]' : stockBajo ? 'bg-[#B8664F]/[0.12] text-[#9A4937] dark:text-[#F0A18C]' : 'bg-[#3E7F5F]/[0.12] text-[#32684D] dark:text-[#8FC0A4]'}`}>
+                                  {sinExistencias ? 'Sin stock' : stockBajo ? 'Stock bajo' : 'Disponible'}
+                                </span>
+                              </span>
+                              <span className="max-w-[42%] text-right [overflow-wrap:anywhere]">
+                                <span className="block text-[13px] font-semibold tabular-nums text-[var(--ds-gray-900)] dark:text-white">{fmtUnits(total.unidades)} <span className="text-[11px] font-normal text-[var(--ds-gray-500)]">{unidadDe(articulo.unidad, total.unidades)}</span></span>
+                                <span className="mt-0.5 block text-[10px] tabular-nums text-[var(--ds-gray-600)] dark:text-[var(--ds-gray-300)]">Costo ${fmtEntero(total.valorizado)}</span>
+                                <span className="block text-[10px] tabular-nums text-[var(--ds-gray-500)]">Venta ${fmtEntero(total.ingresos)}</span>
+                              </span>
+                              <svg className={`h-4 w-4 shrink-0 text-[var(--ds-gray-400)] transition-transform ${abierto ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m9 5 7 7-7 7" />
+                              </svg>
+                            </button>
+                            {abierto && articulo.atributos.length === 2 && (
+                              <div className="border-t border-black/[0.06] px-3 py-3 dark:border-white/[0.08]">
+                                <StockGrid articulo={articulo} compacta onElegir={(variante) => abrirFicha(articulo, variante.id)} />
+                                <button type="button" onClick={() => abrirFicha(articulo)} className="mt-2 min-h-11 text-[13px] font-medium text-[var(--ds-blue)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">Ver ficha del producto</button>
+                              </div>
+                            )}
+                            {abierto && articulo.atributos.length !== 2 && (
+                              <div className="border-t border-black/[0.06] px-3 py-1 dark:border-white/[0.08]">
+                                {articulo.variantes.map((variante) => (
+                                  <button
+                                    type="button"
+                                    key={variante.id}
+                                    onClick={() => abrirFicha(articulo, variante.id)}
+                                    className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-[12px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ds-blue)]"
+                                  >
+                                    <span className="min-w-0 truncate text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]">{variante.etiqueta}</span>
+                                    <span className="shrink-0 tabular-nums text-[var(--ds-gray-600)] dark:text-[var(--ds-gray-300)]">{fmtUnits(variante.stockActual)} · ${fmtEntero(variante.stockActual * variante.precioCosto)}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </article>
+                        )
+                      })}
+                    </div>
+                  )}
+                </section>
+              )
+            })}
+          </div>
+
+          <div id="inventario-tabla" className="hidden overflow-x-auto md:block print:block">
             <table className="w-full min-w-[640px] text-[13px]">
               <thead>
                 <tr className="text-[12px] text-[var(--ds-gray-500)]">
@@ -560,14 +674,14 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                   return (
                     <React.Fragment key={grupo.categoria}>
                       {/* Categoría como título de sección (estilo Ajustes de iOS): se pliega al tocarla */}
-                      <tr className="group-header cursor-pointer" onClick={() => togglePlegada(grupo.categoria)}>
+                      <tr className="group-header">
                         <td className="px-5 pb-1.5 pt-5 text-[12px] font-medium text-[var(--ds-gray-500)]">
-                          <span className="inline-flex items-center gap-1.5">
+                          <button type="button" aria-expanded={!cerrada} onClick={() => togglePlegada(grupo.categoria)} className="inline-flex min-h-11 items-center gap-1.5 rounded-md pr-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ds-blue)]">
                             <svg className={`h-3 w-3 transition-transform ${cerrada ? '' : 'rotate-90'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                             </svg>
                             {grupo.categoria}
-                          </span>
+                          </button>
                         </td>
                         <td colSpan={3} />
                       </tr>
@@ -590,9 +704,18 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                               </tr>
                             )}
                             <tr
+                              role="button"
+                              tabIndex={0}
                               onClick={() => (multi ? toggleAbierto(art.key) : abrirFicha(art))}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault()
+                                  if (multi) toggleAbierto(art.key)
+                                  else abrirFicha(art)
+                                }
+                              }}
                               aria-expanded={multi ? abierto : undefined}
-                              className="group animate-[reg-fade-in_240ms_ease-out] cursor-pointer transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.035]"
+                              className="group animate-[reg-fade-in_240ms_ease-out] cursor-pointer transition-colors hover:bg-black/[0.025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--ds-blue)] dark:hover:bg-white/[0.035]"
                             >
                               <td className="relative py-1.5 pl-5 pr-4">
                                 <div className="flex items-center gap-2.5">
@@ -639,7 +762,12 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                               const ultima = vi === art.variantes.length - 1
                               const bordeV = ultima && idx < articulosOrden.length - 1 ? 'border-b border-black/[0.05] dark:border-white/[0.06]' : ''
                               return (
-                                <tr key={v.id} onClick={() => abrirFicha(art, v.id)} className="group/v animate-[reg-fade-in_200ms_ease-out] cursor-pointer transition-colors hover:bg-black/[0.025] dark:hover:bg-white/[0.035]">
+                                <tr key={v.id} role="button" tabIndex={0} onClick={() => abrirFicha(art, v.id)} onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault()
+                                    abrirFicha(art, v.id)
+                                  }
+                                }} className="group/v animate-[reg-fade-in_200ms_ease-out] cursor-pointer transition-colors hover:bg-black/[0.025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--ds-blue)] dark:hover:bg-white/[0.035]">
                                   <td className={`py-1 pl-[60px] pr-4 text-[12px] text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80 ${bordeV}`}>
                                     {v.etiqueta}
                                     {v.precioPropio && <span className="ml-1.5 text-[11px] tabular-nums text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">${fmtEntero(v.precioVenta)}</span>}
@@ -669,6 +797,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
               </tfoot>
             </table>
           </div>
+          </>
         )}
 
         <div className="flex items-center justify-between border-t border-black/[0.06] px-5 py-2.5 text-[12px] text-[var(--ds-gray-500)] dark:border-white/[0.08]">
@@ -697,7 +826,10 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
           onElegir={(cat) => {
             setShowSubtotales(false)
             setBusqueda(cat)
-            document.getElementById('inventario-tabla')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            const target = window.matchMedia('(min-width: 768px)').matches
+              ? 'inventario-tabla'
+              : 'inventario-mobile-list'
+            document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
           }}
         />
       )}

@@ -5,8 +5,8 @@ import { Redis } from '@upstash/redis'
  * Rate limiting basado en Upstash Redis (free tier).
  *
  * Si las variables de entorno de Upstash no están configuradas, el limitador
- * se desactiva de forma segura (fail-open) para no romper el entorno local ni
- * los previews sin credenciales. En producción, configurá:
+ * se desactiva en desarrollo. En producción, la configuración se valida al
+ * iniciar y el proxy devuelve 503 si el servicio falta. Configurá:
  *   - UPSTASH_REDIS_REST_URL
  *   - UPSTASH_REDIS_REST_TOKEN
  */

@@ -84,13 +84,13 @@ function StatementCard({ href, title, metric, value, negative, delta, trend, tre
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] transition hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(0,0,0,0.05),0_10px_28px_rgba(0,0,0,0.07)] active:scale-[0.99] dark:bg-[#1C1C1E] dark:shadow-none"
+      className="group flex min-w-0 flex-col rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] transition hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(0,0,0,0.05),0_10px_28px_rgba(0,0,0,0.07)] active:scale-[0.99] sm:p-5 dark:bg-[#1C1C1E] dark:shadow-none"
     >
       <p className="text-center text-[13px] text-[#8E8E93]">{title}</p>
 
       <p className="mt-3 text-[12px] text-[#8E8E93]">{metric}</p>
-      <div className="flex items-baseline justify-between gap-3">
-        <p className={`text-[24px] font-semibold tracking-tight tabular-nums ${negative ? 'text-[#D70015] dark:text-[#FF453A]' : 'text-[#1C1C1E] dark:text-white'}`}>{value}</p>
+      <div className="flex min-w-0 items-baseline justify-between gap-2">
+        <p className={`min-w-0 break-all text-[clamp(20px,6vw,24px)] font-semibold tracking-tight tabular-nums ${negative ? 'text-[#D70015] dark:text-[#FF453A]' : 'text-[#1C1C1E] dark:text-white'}`}>{value}</p>
         {delta !== null && <SubtleDelta value={delta} />}
       </div>
 
@@ -146,7 +146,7 @@ function RankList({ items, color, currency, empty, numbered = true }: {
 
 function ListCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] dark:bg-[#1C1C1E] dark:shadow-none">
+    <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] sm:p-5 dark:bg-[#1C1C1E] dark:shadow-none">
       <p className="mb-3 text-[15px] font-semibold text-[#1C1C1E] dark:text-white">{title}</p>
       {children}
     </div>

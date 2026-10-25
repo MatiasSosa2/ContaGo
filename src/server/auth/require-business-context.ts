@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { ActiveBusinessContext } from './business-context'
 import type { SessionContext } from './get-session-context'
+import { canAdministerBusiness, canWriteBusiness } from './business-access'
 
 import { requireAuth } from './require-auth'
 
@@ -21,7 +22,7 @@ export async function requireBusinessContext(): Promise<BusinessSessionContext> 
 export async function requireBusinessWriteContext(): Promise<BusinessSessionContext> {
   const sessionContext = await requireBusinessContext()
 
-  if (sessionContext.activeBusiness.role === 'VIEWER') {
+  if (!canWriteBusiness(sessionContext.activeBusiness.role)) {
     redirect('/auth/error?error=AccessDenied')
   }
 
@@ -31,7 +32,7 @@ export async function requireBusinessWriteContext(): Promise<BusinessSessionCont
 export async function requireBusinessAdminContext(): Promise<BusinessSessionContext> {
   const sessionContext = await requireBusinessContext()
 
-  if (sessionContext.activeBusiness.role !== 'ADMIN') {
+  if (!canAdministerBusiness(sessionContext.activeBusiness.role)) {
     redirect('/auth/error?error=AccessDenied')
   }
 

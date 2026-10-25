@@ -3,11 +3,12 @@ import type { NextRequest } from 'next/server'
 import { apiRateLimiter, authRateLimiter, rateLimitEnabled } from '@/lib/rate-limit'
 
 /**
- * Middleware global: aplica rate limiting por IP a rutas de API y de auth.
+ * Proxy global: aplica rate limiting por IP a rutas de API y de auth.
  *
  * - Rutas /api/auth/* y /auth/*  -> limitador estricto (anti fuerza bruta).
  * - Resto de /api/*              -> limitador general.
- * - Si Upstash no está configurado, no bloquea nada (fail-open).
+ * - En desarrollo sin Upstash continúa sin limitar; en producción la falta de
+ *   configuración devuelve 503 en vez de desactivar silenciosamente el límite.
  *
  * El health check queda excluido para no interferir con el monitoreo externo.
  */
@@ -26,8 +27,15 @@ function getClientIp(req: NextRequest): string {
   return '127.0.0.1'
 }
 
-export async function middleware(req: NextRequest) {
-  // Sin credenciales de Upstash: no hacemos nada.
+export async function proxy(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production' && !rateLimitEnabled) {
+    return NextResponse.json(
+      { error: 'El servicio no está disponible temporalmente.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
+
+  // Sin credenciales de Upstash en desarrollo: no hacemos nada.
   if (!rateLimitEnabled) return NextResponse.next()
 
   const { pathname } = req.nextUrl

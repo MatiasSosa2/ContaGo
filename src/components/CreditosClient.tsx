@@ -40,7 +40,7 @@ function ResumenCard({ titulo, monto, detalle, tono }: { titulo: string; monto: 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] dark:bg-[#1C1C1E] dark:shadow-none">
       <p className="text-[13px] font-medium text-[#8E8E93]">{titulo}</p>
-      <p className={`mt-1 text-[30px] font-semibold leading-tight tracking-tight tabular-nums ${tono}`}>
+      <p className={`mt-1 break-all text-[clamp(22px,7vw,30px)] font-semibold leading-tight tracking-tight tabular-nums ${tono}`}>
         {monto < 0 ? '−' : ''}{fmt(monto)}
       </p>
       {detalle && <p className="mt-0.5 text-[13px] text-[#8E8E93]">{detalle}</p>}
@@ -58,7 +58,8 @@ function CreditAccountRow({ account, onOpen }: { account: CreditAccount; onOpen:
     <button
       type="button"
       onClick={onOpen}
-      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03] active:bg-black/[0.05] dark:hover:bg-white/[0.04] ${saldado ? 'opacity-55' : ''}`}
+      aria-label={`${account.name}, ${saldado ? 'saldado' : `saldo ${fmt(account.saldo, account.currency)}`}`}
+      className={`flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03] active:bg-black/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#5E5CE6] dark:hover:bg-white/[0.04] ${saldado ? 'opacity-55' : ''}`}
     >
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${saldado ? 'bg-black/[0.06] text-[#8E8E93] dark:bg-white/10' : c.soft}`}>
         {iniciales(account.name)}
@@ -107,7 +108,7 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-end justify-center md:items-center" role="dialog" aria-modal="true" aria-label={account.name}>
       <div className="reg-backdrop absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="reg-sheet relative flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-[#F2F2F7] shadow-2xl dark:bg-black md:rounded-3xl">
+      <div className="reg-sheet relative flex max-h-[88dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-[#F2F2F7] shadow-2xl dark:bg-black md:rounded-3xl">
         <div className="flex justify-center pt-2 md:hidden" aria-hidden>
           <span className="h-[5px] w-9 rounded-full bg-black/15 dark:bg-white/20" />
         </div>
@@ -115,7 +116,7 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.06] text-[#8E8E93] transition active:scale-90 dark:bg-white/10"
+          className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/[0.06] text-[#8E8E93] transition active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5E5CE6] dark:bg-white/10"
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
@@ -197,8 +198,8 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
 
         {/* Botón fijo abajo */}
         {account.saldo > 0 && account.primeraPendienteId && (
-          <div className="border-t border-black/[0.06] px-4 py-3 dark:border-white/10">
-            <button type="button" onClick={cobrarOPagar} className={`w-full rounded-xl py-3.5 text-[16px] font-semibold text-white transition active:scale-[0.99] ${c.btn}`}>
+          <div className="border-t border-black/[0.06] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 dark:border-white/10">
+            <button type="button" onClick={cobrarOPagar} className={`min-h-12 w-full rounded-xl py-3.5 text-[16px] font-semibold text-white transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5E5CE6] ${c.btn}`}>
               {isCxC ? 'Cobrar' : 'Pagar'}
             </button>
           </div>

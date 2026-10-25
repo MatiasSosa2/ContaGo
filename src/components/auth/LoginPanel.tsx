@@ -77,7 +77,13 @@ export default function LoginPanel({
       : searchParams.get('error'),
   )
   const [message, setMessage] = useState<string | null>(
-    searchParams.get('verified') === '1' ? 'Codigo validado. Inicia sesion para continuar.' : null,
+    searchParams.get('passwordChanged') === '1'
+      ? 'La contraseña se actualizó. Inicia sesión nuevamente.'
+      : searchParams.get('registered') === '1'
+      ? 'Si ya tienes una cuenta, inicia sesión o recupera tu contraseña.'
+      : searchParams.get('verified') === '1'
+      ? 'Codigo validado. Inicia sesion para continuar.'
+      : null,
   )
   const [isPending, startTransition] = useTransition()
 
@@ -151,7 +157,7 @@ export default function LoginPanel({
           type="button"
           disabled={!googleEnabled || isPending}
           onClick={() => handleProviderSignIn('google')}
-          className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50 lg:py-2.5"
+          className="flex min-h-11 items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50 lg:py-2.5"
         >
           <GoogleIcon />
           Continuar con Google
@@ -160,7 +166,7 @@ export default function LoginPanel({
           type="button"
           disabled={!microsoftEnabled || isPending}
           onClick={() => handleProviderSignIn('azure-ad')}
-          className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50 lg:py-2.5"
+          className="flex min-h-11 items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military enabled:hover:border-brand-military enabled:hover:text-brand-military disabled:cursor-not-allowed disabled:opacity-50 lg:py-2.5"
         >
           <MicrosoftIcon />
           Continuar con Microsoft
@@ -175,7 +181,7 @@ export default function LoginPanel({
               type="button"
               onClick={handleTemporaryAccess}
               disabled={isPending}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-military/20 bg-white px-4 py-3 text-sm font-semibold text-brand-military transition hover:border-brand-military hover:bg-brand-military/5 disabled:cursor-not-allowed disabled:opacity-60 lg:px-3.5 lg:py-2.5"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-brand-military/20 bg-white px-4 py-3 text-sm font-semibold text-brand-military transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-military hover:border-brand-military hover:bg-brand-military/5 disabled:cursor-not-allowed disabled:opacity-60 lg:px-3.5 lg:py-2.5"
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
@@ -215,7 +221,7 @@ export default function LoginPanel({
           </div>
         )}
 
-        <button type="submit" disabled={isPending} className="w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60 lg:py-2.5">
+        <button type="submit" disabled={isPending} className="min-h-11 w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60 lg:py-2.5">
           {isPending ? 'Ingresando...' : 'Iniciar sesion'}
         </button>
       </form>

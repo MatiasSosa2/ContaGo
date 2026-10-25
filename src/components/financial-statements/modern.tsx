@@ -161,7 +161,7 @@ export function TableRow({ label, amount, pct, currency, level = 0, strong = fal
       {tono ? (
         // Monto y, debajo, su peso sobre las ventas (chiquito y gris)
         <span className="relative text-right">
-          <span className={`block text-[15px] tabular-nums ${strong ? 'font-semibold' : ''} ${amountColor}`}>{fmtFull(amount, currency, signed)}</span>
+          <span className={`block text-[13px] tabular-nums sm:text-[15px] ${strong ? 'font-semibold' : ''} ${amountColor}`}>{fmtFull(amount, currency, signed)}</span>
           {pct !== undefined && <span className="absolute right-0 top-full -mt-[3px] text-[9.5px] leading-none tabular-nums text-[#C7C7CC] dark:text-[#5A5A5E]">{fmtPctEs(pct)}</span>}
         </span>
       ) : (
@@ -174,7 +174,7 @@ export function TableRow({ label, amount, pct, currency, level = 0, strong = fal
   const cols = tono
     ? (variacion ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]')
     : `grid-cols-[minmax(0,1fr)_auto] ${pctColumn ? 'sm:grid-cols-[minmax(0,1fr)_auto_auto]' : ''}`
-  const rowCls = `grid ${cols} items-center gap-3 px-4 ${tono ? 'py-3' : 'py-2.5'} text-[14px] sm:gap-4 sm:px-5`
+  const rowCls = `grid ${cols} items-center gap-2 px-3 ${tono ? 'py-3' : 'py-2.5'} text-[14px] sm:gap-4 sm:px-5`
   if (!children) {
     if (onClick) {
       return (
@@ -233,18 +233,18 @@ export function TableSubRow({ label, amount, pct, currency, pctColumn = true, to
 /** Encabezado simple de la página de un estado: "‹ Título" y el período en gris */
 export function StatementHeader({ title, period, backHref, actions }: { title: string; period: string; backHref: string; actions?: ReactNode }) {
   return (
-    <div className="mb-5 flex items-end justify-between gap-3" style={{ fontFamily: SF_FONT }}>
-      <div>
+    <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between" style={{ fontFamily: SF_FONT }}>
+      <div className="min-w-0">
         <a href={backHref} className="inline-flex items-center gap-0.5 text-[15px] text-[#007AFF] transition hover:opacity-70 dark:text-[#0A84FF]">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Informes
         </a>
-        <h1 className="mt-1 text-[24px] font-bold leading-tight tracking-tight text-[#1C1C1E] sm:text-[28px] dark:text-white">{title}</h1>
-        <p className="text-[15px] text-[#8E8E93]">{period}</p>
+        <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-tight text-[#1C1C1E] sm:text-[28px] dark:text-white">{title}</h1>
+        <p className="text-[14px] text-[#8E8E93] sm:text-[15px]">{period}</p>
       </div>
-      {actions && <div className="shrink-0">{actions}</div>}
+      {actions && <div className="max-w-full shrink-0 self-end sm:self-auto">{actions}</div>}
     </div>
   )
 }

@@ -1,13 +1,10 @@
-import bcrypt from 'bcryptjs'
-
 import prisma from '@/lib/prisma'
 
 import { createEmailChallenge, verifyEmailChallenge } from './challenges'
 import { sendAuthCodeEmail } from './email'
+import { hashPassword } from './password-change'
 
-export async function hashPassword(password: string) {
-  return bcrypt.hash(password, 12)
-}
+export { changePasswordFlow, hashPassword } from './password-change'
 
 export async function requestPasswordResetFlow(email: string) {
   const normalizedEmail = email.trim().toLowerCase()
@@ -17,6 +14,17 @@ export async function requestPasswordResetFlow(email: string) {
   })
 
   if (!user) {
+    return { success: true as const }
+  }
+
+  const recentChallengeCount = await prisma.emailChallenge.count({
+    where: {
+      email: user.email,
+      purpose: 'PASSWORD_RESET',
+      createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) },
+    },
+  })
+  if (recentChallengeCount >= 3) {
     return { success: true as const }
   }
 
@@ -30,11 +38,6 @@ export async function requestPasswordResetFlow(email: string) {
     email: user.email,
     code,
     purpose: 'PASSWORD_RESET',
-  })
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastSecurityChallengeAt: new Date() },
   })
 
   return { success: true as const }
@@ -70,6 +73,8 @@ export async function resetPasswordWithCodeFlow(input: {
       password: await hashPassword(input.password),
       lastSecurityChallengeAt: new Date(),
       passwordChangedAt: new Date(),
+      activeSessionId: null,
+      activeSessionExpiresAt: null,
     },
   })
 

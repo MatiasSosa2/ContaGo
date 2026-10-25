@@ -5,13 +5,14 @@ import AzureADProvider from "next-auth/providers/azure-ad";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { randomUUID } from 'node:crypto'
 
 import prismaClient from '@/lib/prisma'
 import type { EmailChallengePurpose } from '@/server/auth/challenges'
 import { consumeVerifiedChallengeForLogin, createEmailChallenge } from '@/server/auth/challenges'
 import { sendAuthCodeEmail } from '@/server/auth/email'
 import { decideLoginChallenge, shouldRequirePeriodicRiskChallenge } from '@/server/auth/login-security'
+import { ensureOAuthUserBusiness } from '@/server/auth/provisioning'
+import { claimSingleUserSession, SINGLE_SESSION_MAX_AGE_SECONDS } from '@/server/auth/single-session'
 
 // El modo mock nunca se activa en producción: un mock de auth asigna rol ADMIN.
 const allowMock = process.env.NODE_ENV !== 'production';
@@ -43,29 +44,11 @@ type SingleSessionAuthUser = {
   authSessionId?: string
 }
 
-const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
-
 async function claimSingleSession(user: { id: string } & SingleSessionAuthUser) {
   if (!prisma) return false
 
-  const now = new Date()
-  const sessionId = randomUUID()
-  const result = await prisma.user.updateMany({
-    where: {
-      id: user.id,
-      OR: [
-        { activeSessionId: null },
-        { activeSessionExpiresAt: { lte: now } },
-      ],
-    },
-    data: {
-      activeSessionId: sessionId,
-      activeSessionExpiresAt: new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000),
-    },
-  })
-
-  if (result.count !== 1) return false
-
+  const sessionId = await claimSingleUserSession(prisma, user.id)
+  if (!sessionId) return false
   user.authSessionId = sessionId
   return true
 }
@@ -82,6 +65,15 @@ function getConfiguredProviders() {
       GoogleProvider({
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        profile(profile) {
+          return {
+            id: profile.sub,
+            name: profile.name,
+            email: profile.email.trim().toLowerCase(),
+            image: profile.picture,
+            emailVerified: profile.email_verified ? new Date() : null,
+          }
+        },
       }),
     )
   }
@@ -92,6 +84,21 @@ function getConfiguredProviders() {
         clientId: process.env.AZURE_AD_CLIENT_ID,
         clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
         tenantId: process.env.AZURE_AD_TENANT_ID || 'common',
+        profile(profile) {
+          const emailValue = [profile.email, profile.preferred_username, profile.upn]
+            .find((value) => typeof value === 'string' && value.trim())
+          if (!emailValue) {
+            throw new Error('Microsoft no devolvió un email para esta cuenta.')
+          }
+
+          return {
+            id: profile.sub,
+            name: profile.name ?? profile.nickname ?? emailValue,
+            email: emailValue.trim().toLowerCase(),
+            image: profile.picture ?? null,
+            emailVerified: null,
+          }
+        },
       }),
     )
   }
@@ -329,11 +336,16 @@ function buildSessionInUseRedirect() {
   return `${origin}/auth/login?error=SessionInUse`
 }
 
+function buildNoBusinessAccessRedirect() {
+  const origin = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '')
+  return `${origin}/auth/error?error=NoBusinessAccess`
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: useMockAuth || !prisma ? undefined : PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
-    maxAge: SESSION_MAX_AGE_SECONDS,
+    maxAge: SINGLE_SESSION_MAX_AGE_SECONDS,
   },
   pages: {
     signIn: "/auth/login",
@@ -402,7 +414,7 @@ export const authOptions: NextAuthOptions = {
             activeSessionExpiresAt: { gt: now },
           },
           data: {
-            activeSessionExpiresAt: new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000),
+            activeSessionExpiresAt: new Date(now.getTime() + SINGLE_SESSION_MAX_AGE_SECONDS * 1000),
           },
         })
         if (refreshedSession.count !== 1) {
@@ -462,6 +474,13 @@ export const authOptions: NextAuthOptions = {
           }).catch(() => null)
 
           return true
+        }
+
+        if (provider === 'google' || provider === 'azure-ad') {
+          const businessId = await ensureOAuthUserBusiness(user.id)
+          if (!businessId) {
+            return buildNoBusinessAccessRedirect()
+          }
         }
 
         const dbUser = provider === 'credentials'
