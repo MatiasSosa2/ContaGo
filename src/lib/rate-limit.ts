@@ -11,13 +11,28 @@ import { Redis } from '@upstash/redis'
  *   - UPSTASH_REDIS_REST_TOKEN
  */
 
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN
+const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim()
+const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim()
 
-const isConfigured = Boolean(redisUrl && redisToken)
+function isValidRestUrl(value: string | undefined): value is string {
+  if (!value) return false
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && Boolean(url.hostname) && !url.username && !url.password
+  } catch {
+    return false
+  }
+}
+
+const hasValidRestUrl = isValidRestUrl(redisUrl)
+const isConfigured = hasValidRestUrl && Boolean(redisToken)
+
+if (redisUrl && !hasValidRestUrl) {
+  console.error('[rate-limit] UPSTASH_REDIS_REST_URL must be the HTTPS REST endpoint from Upstash')
+}
 
 const redis = isConfigured
-  ? new Redis({ url: redisUrl!, token: redisToken! })
+  ? new Redis({ url: redisUrl, token: redisToken })
   : null
 
 /**
