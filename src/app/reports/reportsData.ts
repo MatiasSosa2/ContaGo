@@ -1,4 +1,4 @@
-import { getReportDataExtended, getMonthlyHistory, getCashFlowByCurrency, getIncomeStatement, getCashAccountsSnapshot, getCashTransfers, getBalanceSheet } from '@/app/actions'
+import { getReportTransactions, getMonthlyHistory, getCashFlowByCurrency, getIncomeStatement, getCashAccountsSnapshot, getCashTransfers, getBalanceSheet } from '@/app/actions'
 import type { DateRange } from '@/lib/validations'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
@@ -180,8 +180,8 @@ export async function getReportsViewData(searchParams?: Promise<ReportsSearchPar
   const periodArgs = [periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart] as const
 
   // Todas las consultas son independientes entre sí: van en paralelo para no sumar latencia de base remota.
-  const [{ allTx }, monthlyHistory, er, cashFlowByCurrency, cashAccountsSnapshot, transfers, balanceBoth] = await Promise.all([
-    getReportDataExtended(range),
+  const [allTx, monthlyHistory, er, cashFlowByCurrency, cashAccountsSnapshot, transfers, balanceBoth] = await Promise.all([
+    getReportTransactions(range),
     // Evolución mensual: siempre últimos 12 meses reales, independiente del período elegido arriba.
     getMonthlyHistory(),
     // Estado de resultados: ventas y CMV de Inventario, el resto de lo registrado (src/server/results/income-statement.ts)

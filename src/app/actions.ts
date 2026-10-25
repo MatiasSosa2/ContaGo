@@ -356,6 +356,15 @@ export async function getReportDataExtended(range?: DateRange) {
   return databaseActions.getReportDataExtended(range);
 }
 
+export async function getReportTransactions(range?: DateRange) {
+  if (USE_MOCK) {
+    const base = await getReportData(range);
+    return base.allTx;
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getReportTransactions(range);
+}
+
 export async function getDailyStats() {
   if (USE_MOCK) return { txHoy: [], byCurrency: {} };
   const databaseActions = await getDatabaseActions();

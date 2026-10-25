@@ -28,6 +28,11 @@ function getClientIp(req: NextRequest): string {
 }
 
 export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl
+
+  // Nunca limitar el health check (lo consulta el monitor de uptime).
+  if (pathname === '/api/health') return NextResponse.next()
+
   if (process.env.NODE_ENV === 'production' && !rateLimitEnabled) {
     return NextResponse.json(
       { error: 'El servicio no está disponible temporalmente.' },
@@ -38,11 +43,6 @@ export async function proxy(req: NextRequest) {
   // Sin credenciales de Upstash en desarrollo: no hacemos nada.
   if (!rateLimitEnabled) return NextResponse.next()
 
-  const { pathname } = req.nextUrl
-
-  // Nunca limitar el health check (lo consulta el monitor de uptime).
-  if (pathname === '/api/health') return NextResponse.next()
-
   const isAuthRoute =
     pathname.startsWith('/api/auth') || pathname.startsWith('/auth')
   const limiter = isAuthRoute ? authRateLimiter : apiRateLimiter
@@ -52,7 +52,18 @@ export async function proxy(req: NextRequest) {
   const ip = getClientIp(req)
   const identifier = `${isAuthRoute ? 'auth' : 'api'}:${ip}`
 
-  const { success, limit, remaining, reset } = await limiter.limit(identifier)
+  let limitResult: Awaited<ReturnType<typeof limiter.limit>>
+  try {
+    limitResult = await limiter.limit(identifier)
+  } catch (error) {
+    console.error('[proxy] rate limit check failed', error)
+    return NextResponse.json(
+      { error: 'El servicio de protección está temporalmente no disponible.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
+
+  const { success, limit, remaining, reset } = limitResult
 
   if (!success) {
     const retryAfterSec = Math.max(1, Math.ceil((reset - Date.now()) / 1000))

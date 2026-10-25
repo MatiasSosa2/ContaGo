@@ -118,6 +118,30 @@ export async function getMonthlyHistory() {
   return aggregateMonthlyHistory(transactions)
 }
 
+/** Movimientos mínimos usados para los desgloses de ingresos y egresos del informe. */
+export async function getReportTransactions(range?: DateRange) {
+  const businessId = await getBusinessId()
+  const dateFilter = range?.from || range?.to
+    ? { date: { ...(range.from ? { gte: range.from } : {}), ...(range.to ? { lte: range.to } : {}) } }
+    : {}
+
+  return prisma.transaction.findMany({
+    where: { businessId, ...dateFilter },
+    select: {
+      date: true,
+      amount: true,
+      currency: true,
+      type: true,
+      esCredito: true,
+      subType: true,
+      description: true,
+      category: { select: { name: true } },
+      subcategory: { select: { name: true } },
+      contact: { select: { name: true } },
+    },
+  })
+}
+
 /** Top clientes y productos que más ganan del período (pestaña Informes). Ver src/server/reports/insights.ts */
 export async function getReportInsights(
   period: DashboardPeriodKey,
