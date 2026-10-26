@@ -64,16 +64,14 @@ function MicrosoftIcon() {
 export default function LoginPanel({
   googleEnabled,
   microsoftEnabled,
-  temporaryAccessEnabled,
 }: {
   googleEnabled: boolean
   microsoftEnabled: boolean
-  temporaryAccessEnabled: boolean
 }) {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(
-    searchParams.get('error') === 'SessionInUse'
-      ? 'Ya hay una sesión abierta para esta cuenta. Cierra esa sesión antes de iniciar otra.'
+    searchParams.get('error') === 'SessionLimitReached'
+      ? 'Esta cuenta ya tiene abiertas 3 sesiones en distintos dispositivos. Cierra una sesión antes de iniciar otra.'
       : searchParams.get('error'),
   )
   const [message, setMessage] = useState<string | null>(
@@ -91,7 +89,12 @@ export default function LoginPanel({
     startTransition(async () => {
       setError(null)
       setMessage(null)
-      await signIn(provider, { callbackUrl: '/select-business' })
+      try {
+        await signIn(provider, { callbackUrl: '/select-business' })
+      } catch (cause) {
+        console.error(`[auth] ${provider} sign-in failed`, cause)
+        setError('No se pudo iniciar sesión con este proveedor. Inténtalo nuevamente.')
+      }
     })
   }
 
@@ -102,43 +105,28 @@ export default function LoginPanel({
       const email = String(formData.get('email') || '')
       const password = String(formData.get('password') || '')
 
-      // El callback signIn del server ya decide si hace falta challenge y
-      // devuelve la URL de verify-code. No hace falta un pre-flight duplicado.
-      const signInResult = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-        callbackUrl: '/select-business',
-      })
+      try {
+        // The server callback decides whether email verification is needed.
+        const signInResult = await signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+          callbackUrl: '/select-business',
+        })
 
-      if (!signInResult || signInResult.error) {
-        setError('No se pudo iniciar sesion. Revisa tus credenciales o verifica tu email.')
-        return
+        if (!signInResult || signInResult.error) {
+          setError(signInResult?.error === 'SessionLimitReached'
+            ? 'Esta cuenta ya tiene abiertas 3 sesiones en distintos dispositivos. Cierra una sesión antes de iniciar otra.'
+            : 'No se pudo iniciar sesión. Revisa tus credenciales o verifica tu email.')
+          return
+        }
+
+        const dest = signInResult.url ? safeLocalPath(signInResult.url) : '/select-business'
+        hardNavigate(dest)
+      } catch (cause) {
+        console.error('[auth] credentials sign-in failed', cause)
+        setError('No se pudo conectar con el servicio de autenticación. Inténtalo nuevamente.')
       }
-
-      const dest = signInResult.url ? safeLocalPath(signInResult.url) : '/select-business'
-      hardNavigate(dest)
-    })
-  }
-
-  function handleTemporaryAccess() {
-    startTransition(async () => {
-      setError(null)
-      setMessage(null)
-
-      const result = await signIn('credentials', {
-        temporaryAccess: 'true',
-        redirect: false,
-        callbackUrl: '/select-business',
-      })
-
-      if (!result || result.error) {
-        setError('No se pudo iniciar el acceso temporal. Intenta nuevamente.')
-        return
-      }
-
-      const dest = result.url ? safeLocalPath(result.url) : '/select-business'
-      hardNavigate(dest)
     })
   }
 
@@ -152,6 +140,18 @@ export default function LoginPanel({
           </div>
         </div>
       )}
+      <Link
+        href="/auth/register"
+        className="flex min-h-[68px] items-center justify-between gap-3 rounded-2xl border border-[#DAF1DE] bg-white px-4 py-3 shadow-[0_6px_20px_rgba(5,31,32,0.07)] transition hover:border-[#8EB698] hover:shadow-[0_10px_26px_rgba(5,31,32,0.1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#235347]"
+      >
+        <span>
+          <span className="block text-sm font-semibold text-gray-900">¿Primera vez en ContaGo?</span>
+          <span className="mt-0.5 block text-xs text-gray-500">Crea la primera cuenta de tu negocio</span>
+        </span>
+        <span className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-[#235347] px-4 text-sm font-semibold text-white">
+          Crear primera cuenta
+        </span>
+      </Link>
       <div className="grid gap-3 sm:grid-cols-2 lg:gap-2.5">
         <button
           type="button"
@@ -172,26 +172,6 @@ export default function LoginPanel({
           Continuar con Microsoft
         </button>
       </div>
-
-      {temporaryAccessEnabled && (
-        <div className="rounded-2xl border border-brand-military/15 bg-brand-military/5 p-3.5 sm:p-4 lg:p-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between lg:gap-2">
-            <p className="text-xs leading-5 text-gray-500 lg:leading-4">Entrar sin contraseña.</p>
-            <button
-              type="button"
-              onClick={handleTemporaryAccess}
-              disabled={isPending}
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-brand-military/20 bg-white px-4 py-3 text-sm font-semibold text-brand-military transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-military hover:border-brand-military hover:bg-brand-military/5 disabled:cursor-not-allowed disabled:opacity-60 lg:px-3.5 lg:py-2.5"
-            >
-              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 12H9m0 0 3-3m-3 3 3 3" />
-              </svg>
-              {isPending ? 'Ingresando...' : 'Entrar sin contraseña'}
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-gray-300 lg:gap-2">
         <div className="h-px flex-1 bg-gray-200" />
@@ -227,7 +207,6 @@ export default function LoginPanel({
       </form>
 
       <div className="flex items-center justify-between text-sm text-gray-500 lg:text-[13px]">
-        <Link href="/auth/register" className="font-medium text-brand-military hover:text-brand-military-dark">Crear cuenta</Link>
         <Link href="/auth/forgot-password" className="hover:text-gray-700">Olvide mi contraseña</Link>
       </div>
     </div>

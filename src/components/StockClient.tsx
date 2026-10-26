@@ -401,7 +401,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
           ['Inventario comprado', enUnidades ? compradoUnidades : inventarioComprado, 'text-[#3E7F5F] dark:text-[#8FC0A4]', '↑'],
           ['Stock final', enUnidades ? stockFinalUnidades : stockFinalPeriodo, 'text-[var(--ds-gray-900)] dark:text-white', null],
         ] as const).map(([titulo, valor, tono, flecha]) => (
-          <div key={titulo} className="ds-panel px-4 py-3.5 text-center">
+          <div key={titulo} className="ds-panel p-5 text-center sm:p-6">
             <p className="text-[12px] text-[var(--ds-gray-500)]">
               {titulo}
               {/* Sale stock / entra stock */}

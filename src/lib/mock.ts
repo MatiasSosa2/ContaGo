@@ -56,7 +56,7 @@ const MOCK_WEEK: [string, number, number][] = [
 ]
 
 export function getMockDashboardStats() {
-  const catColors = ['#1B4332', '#2D6A4F', '#5A7A57', '#8FBFA5', '#6b8f65', '#6B7280']
+  const catColors = ['#163832', '#235347', '#8EB698', '#DAF1DE', '#0B2B26', '#6B7280']
 
   return {
     kpis: { income: 500000, expense: 350000, gain: 150000, marginPct: 30 },
@@ -73,9 +73,9 @@ export function getMockDashboardStats() {
       { name: 'Proveedores', value: 80000, color: catColors[2] },
     ],
     incomeCategoryBreakdown: [
-      { name: 'Ventas', value: 300000, color: '#2D6A4F' },
-      { name: 'Servicios', value: 150000, color: '#5A7A57' },
-      { name: 'Otros', value: 50000, color: '#6b8f65' },
+      { name: 'Ventas', value: 300000, color: '#235347' },
+      { name: 'Servicios', value: 150000, color: '#8EB698' },
+      { name: 'Otros', value: 50000, color: '#163832' },
     ],
     recentTx: MOCK_TRANSACTIONS.slice(0, 7).map((tx) => ({
       id: tx.id,

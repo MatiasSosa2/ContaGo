@@ -4,6 +4,7 @@
  */
 export * from '@/server/db/catalogs'
 export * from '@/server/db/transactions'
+export * from '@/server/db/cajas-movements'
 export * from '@/server/db/reports'
 export * from '@/server/db/cash'
 export * from '@/server/db/registro'

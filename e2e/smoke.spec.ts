@@ -30,6 +30,25 @@ test.describe('Smoke / salud del sistema', () => {
     const password = page.locator('input[type="password"], input[name="password"]')
     await expect(email.first()).toBeVisible()
     await expect(password.first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /Crear primera cuenta/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Entrar sin contraseña' })).toHaveCount(0)
+  })
+
+  test('CSRF y cierre de sesión de NextAuth se procesan correctamente', async ({ request }) => {
+    const csrfResponse = await request.get('/api/auth/csrf')
+    expect(csrfResponse.status()).toBe(200)
+    expect(csrfResponse.headers()['content-type']).toContain('application/json')
+    const csrfBody = await csrfResponse.json()
+    expect(csrfBody).toEqual({ csrfToken: expect.any(String) })
+
+    const signOutResponse = await request.post('/api/auth/signout', {
+      form: { csrfToken: csrfBody.csrfToken, callbackUrl: 'http://localhost:3000/auth/login' },
+      headers: { 'X-Auth-Return-Redirect': '1' },
+      maxRedirects: 0,
+    })
+    expect(signOutResponse.status()).toBeGreaterThanOrEqual(300)
+    expect(signOutResponse.status()).toBeLessThan(400)
+    expect(signOutResponse.headers()['location']).toContain('/auth/login')
   })
 
   test('el registro ofrece proveedores sociales y el formulario de email', async ({ page }) => {

@@ -262,7 +262,7 @@ export default function PeriodSelector({
     }
   })()
 
-  const selectClass = 'min-h-10 min-w-0 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 outline-none transition focus:border-[#1B4332] focus:ring-2 focus:ring-[#1B4332]/15 disabled:opacity-50 dark:border-white/[0.08] dark:bg-[#0d0e10] dark:text-gray-100'
+  const selectClass = 'min-h-10 min-w-0 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 outline-none transition focus:border-[#163832] focus:ring-2 focus:ring-[#163832]/15 disabled:opacity-50 dark:border-white/[0.08] dark:bg-[#0B2B26] dark:text-gray-100'
   const yearOptions = Array.from({ length: 56 }, (_, index) => currentYear - 50 + index)
   if (Number.isInteger(effectiveYear) && !yearOptions.includes(effectiveYear)) {
     yearOptions.push(effectiveYear)
@@ -287,7 +287,7 @@ export default function PeriodSelector({
         onClick={() => selectTab('anual')}
         className={`min-h-10 rounded-lg border px-2.5 text-xs font-medium transition disabled:opacity-50 ${
           active === 'anual'
-            ? 'border-[#1B4332] bg-[#1B4332] text-white'
+            ? 'border-[#163832] bg-[#163832] text-white'
             : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/[0.08] dark:bg-[#0d0e10] dark:text-gray-200 dark:hover:bg-white/[0.05]'
         }`}
       >
@@ -300,7 +300,7 @@ export default function PeriodSelector({
         onClick={() => selectTab('custom')}
         className={`min-h-10 rounded-lg border px-2.5 text-xs font-medium transition disabled:opacity-50 ${
           active === 'custom'
-            ? 'border-[#1B4332] bg-[#1B4332] text-white'
+            ? 'border-[#163832] bg-[#163832] text-white'
             : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/[0.08] dark:bg-[#0d0e10] dark:text-gray-200 dark:hover:bg-white/[0.05]'
         }`}
       >
@@ -455,7 +455,7 @@ export default function PeriodSelector({
               aria-expanded={rangoOpen}
               className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-3 py-2 text-[14px] text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition active:scale-[0.99] disabled:opacity-40 dark:bg-[var(--ds-gray-900)] dark:text-white"
             >
-              <svg className="h-4 w-4 text-[var(--reg-accent,#2D6A4F)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+              <svg className="h-4 w-4 text-[var(--reg-accent,#235347)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
               </svg>
               {customSummary ? (

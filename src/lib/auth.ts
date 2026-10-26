@@ -12,7 +12,14 @@ import { consumeVerifiedChallengeForLogin, createEmailChallenge } from '@/server
 import { sendAuthCodeEmail } from '@/server/auth/email'
 import { decideLoginChallenge, shouldRequirePeriodicRiskChallenge } from '@/server/auth/login-security'
 import { ensureOAuthUserBusiness } from '@/server/auth/provisioning'
-import { claimSingleUserSession, SINGLE_SESSION_MAX_AGE_SECONDS } from '@/server/auth/single-session'
+import {
+  claimSingleUserSession,
+  getSessionSlotFields,
+  refreshUserSession,
+  releaseUserSession,
+  SINGLE_SESSION_MAX_AGE_SECONDS,
+  type UserSessionSlot,
+} from '@/server/auth/single-session'
 
 // El modo mock nunca se activa en producción: un mock de auth asigna rol ADMIN.
 const allowMock = process.env.NODE_ENV !== 'production';
@@ -37,11 +44,11 @@ type CredentialsAuthUser = {
   image: string | null
   emailVerified: Date | null
   lastSecurityChallengeAt: Date | null
-  isTemporaryAccess?: boolean
 }
 
 type SingleSessionAuthUser = {
   authSessionId?: string
+  authSessionSlot?: UserSessionSlot
 }
 
 async function claimSingleSession(user: { id: string } & SingleSessionAuthUser) {
@@ -49,12 +56,9 @@ async function claimSingleSession(user: { id: string } & SingleSessionAuthUser) 
 
   const sessionId = await claimSingleUserSession(prisma, user.id)
   if (!sessionId) return false
-  user.authSessionId = sessionId
+  user.authSessionId = sessionId.sessionId
+  user.authSessionSlot = sessionId.slot
   return true
-}
-
-function getTemporaryAccessAdminEmail() {
-  return process.env.TEMP_ACCESS_ADMIN_EMAIL?.trim().toLowerCase() || null
 }
 
 function getConfiguredProviders() {
@@ -109,7 +113,6 @@ function getConfiguredProviders() {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
-        temporaryAccess: { label: "TemporaryAccess", type: "text" },
         postVerifyChallengeId: { label: "PostVerifyChallengeId", type: "text" },
       },
       async authorize(credentials) {
@@ -117,61 +120,9 @@ function getConfiguredProviders() {
           return null;
         }
 
-        const wantsTemporaryAccess = credentials?.temporaryAccess === 'true'
         const normalizedEmail = credentials?.email?.trim().toLowerCase()
         const password = credentials?.password
         const postVerifyChallengeId = credentials?.postVerifyChallengeId?.trim() || null
-
-        if (wantsTemporaryAccess) {
-          if (process.env.NODE_ENV === 'production') {
-            console.warn('[auth] acceso temporal rechazado en producción')
-            return null
-          }
-
-          const temporaryAccessEmail = getTemporaryAccessAdminEmail()
-
-          if (!temporaryAccessEmail || !prisma) {
-            console.warn('[auth] acceso temporal deshabilitado: TEMP_ACCESS_ADMIN_EMAIL no configurado o prisma ausente')
-            return null
-          }
-
-          // Buscar user (los emails en DB se guardan normalizados a lowercase)
-          const user = await prisma.user.findUnique({
-            where: { email: temporaryAccessEmail },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-              emailVerified: true,
-              lastSecurityChallengeAt: true,
-              memberships: {
-                where: { status: 'ACTIVE', role: 'ADMIN' },
-                select: { businessId: true },
-                take: 1,
-              },
-            },
-          })
-
-          if (!user) {
-            console.warn(`[auth] acceso temporal: no existe user con email ${temporaryAccessEmail}`)
-            return null
-          }
-          if (user.memberships.length === 0) {
-            console.warn(`[auth] acceso temporal: user ${user.id} no tiene membership ACTIVE+ADMIN`)
-            return null
-          }
-
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            image: user.image,
-            emailVerified: user.emailVerified,
-            lastSecurityChallengeAt: user.lastSecurityChallengeAt,
-            isTemporaryAccess: true,
-          } as CredentialsAuthUser
-        }
 
         // Post-verificación: permite iniciar sesión con un challengeId recién consumido
         // (sin reingresar password) en la ventana de 2 minutos después del verify-code.
@@ -314,10 +265,8 @@ async function hydrateTokenContext(token: JWT) {
   token.activeBusinessId = activeMembership?.business.id ?? null
   token.activeBusinessName = activeMembership?.business.name ?? null
   token.activeBusinessRole = normalizedRole
-  // El acceso temporal saltea el challenge por diseño; mantener challengeSatisfied=true.
-  token.challengeSatisfied = token.isTemporaryAccess === true
-    ? true
-    : Boolean(user?.emailVerified) && !shouldRequirePeriodicRiskChallenge(user?.lastSecurityChallengeAt, user?.emailVerified)
+  token.challengeSatisfied = Boolean(user?.emailVerified) &&
+    !shouldRequirePeriodicRiskChallenge(user?.lastSecurityChallengeAt, user?.emailVerified)
 
   return token
 }
@@ -333,7 +282,7 @@ function buildVerifyCodeRedirect(
 
 function buildSessionInUseRedirect() {
   const origin = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '')
-  return `${origin}/auth/login?error=SessionInUse`
+  return `${origin}/auth/login?error=SessionLimitReached`
 }
 
 function buildNoBusinessAccessRedirect() {
@@ -385,39 +334,34 @@ export const authOptions: NextAuthOptions = {
       // Revoca tokens por cambio de contraseña o por reemplazo/expiración de la sesión activa.
       const issuedAt = typeof token.iat === 'number' ? token.iat : null
       if (!useMockAuth && !user && token.sub && prismaClient) {
-        const now = new Date()
         const passwordState = await prismaClient.user.findUnique({
           where: { id: token.sub },
           select: {
             passwordChangedAt: true,
             activeSessionId: true,
             activeSessionExpiresAt: true,
+            activeSessionId2: true,
+            activeSessionExpiresAt2: true,
+            activeSessionId3: true,
+            activeSessionExpiresAt3: true,
           },
         })
         const changedAt = passwordState?.passwordChangedAt
         if (changedAt && issuedAt !== null && Math.floor(changedAt.getTime() / 1000) > issuedAt) {
           return {} as JWT
         }
-        if (
-          !token.authSessionId ||
-          passwordState?.activeSessionId !== token.authSessionId ||
-          !passwordState.activeSessionExpiresAt ||
-          passwordState.activeSessionExpiresAt <= now
-        ) {
+        const sessionSlot = token.authSessionSlot ?? 1
+        const slotFields = getSessionSlotFields(sessionSlot)
+        if (!token.authSessionId || !slotFields || passwordState?.[slotFields.id] !== token.authSessionId) {
           return {} as JWT
         }
 
-        const refreshedSession = await prismaClient.user.updateMany({
-          where: {
-            id: token.sub,
-            activeSessionId: token.authSessionId,
-            activeSessionExpiresAt: { gt: now },
-          },
-          data: {
-            activeSessionExpiresAt: new Date(now.getTime() + SINGLE_SESSION_MAX_AGE_SECONDS * 1000),
-          },
+        const refreshed = await refreshUserSession(prismaClient, {
+          userId: token.sub,
+          sessionId: token.authSessionId,
+          slot: sessionSlot,
         })
-        if (refreshedSession.count !== 1) {
+        if (!refreshed) {
           return {} as JWT
         }
       }
@@ -425,10 +369,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.sub = user.id;
         token.authSessionId = (user as typeof user & SingleSessionAuthUser).authSessionId
-        const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
-        if (credentialsUser.isTemporaryAccess === true) {
-          token.isTemporaryAccess = true
-        }
+        token.authSessionSlot = (user as typeof user & SingleSessionAuthUser).authSessionSlot
       }
 
       if (account?.provider) {
@@ -461,20 +402,6 @@ export const authOptions: NextAuthOptions = {
         const provider = toAuthProvider(account.provider)
 
         const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
-        const isTemporaryAccess = credentialsUser.isTemporaryAccess === true
-
-        if (isTemporaryAccess) {
-          if (!(await claimSingleSession(user))) {
-            return buildSessionInUseRedirect()
-          }
-
-          void prisma.user.update({
-            where: { id: user.id },
-            data: { lastLoginAt: new Date() },
-          }).catch(() => null)
-
-          return true
-        }
 
         if (provider === 'google' || provider === 'azure-ad') {
           const businessId = await ensureOAuthUserBusiness(user.id)
@@ -539,15 +466,11 @@ export const authOptions: NextAuthOptions = {
   events: {
     async signOut({ token }) {
       if (!useMockAuth && prisma && token?.sub && token.authSessionId) {
-        await prisma.user.updateMany({
-          where: {
-            id: token.sub,
-            activeSessionId: token.authSessionId,
-          },
-          data: {
-            activeSessionId: null,
-            activeSessionExpiresAt: null,
-          },
+        const slot = token.authSessionSlot ?? 1
+        await releaseUserSession(prisma, {
+          userId: token.sub,
+          sessionId: token.authSessionId,
+          slot,
         })
       }
     },

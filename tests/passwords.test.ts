@@ -29,7 +29,12 @@ function createDatabase(password: string | null): {
         stored.password = data.password
         stored.passwordChangedAt = data.passwordChangedAt
         stored.sessionsCleared =
-          data.activeSessionId === null && data.activeSessionExpiresAt === null
+          data.activeSessionId === null &&
+          data.activeSessionExpiresAt === null &&
+          data.activeSessionId2 === null &&
+          data.activeSessionExpiresAt2 === null &&
+          data.activeSessionId3 === null &&
+          data.activeSessionExpiresAt3 === null
         return { count: 1 }
       },
     },

@@ -17,6 +17,10 @@ export type PasswordChangeDatabase = {
         passwordChangedAt: Date
         activeSessionId: null
         activeSessionExpiresAt: null
+        activeSessionId2: null
+        activeSessionExpiresAt2: null
+        activeSessionId3: null
+        activeSessionExpiresAt3: null
       }
     }): Promise<{ count: number }>
   }
@@ -59,6 +63,10 @@ export async function changePasswordFlow(
       passwordChangedAt: new Date(),
       activeSessionId: null,
       activeSessionExpiresAt: null,
+      activeSessionId2: null,
+      activeSessionExpiresAt2: null,
+      activeSessionId3: null,
+      activeSessionExpiresAt3: null,
     },
   })
 

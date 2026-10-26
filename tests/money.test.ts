@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   decimalToMinorUnits,
+  decimalToMinorUnitsStrict,
   minorUnitsToDecimalString,
 } from '../src/lib/money'
 
@@ -16,6 +17,12 @@ test('rounds half away from zero at the currency exponent', () => {
   assert.equal(decimalToMinorUnits('-1.005', 2), BigInt(-101))
   assert.equal(decimalToMinorUnits('1.0049', 2), BigInt(100))
   assert.equal(decimalToMinorUnits('-1.0049', 2), BigInt(-100))
+})
+
+test('strict conversion rejects historical values that require rounding', () => {
+  assert.equal(decimalToMinorUnitsStrict('1234.50', 2), BigInt(123450))
+  assert.throws(() => decimalToMinorUnitsStrict('1234.501', 2), RangeError)
+  assert.throws(() => decimalToMinorUnitsStrict('-0.001', 2), RangeError)
 })
 
 test('rounds each line before exact integer totals are added', () => {

@@ -21,11 +21,11 @@ function useDarkMode() {
 
 // ── Paleta del sistema ─────────────────────────────────────────────────────────
 const C = {
-  income:     '#2D6A4F',
+  income:     '#235347',
   incomeFill: 'rgba(45,106,79,0.15)',
   expense:    '#6b7280',
   expenseFill:'rgba(107,114,128,0.10)',
-  net:        '#2D6A4F',
+  net:        '#235347',
   netFill:    'rgba(197,160,101,0.12)',
   red:        '#EF4444',
   amber:      '#B42318',
@@ -342,8 +342,8 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
           color: {
             type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
-              { offset: 0, color: '#2D6A4F40' },
-              { offset: 1, color: '#2D6A4F00' },
+              { offset: 0, color: '#23534740' },
+              { offset: 1, color: '#23534700' },
             ],
           },
         },

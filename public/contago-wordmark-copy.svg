@@ -71,5 +71,5 @@ c-197 -211 -455 -369 -728 -448 -265 -77 -613 -87 -870 -27 -341 81 -605 232
 	</mask>
 </defs>
 
-<rect x="1040" y="1120" width="2450" height="1060" fill="#f6f1e8" mask="url(#contago-wordmark-mask)" />
+<rect x="1040" y="1120" width="2450" height="1060" fill="#163832" mask="url(#contago-wordmark-mask)" />
 </svg>

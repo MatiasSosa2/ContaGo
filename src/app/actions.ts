@@ -167,6 +167,26 @@ export async function getAllTransactions(
   return databaseActions.getAllTransactions(period as CashPeriodKey, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
 }
 
+type CajasMovementPage = Awaited<ReturnType<typeof import('@/server/db/cajas-movements').getCajasMovementsPage>>
+
+export async function getCajasMovementsPage(
+  cursor?: import('@/lib/cajas-movement-pagination').CajasMovementCursor,
+  pageSize?: number,
+): Promise<CajasMovementPage> {
+  if (USE_MOCK) {
+    const movements = MOCK.MOCK_TRANSACTIONS as unknown as CajasMovementPage['movements'];
+    const start = cursor ? Number.parseInt(cursor.id, 10) : 0;
+    const page = movements.slice(start, start + (pageSize ?? 20));
+    const end = start + page.length;
+    return {
+      movements: page,
+      nextCursor: end < movements.length ? { date: new Date(0).toISOString(), id: String(end), kind: 'transaction' as const } : null,
+    };
+  }
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCajasMovementsPage(cursor, pageSize);
+}
+
 export async function getLatestTransactionDate() {
   if (USE_MOCK) return null;
   const databaseActions = await getDatabaseActions();

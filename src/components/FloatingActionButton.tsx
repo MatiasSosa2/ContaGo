@@ -414,7 +414,7 @@ export default function FloatingActionButton() {
         className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl active:scale-95 lg:bottom-6 lg:right-6"
         style={{
           // Dorado de la marca: no se confunde con Ingresos (verde), Egresos (rojo) ni las grises
-          background: 'linear-gradient(135deg, #2D6A4F 0%, #6B7280 100%)',
+          background: 'linear-gradient(135deg, #235347 0%, #8EB698 100%)',
           // Sube junto con el abanico para dejar la fila secundaria abajo
           translate: menuOpen ? '0 -48px' : '0 0',
           transition: `translate 380ms ${SPRING}, scale 200ms ease, box-shadow 200ms ease`,

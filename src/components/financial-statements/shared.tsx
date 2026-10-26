@@ -84,7 +84,7 @@ export function MetricChip({ label, value, tone, note }: {
 }) {
   const valueClass =
     tone === 'green'
-      ? 'text-[#2D5A41] dark:text-[#9AC7A8]'
+      ? 'text-[#235347] dark:text-[#8EB698]'
       : tone === 'sand'
       ? 'text-[#B42318] dark:text-[#F97066]'
       : 'text-[#111827] dark:text-white'
@@ -102,7 +102,7 @@ type StatementVariant = 'neutral' | 'positive' | 'negative' | 'highlight'
 
 function rowAmountClass(variant: StatementVariant) {
   return variant === 'positive'
-    ? 'text-[#2D5A41] dark:text-[#9AC7A8]'
+    ? 'text-[#235347] dark:text-[#8EB698]'
     : variant === 'negative'
     ? 'text-[#B42318] dark:text-[#F97066]'
     : variant === 'highlight'
@@ -112,7 +112,7 @@ function rowAmountClass(variant: StatementVariant) {
 
 function rowChipClass(variant: StatementVariant) {
   return variant === 'positive'
-    ? 'border-[#D5E3D8] bg-[#F5FAF7] text-[#2D5A41] dark:border-[#294235] dark:bg-[#162019] dark:text-[#9AC7A8]'
+    ? 'border-[#DAF1DE] bg-[#DAF1DE] text-[#235347] dark:border-[#163832] dark:bg-[#0B2B26] dark:text-[#8EB698]'
     : variant === 'negative'
     ? 'border-[#FEE4E2] bg-[#FEF3F2] text-[#B42318] dark:border-[#5A2A24] dark:bg-[#1F1514] dark:text-[#F97066]'
     : 'border-[var(--ds-neutral-200)] bg-[#FCFDFC] text-[var(--ds-neutral-500)] dark:border-white/10 dark:bg-[#171717] dark:text-[#A3A3A3]'

@@ -24,6 +24,10 @@ model User {
   passwordChangedAt DateTime?
   activeSessionId String?
   activeSessionExpiresAt DateTime?
+  activeSessionId2 String?
+  activeSessionExpiresAt2 DateTime?
+  activeSessionId3 String?
+  activeSessionExpiresAt3 DateTime?
   
   accounts      AccountAuth[]
   sessions      Session[]

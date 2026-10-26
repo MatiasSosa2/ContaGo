@@ -13,7 +13,6 @@ export default function LoginPage() {
         <LoginPanel
           googleEnabled={Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)}
           microsoftEnabled={Boolean(process.env.AZURE_AD_CLIENT_ID && process.env.AZURE_AD_CLIENT_SECRET)}
-          temporaryAccessEnabled={process.env.NODE_ENV !== 'production' && Boolean(process.env.TEMP_ACCESS_ADMIN_EMAIL)}
         />
       </Suspense>
     </AuthShell>

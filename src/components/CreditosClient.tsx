@@ -18,8 +18,8 @@ function fmtDate(d: Date | string | null) {
 
 // Colores (los mismos que Cajas): créditos índigo, deudas ámbar
 const COLOR = {
-  cxc: { text: 'text-[#5E5CE6] dark:text-[#7D7AFF]', soft: 'bg-[#5E5CE6]/12 text-[#4B49C8] dark:bg-[#7D7AFF]/20 dark:text-[#A5A3FF]', btn: 'bg-[#5E5CE6] hover:bg-[#4B49C8]' },
-  cxp: { text: 'text-[#C77700] dark:text-[#FFB340]', soft: 'bg-[#FF9F0A]/15 text-[#B86E00] dark:bg-[#FF9F0A]/20 dark:text-[#FFB340]', btn: 'bg-[#FF9F0A] hover:bg-[#E58E00]' },
+  cxc: { text: 'text-[#235347] dark:text-[#8EB698]', soft: 'bg-[#DAF1DE] text-[#163832] dark:bg-[#0B2B26] dark:text-[#8EB698]', btn: 'bg-[#235347] hover:bg-[#163832]', focus: 'focus-visible:outline-[#235347]', progress: 'bg-[#235347]' },
+  cxp: { text: 'text-[#C77700] dark:text-[#FFB340]', soft: 'bg-[#FF9F0A]/15 text-[#B86E00] dark:bg-[#FF9F0A]/20 dark:text-[#FFB340]', btn: 'bg-[#FF9F0A] hover:bg-[#E58E00]', focus: 'focus-visible:outline-[#FF9F0A]', progress: 'bg-[#FF9F0A]' },
 }
 
 /** "Arq. Paula Martínez" → "AP" */
@@ -59,7 +59,7 @@ function CreditAccountRow({ account, onOpen }: { account: CreditAccount; onOpen:
       type="button"
       onClick={onOpen}
       aria-label={`${account.name}, ${saldado ? 'saldado' : `saldo ${fmt(account.saldo, account.currency)}`}`}
-      className={`flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03] active:bg-black/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#5E5CE6] dark:hover:bg-white/[0.04] ${saldado ? 'opacity-55' : ''}`}
+      className={`flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03] active:bg-black/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset ${c.focus} dark:hover:bg-white/[0.04] ${saldado ? 'opacity-55' : ''}`}
     >
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${saldado ? 'bg-black/[0.06] text-[#8E8E93] dark:bg-white/10' : c.soft}`}>
         {iniciales(account.name)}
@@ -116,7 +116,7 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/[0.06] text-[#8E8E93] transition active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#5E5CE6] dark:bg-white/10"
+          className={`absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/[0.06] text-[#8E8E93] transition active:scale-90 focus-visible:outline focus-visible:outline-2 ${c.focus} dark:bg-white/10`}
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
@@ -131,7 +131,7 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
             {account.total > 0 && (
               <div className="mt-4 w-full max-w-[260px]">
                 <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06] dark:bg-white/10">
-                  <div className={`h-full rounded-full ${isCxC ? 'bg-[#5E5CE6]' : 'bg-[#FF9F0A]'}`} style={{ width: `${progreso}%` }} />
+                  <div className={`h-full rounded-full ${c.progress}`} style={{ width: `${progreso}%` }} />
                 </div>
                 <p className="mt-1.5 text-[12px] text-[#8E8E93]">
                   {isCxC ? 'Cobrado' : 'Pagado'} {progreso}% · {fmt(account.aplicado, cur)} de {fmt(account.total, cur)}
@@ -199,7 +199,7 @@ function CreditAccountSheet({ account, onClose }: { account: CreditAccount; onCl
         {/* Botón fijo abajo */}
         {account.saldo > 0 && account.primeraPendienteId && (
           <div className="border-t border-black/[0.06] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 dark:border-white/10">
-            <button type="button" onClick={cobrarOPagar} className={`min-h-12 w-full rounded-xl py-3.5 text-[16px] font-semibold text-white transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5E5CE6] ${c.btn}`}>
+            <button type="button" onClick={cobrarOPagar} className={`min-h-12 w-full rounded-xl py-3.5 text-[16px] font-semibold text-white transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${c.focus} ${c.btn}`}>
               {isCxC ? 'Cobrar' : 'Pagar'}
             </button>
           </div>

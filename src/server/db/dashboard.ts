@@ -343,7 +343,7 @@ async function _fetchDashboardStats(
   const sparklines = computeSparklines(currentTxs, period, from, to)
 
   // ── Category breakdown (period) ──
-  const CAT_COLORS = ['#1B4332', '#2D6A4F', '#5A7A57', '#8FBFA5', '#6b8f65', '#6B7280']
+  const CAT_COLORS = ['#163832', '#235347', '#8EB698', '#DAF1DE', '#0B2B26', '#6B7280']
   const catMap: Record<string, { name: string; value: number }> = {}
   for (const tx of currentTxs) {
     if (tx.type !== 'EXPENSE') continue
@@ -364,7 +364,7 @@ async function _fetchDashboardStats(
     if (!incCatMap[catName]) incCatMap[catName] = { name: catName, value: 0 }
     incCatMap[catName].value += tx.amount
   }
-  const INCOME_COLORS = ['#2D6A4F', '#5A7A57', '#6b8f65', '#81a87e', '#a3c49e', '#c5dfb8']
+  const INCOME_COLORS = ['#235347', '#8EB698', '#163832', '#0B2B26', '#DAF1DE', '#DAF1DE']
   const incomeCategoryBreakdown = Object.values(incCatMap)
     .sort((a, b) => b.value - a.value)
     .slice(0, 6)

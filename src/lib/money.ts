@@ -31,6 +31,21 @@ export function decimalToMinorUnits(value: string, exponent: number): bigint {
   return minorUnits
 }
 
+export function decimalToMinorUnitsStrict(value: string, exponent: number): bigint {
+  validateExponent(exponent)
+  if (!DECIMAL_STRING.test(value)) {
+    throw new TypeError('Amount must be a plain decimal string')
+  }
+
+  const decimal = new Prisma.Decimal(value)
+  const rounded = decimal.toDecimalPlaces(exponent, Prisma.Decimal.ROUND_HALF_UP)
+  if (!decimal.equals(rounded)) {
+    throw new RangeError(`Amount has more than ${exponent} fractional digits`)
+  }
+
+  return decimalToMinorUnits(value, exponent)
+}
+
 export function minorUnitsToDecimalString(minorUnits: bigint, exponent: number): string {
   validateExponent(exponent)
   validateMinorUnits(minorUnits)

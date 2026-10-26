@@ -273,7 +273,7 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
     <nav
       aria-label="Navegación principal"
       className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 lg:hidden"
-      style={{ background: '#1B4332', paddingBottom: 'env(safe-area-inset-bottom)', boxShadow: '0 -1px 16px rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+      style={{ background: '#051F20', paddingBottom: 'env(safe-area-inset-bottom)', boxShadow: '0 -1px 16px rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
     >
       {NAV_ITEMS.filter((item) => ['/', '/cajas', '/stock'].includes(item.href)).map(item => {
         const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)

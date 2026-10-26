@@ -17,9 +17,10 @@ en unidades mínimas `BigInt` y volver a cadenas decimales canónicas. Aplican
 pruebas cubren escalas 0/2/3, valores positivos y negativos, redondeo por línea, ida y
 vuelta, límites, y entradas inválidas.
 
-Estos helpers todavía no se usan en los flujos productivos, no cambian el esquema ni
-resuelven la moneda de cada campo. El prototipo no debe tratarse como aprobación de
-migración.
+`decimalToMinorUnitsStrict` permite auditar datos históricos sin redondearlos: rechaza un
+importe que no sea representable exactamente en la escala indicada. Estos helpers todavía
+no se usan en los flujos productivos y no cambian el esquema ni resuelven la moneda de cada
+campo. El prototipo no debe tratarse como una migración aplicada.
 
 ## Evidencia del prototipo
 

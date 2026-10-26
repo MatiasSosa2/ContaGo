@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getCajasMovementsPage } from '@/app/actions'
+import type { CajasMovementCursor } from '@/lib/cajas-movement-pagination'
 import { CalendarPopover, RangeCalendar, rangeLabel } from './ui/IosCalendar'
 import MovementDetailSheet from './cajas/MovementDetailSheet'
 import { useStoredValue } from '@/lib/useStoredValue'
@@ -21,8 +23,8 @@ import { ResponsiveChartContainer } from '@/components/ResponsiveChartContainer'
 
 // ── Paleta del gráfico Historial ──────────────────────────────────────────
 const CHART_COLORS = {
-  ing: '#1B4332',
-  ingSoft: '#9AC7A8',
+  ing: '#235347',
+  ingSoft: '#8EB698',
   egr: '#B42318',
   egrSoft: '#F97066',
 } as const
@@ -30,7 +32,7 @@ const CHART_COLORS = {
 /** Línea de saldo acumulado: azul petróleo (más claro en modo oscuro para que se lea) */
 function useSaldoColor() {
   const [theme] = useStoredValue('theme')
-  return theme === 'dark' ? '#5B9A78' : '#1B4332'
+  return theme === 'dark' ? '#8EB698' : '#163832'
 }
 
 interface CajasAccountItem {
@@ -104,9 +106,9 @@ function groupByOperacion(movements: CajasMovementItem[]): MovementRow[] {
 function CajaIcon({ kind }: { kind: 'efectivo' | 'virtual' | 'cambio' | 'credito' | 'deuda' }) {
   const cls = {
     efectivo: 'bg-[#6B7280]/15 text-[#4B5563] dark:text-[#9CA3AF]',
-    virtual: 'bg-[#2D6A4F]/15 text-[#2D6A4F] dark:text-[#98D4AD]',
+    virtual: 'bg-[#DAF1DE] text-[#235347] dark:bg-[#0B2B26] dark:text-[#8EB698]',
     cambio: 'bg-black/[0.06] text-[var(--ds-gray-500)] dark:bg-white/10',
-    credito: 'bg-[#2D6A4F]/15 text-[#2D6A4F] dark:text-[#8FBFA5]',
+    credito: 'bg-[#DAF1DE] text-[#235347] dark:bg-[#0B2B26] dark:text-[#8EB698]',
     deuda: 'bg-[var(--ds-orange-dark)]/15 text-[#B42318] dark:text-[#F97066]',
   }[kind]
   const path = {
@@ -560,7 +562,7 @@ function HistorialModal({
           </div>
           <div className="px-5 py-4 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Ingresos</p>
-            <p className="mt-1 font-mono text-sm font-bold text-[#1B4332]">{fmtSaldo(summary.ingresos)}</p>
+            <p className="mt-1 font-mono text-sm font-bold text-[#163832]">{fmtSaldo(summary.ingresos)}</p>
           </div>
           <div className="px-5 py-4 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Egresos</p>
@@ -645,7 +647,7 @@ function HistorialCard(props: HistorialProps) {
             </div>
             <div className="text-center">
               <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Ingresos</p>
-              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#1B4332] dark:text-[#9AC7A8]">{fmtCompact(summary.ingresos)}</p>
+              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#163832] dark:text-[#8EB698]">{fmtCompact(summary.ingresos)}</p>
             </div>
             <div className="text-center">
               <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Egresos</p>
@@ -694,7 +696,17 @@ function searchText(mov: CajasMovementItem) {
   ].filter(Boolean).join(' '))
 }
 
-function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
+function MovementsPanel({
+  movements: initialMovements,
+  initialCursor,
+}: {
+  movements: CajasMovementItem[]
+  initialCursor: CajasMovementCursor | null
+}) {
+  const [movements, setMovements] = useState(initialMovements)
+  const [cursor, setCursor] = useState(initialCursor)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [origins, setOrigins] = useState<Set<OriginKey>>(new Set())
   const [query, setQuery] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -731,6 +743,23 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
   }
 
   const terms = useMemo(() => normalizeSearch(query).split(/\s+/).filter(Boolean), [query])
+  const filtersActive = terms.length > 0 || origins.size > 0 || Boolean(dateFrom || dateTo)
+
+  const loadNextPage = useCallback(async () => {
+    if (!cursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const next = await getCajasMovementsPage(cursor)
+      setMovements((current) => [...current, ...next.movements])
+      setCursor(next.nextCursor)
+      setLoadError(null)
+    } catch (error) {
+      console.error('[Cajas] No se pudo cargar la siguiente página de movimientos', error)
+      setLoadError('No pudimos cargar más movimientos. Inténtalo nuevamente.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [cursor, loadingMore])
 
   const filtered = useMemo(() => {
     return groupByOperacion(movements).filter(mov => {
@@ -750,7 +779,27 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
   const targetMov = useSearchParams().get('mov')
   const targetIdx = targetMov ? filtered.findIndex((m) => m.id === targetMov || m.parts?.some((p) => p.id === targetMov)) : -1
   const targetRowId = targetIdx >= 0 ? filtered[targetIdx].id : null
-  const minPage = targetIdx >= 0 ? Math.ceil((targetIdx + 1) / PAGE_SIZE) : 1
+  const shouldLoadAll = filtersActive || Boolean(targetMov && targetIdx < 0)
+  const inFlightCursor = useRef<string | null>(null)
+  useEffect(() => {
+    const cursorKey = cursor ? `${cursor.kind}:${cursor.date}:${cursor.id}` : null
+    if (!shouldLoadAll || !cursor || inFlightCursor.current === cursorKey) return
+    inFlightCursor.current = cursorKey
+    const loadRemaining = async () => {
+      try {
+        const next = await getCajasMovementsPage(cursor)
+        setMovements((current) => [...current, ...next.movements])
+        setCursor(next.nextCursor)
+        setLoadError(null)
+      } catch (error) {
+        console.error('[Cajas] No se pudieron cargar los movimientos para el filtro', error)
+        setLoadError('No pudimos cargar todos los movimientos para aplicar este filtro.')
+      } finally {
+        inFlightCursor.current = null
+      }
+    }
+    void loadRemaining()
+  }, [shouldLoadAll, cursor])
   const [highlight, setHighlight] = useState(true)
   useEffect(() => {
     if (!targetRowId) return
@@ -760,8 +809,8 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
     return () => clearTimeout(t)
   }, [targetRowId])
 
-  const paginated = useMemo(() => filtered.slice(0, Math.max(page, minPage) * PAGE_SIZE), [filtered, page, minPage])
-  const hasMore = paginated.length < filtered.length
+  const paginated = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
+  const hasMoreVisible = paginated.length < filtered.length
 
   const originOptions: { key: OriginKey; label: string; active: string; idle: string }[] = [
     {
@@ -773,15 +822,15 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
     {
       key: 'virtual',
       label: 'Virtual',
-      active: 'border-[#2D6A4F] bg-[#2D6A4F] text-white',
-      idle: 'border-[#E5E7EB] bg-[#F9FAFB] text-[#2D6A4F] dark:border-[#2A2F36] dark:bg-[#161A20] dark:text-[#98D4AD]',
+      active: 'border-[#235347] bg-[#235347] text-white',
+      idle: 'border-[#DAF1DE] bg-[#F9FAFB] text-[#235347] dark:border-[#163832] dark:bg-[#0B2B26] dark:text-[#8EB698]',
     },
     {
       key: 'credito',
       label: 'Créditos',
       // Créditos (te deben): índigo
-      active: 'border-[#2D6A4F] bg-[#2D6A4F] text-white',
-      idle: 'border-[#E3F1E8] bg-[#F3F7F4] text-[#2D6A4F] dark:border-[#1B4332] dark:bg-[#0E2418] dark:text-[#8FBFA5]',
+      active: 'border-[#235347] bg-[#235347] text-white',
+      idle: 'border-[#DAF1DE] bg-[#DAF1DE] text-[#235347] dark:border-[#163832] dark:bg-[#0B2B26] dark:text-[#8EB698]',
     },
     {
       key: 'deuda',
@@ -796,7 +845,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
     <div ref={panelRef} className="scroll-mt-4 overflow-hidden rounded-2xl bg-white dark:border dark:border-white/10 dark:bg-[var(--ds-ink)]">
       <div className="border-b border-[var(--ds-sand-warm)] bg-[#FAFBFC] px-5 pb-4 pt-5 dark:border-white/10 dark:bg-[#171717]">
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military dark:bg-[#162019] dark:text-[#9AC7A8]">
+          <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military dark:bg-[#0B2B26] dark:text-[#8EB698]">
             <MovementIcon />
           </div>
           <h3 className="text-base font-semibold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">Movimientos</h3>
@@ -808,8 +857,14 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
           />
         )}
 
+        {loadError && (
+          <p role="alert" className="border-t border-red-200 bg-red-50 px-5 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+            {loadError}
+          </p>
+        )}
+
         {filtered.length > 0 && (
-            <span className="ml-auto text-[11px] font-semibold text-gray-400">{filtered.length} registros</span>
+            <span className="ml-auto text-[11px] font-semibold text-gray-400">{filtered.length}{cursor ? '+' : ''} registros cargados</span>
           )}
         </div>
 
@@ -876,7 +931,9 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
       <div>
         {paginated.length === 0 ? (
           <div className="px-5 py-12 text-center">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No hay movimientos que coincidan.</p>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              {shouldLoadAll && cursor ? 'Buscando en el historial completo…' : 'No hay movimientos que coincidan.'}
+            </p>
           </div>
         ) : (
           <>
@@ -902,7 +959,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                   onClick={() => setDetalle(mov)}
                   aria-label={`Ver movimiento: ${mov.isTransfer ? 'Cambio de caja' : mov.category?.name ?? getSubTypeLabel(mov.subType)}, ${fmtMoney(mov.amount, mov.currency)}, ${fmtDate(mov.date)}`}
                   className={`flex min-h-[88px] w-full items-center justify-between gap-3 rounded-xl border-0 border-l-4 bg-white px-3 py-3 text-left transition-colors active:bg-black/[0.025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ds-blue)] dark:border dark:border-white/10 dark:border-l-4 dark:bg-[#16181b] dark:active:bg-white/[0.04] ${
-                    mov.isTransfer ? 'border-l-[#71717A]' : isIncome ? 'border-l-[#2D6A4F]' : 'border-l-[#B42318]'
+                    mov.isTransfer ? 'border-l-[#71717A]' : isIncome ? 'border-l-[#235347]' : 'border-l-[#B42318]'
                   } ${highlight && mov.id === targetRowId ? 'bg-[#FEF3F2] dark:bg-[#1E2A1E]' : ''}`}
                 >
                   <span className="min-w-0 flex-1">
@@ -917,7 +974,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                   <span className="max-w-[42%] shrink-0 text-right [overflow-wrap:anywhere]">
                     <span className={`block text-[clamp(11px,3.2vw,14px)] font-bold tabular-nums ${
                       mov.isTransfer ? 'text-gray-600 dark:text-gray-300'
-                        : isIncome ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#B42318] dark:text-[#F97066]'
+                        : isIncome ? 'text-[#235347] dark:text-[#8EB698]' : 'text-[#B42318] dark:text-[#F97066]'
                     }`}>
                       {isIncome ? '+' : '−'}{fmtMoney(mov.amount, mov.currency)}
                     </span>
@@ -957,7 +1014,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                       onClick={() => setDetalle(mov)}
                       title="Ver detalle"
                       className={`cursor-pointer transition-colors duration-700 hover:bg-[#FAFBFA] dark:border-b dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
-                        mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[#1B4332]' : 'border-l-[#B42318]'
+                        mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[#163832]' : 'border-l-[#B42318]'
                       } ${highlight && mov.id === targetRowId ? 'bg-[#FEF3F2] dark:bg-[#1E2A1E]' : ''}`}
                     >
                       <td className="px-5 py-3 align-middle whitespace-nowrap">
@@ -998,7 +1055,7 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
                       <td className="px-5 py-3 text-right align-middle whitespace-nowrap">
                         <span className={`text-sm font-mono font-bold num-tabular ${
                           mov.isTransfer ? 'text-gray-600 dark:text-gray-300'
-                            : isIncome ? 'text-[#2D6A4F] dark:text-[#8FD0A7]' : 'text-[#B42318] dark:text-[#F97066]'
+                            : isIncome ? 'text-[#235347] dark:text-[#8EB698]' : 'text-[#B42318] dark:text-[#F97066]'
                         }`}>
                           {isIncome ? '+' : '−'}{fmtMoney(mov.amount, mov.currency)}
                         </span>
@@ -1015,17 +1072,21 @@ function MovementsPanel({ movements }: { movements: CajasMovementItem[] }) {
         {filtered.length > 0 && (
           <div className="border-t border-[var(--ds-sand-warm)] px-5 py-4 flex items-center justify-between dark:border-white/10">
             <p className="text-[11px] text-gray-400">
-              {Math.min(paginated.length, filtered.length)} de {filtered.length} movimientos
+              {paginated.length} de {filtered.length}{cursor ? '+' : ''} movimientos cargados
             </p>
-            {hasMore && (
+              {(hasMoreVisible || cursor) && (
               <button
                 type="button"
-                onClick={() => setPage(p => p + 1)}
-                className="min-h-11 border border-[var(--ds-neutral-200)] bg-white px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-600 transition hover:border-brand-military hover:text-brand-military focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-300"
-              >
-                Ver más ({filtered.length - paginated.length} restantes)
-              </button>
-            )}
+                  disabled={loadingMore || shouldLoadAll}
+                  onClick={() => {
+                    if (hasMoreVisible) setPage((current) => current + 1)
+                    else void loadNextPage()
+                  }}
+                  className="min-h-11 border border-[var(--ds-neutral-200)] bg-white px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-600 transition hover:border-brand-military hover:text-brand-military focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-300"
+                >
+                  {loadingMore ? 'Cargando…' : hasMoreVisible ? `Ver más (${filtered.length - paginated.length} cargados)` : 'Cargar más movimientos'}
+                </button>
+              )}
           </div>
         )}
       </div>
@@ -1058,8 +1119,8 @@ function CajaGroupColumn({
     ? {
         // Virtual: marrón cuero
         selectorWrap: 'border-[#E5E7EB] bg-[#F9FAFB] dark:border-[#2A2F36] dark:bg-[#1F1514]',
-        selectorActive: 'bg-[#2D6A4F] text-white shadow-sm dark:bg-[#1B4332] dark:text-white',
-        selectorIdle: 'text-[#2D6A4F] hover:text-[#1B4332] dark:text-[#98D4AD] dark:hover:text-[#C6F0D8]',
+        selectorActive: 'bg-[#235347] text-white shadow-sm dark:bg-[#163832] dark:text-white',
+        selectorIdle: 'text-[#235347] hover:text-[#163832] dark:text-[#8EB698] dark:hover:text-[#DAF1DE]',
       }
     : {
         // Efectivo: azul pizarra (no se confunde con ingresos, egresos ni ganancias)
@@ -1071,7 +1132,7 @@ function CajaGroupColumn({
   const filtrarPor = (nombre: string) => window.dispatchEvent(new CustomEvent(EVENTO_FILTRAR_CAJA, { detail: nombre }))
 
   return (
-    <div className="flex h-full flex-col ds-panel p-5">
+    <div className="flex h-full flex-col ds-panel p-6 sm:p-7">
       {/* Título suave y saldo grande (estilo iOS) */}
       <h2 className="text-[13px] font-medium text-[var(--ds-gray-500)]">{label}</h2>
       <p className={`mt-1 text-[36px] font-semibold leading-tight tracking-tight tabular-nums ${
@@ -1132,6 +1193,8 @@ function CajaGroupColumn({
 interface CajasClientProps {
   data: CajasData
   movements: CajasMovementItem[]
+  movementCursor: CajasMovementCursor | null
+  chartMovements: CajasMovementItem[]
   cashFlow: CashFlowByCurrency
   period: ChartPeriod
   customFrom?: string
@@ -1145,6 +1208,8 @@ interface CajasClientProps {
 export default function CajasClient({
   data,
   movements,
+  movementCursor,
+  chartMovements,
   cashFlow,
   period,
   customFrom,
@@ -1161,7 +1226,7 @@ export default function CajasClient({
         <CajaGroupColumn label="Virtual" group={data.virtual} variant="gold" />
         <HistorialCard
           cashFlow={cashFlow}
-          movements={movements}
+          movements={chartMovements}
           period={period}
           customFrom={customFrom}
           customTo={customTo}
@@ -1171,7 +1236,7 @@ export default function CajasClient({
           selectedWeekStart={selectedWeekStart}
         />
       </div>
-      <MovementsPanel movements={movements} />
+      <MovementsPanel movements={movements} initialCursor={movementCursor} />
     </div>
   )
 }

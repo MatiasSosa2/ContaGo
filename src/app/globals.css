@@ -4,31 +4,31 @@
 @variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  --background: #F7F8F9;
-  --foreground: #111827;
-  --bg: #F7F8F9;
+  --background: #DAF1DE;
+  --foreground: #051F20;
+  --bg: #DAF1DE;
   --card: #FFFFFF;
   --border: #E5E7EB;
   --text-primary: #111827;
   --text-secondary: #6B7280;
-  --success: #15803D;
+  --success: #235347;
   --danger: #B91C1C;
   --neutral: #374151;
-  --sidebar: #1F3D2B;
-  --sidebar-hover: #2A4D38;
+  --sidebar: #051F20;
+  --sidebar-hover: #0B2B26;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 8px 24px rgba(0,0,0,0.06);
   --radius: 14px;
   
   /* Brand Colors — Tactical Executive Warmth */
-  --color-military: #3A4D39;       /* Deep Olive Green — Authority */
-  --color-military-dark: #2A3D29;  /* Darkest olive — text on light */
-  --color-military-light: #EBF0EA; /* Ultra light olive — hover surfaces */
-  --color-military-mid: #5A7A57;   /* Mid olive — chart accent */
+  --color-military: #163832;
+  --color-military-dark: #051F20;
+  --color-military-light: #DAF1DE;
+  --color-military-mid: #235347;
   
-  --color-gold: #C5A065;           /* Matte Gold — Value & Accent */
-  --color-gold-dark: #A07842;      /* Deep gold for text */
-  --color-gold-light: #FAF6EE;     /* Warm cream for gold backgrounds */
+  --color-gold: #8EB698;
+  --color-gold-dark: #235347;
+  --color-gold-light: #DAF1DE;
 
   /* Structural palette — stepped depth hierarchy */
   --color-bone: #C8C3BB;           /* Canvas — warm stone, visible contrast vs white cards */
@@ -41,9 +41,9 @@
   --color-slate: #D4CFC7;          /* Tertiary bg — slightly lighter than bone */
 
   /* Pro palette — institutional green tones */
-  --color-forest: #1B4332;         /* Deep forest green — sidebar authority */
-  --color-emerald: #2D6A4F;        /* Vibrant emerald — profit indicators */
-   --color-emerald-light: #D8F3DC;  /* Soft emerald — positive backgrounds */
+  --color-forest: #0B2B26;
+  --color-emerald: #235347;
+  --color-emerald-light: #DAF1DE;
 }
 
 @theme inline {
@@ -112,6 +112,13 @@ input[type=number] {
   box-shadow: var(--shadow-sm);
 }
 
+.ds-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
 .executive-metric {
   background: var(--card);
   border: 1px solid var(--border);
@@ -121,13 +128,13 @@ input[type=number] {
 
 .executive-pill {
   border-radius: 9999px;
-  border: 1px solid rgba(58,77,57,0.16);
-  background: rgba(58,77,57,0.04);
+  border: 1px solid color-mix(in srgb, var(--color-military) 16%, transparent);
+  background: color-mix(in srgb, var(--color-military) 4%, transparent);
 }
 
 .executive-shell {
-  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(247,245,240,0.94));
-  border: 1px solid rgba(58,77,57,0.10);
+  background: linear-gradient(135deg, rgba(255,255,255,0.96), color-mix(in srgb, var(--color-military-light) 78%, white));
+  border: 1px solid color-mix(in srgb, var(--color-military) 10%, transparent);
   border-radius: 22px;
   box-shadow: 0 10px 30px rgba(15,23,42,0.06);
 }
@@ -143,7 +150,7 @@ input[type=number] {
   background: var(--card);
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  border-left: 3px solid #3A4D39;
+  border-left: 3px solid var(--color-military);
   box-shadow: var(--shadow-sm);
 }
 
@@ -151,12 +158,12 @@ input[type=number] {
 .accent-left-income  { border-left: 3px solid rgba(5,150,105,0.65) !important; }
 .accent-left-expense { border-left: 3px solid rgba(107,114,128,0.45) !important; }
 .accent-left-gold    { border-left: 3px solid #C5A065 !important; }
-.accent-left-military{ border-left: 3px solid #3A4D39 !important; }
+.accent-left-military{ border-left: 3px solid var(--color-military) !important; }
 
 /* Header strip para secciones dentro de tarjetas */
 .card-section-header {
-  background: #F0F4EF;
-  border-bottom: 1px solid rgba(58,77,57,0.10);
+  background: color-mix(in srgb, var(--color-military-light) 58%, white);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-military) 10%, transparent);
 }
 
 /* Tarjeta oscura (IA / insights) */
@@ -301,22 +308,21 @@ input[type=number] {
    ──────────────────────────────────────────────────────────────── */
 
 [data-theme="dark"] {
-  --foreground: #E8E8E8;
-  --background: #000000;
-  --color-bone:           #000000;
+  --foreground: #DAF1DE;
+  --background: #051F20;
+  --color-bone:           #051F20;
 
-  /* Tokens de marca — verde solo como acento */
-  --color-military:       #5A8A55;
-  --color-military-dark:  #8FC486;
-  --color-military-light: #1E2A1E;
-  --color-military-mid:   #6A9B63;
+  --color-military:       #235347;
+  --color-military-dark:  #DAF1DE;
+  --color-military-light: #0B2B26;
+  --color-military-mid:   #8EB698;
 
-  --color-gold:           #C8A96E;
-  --color-gold-dark:      #C8A96E;
-  --color-gold-light:     #231B0E;
+  --color-gold:           #8EB698;
+  --color-gold-dark:      #DAF1DE;
+  --color-gold-light:     #0B2B26;
 
-  --color-sand:           #1A1A1A;
-  --color-oxide:          #C47570;
+  --color-sand:           #163832;
+  --color-oxide:          #8EB698;
 
   --color-carbon:         #070707;
   --color-carbon-mid:     #101010;
@@ -325,17 +331,18 @@ input[type=number] {
 
 /* Body en dark */
 [data-theme="dark"] body {
-  background-color: #000000;
+  background-color: #051F20;
   background-image: none;
   color: #E8E8E8;
 }
 
 /* ── Cards y superficies blancas ── */
 [data-theme="dark"] .bg-white,
+[data-theme="dark"] .ds-panel,
 [data-theme="dark"] .executive-card,
 [data-theme="dark"] .executive-panel,
 [data-theme="dark"] .executive-metric {
-  background-color: #111315 !important;
+  background-color: #0B2B26 !important;
   outline: none !important;
   border: 1px solid rgba(255,255,255,0.05) !important;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26) !important;
@@ -646,10 +653,10 @@ input[type=number] {
 
 /* ── Registro (+): acento por tipo, hoja / ventana y confirmación ── */
 /* Registro: salvia (ingreso), terracota (egreso) y azul pizarra (transferencias/ajustes), sin flúo */
-.reg-income { --reg-accent: #4F8A6B; }
+.reg-income { --reg-accent: #235347; }
 .reg-expense { --reg-accent: #B8664F; }
 .reg-neutral { --reg-accent: #4A6F8A; }
-[data-theme="dark"] .reg-income { --reg-accent: #6FA287; }
+[data-theme="dark"] .reg-income { --reg-accent: #8EB698; }
 [data-theme="dark"] .reg-expense { --reg-accent: #D08770; }
 [data-theme="dark"] .reg-neutral { --reg-accent: #7FA3BF; }
 

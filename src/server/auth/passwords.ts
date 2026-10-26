@@ -75,6 +75,10 @@ export async function resetPasswordWithCodeFlow(input: {
       passwordChangedAt: new Date(),
       activeSessionId: null,
       activeSessionExpiresAt: null,
+      activeSessionId2: null,
+      activeSessionExpiresAt2: null,
+      activeSessionId3: null,
+      activeSessionExpiresAt3: null,
     },
   })
 

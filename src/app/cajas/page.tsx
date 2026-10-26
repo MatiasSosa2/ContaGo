@@ -1,4 +1,4 @@
-import { getAllCashTransfers, getAllTransactions, getCajasData, getCashFlowByCurrency, getLatestTransactionDate } from '@/app/actions'
+import { getCajasMovementsPage, getCashTransfers, getAllTransactions, getCajasData, getCashFlowByCurrency, getLatestTransactionDate } from '@/app/actions'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
@@ -36,16 +36,16 @@ export default async function CajasPage({
   const selectedWeekStart = sp?.weekStart
 
   const periodArgs = [periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart] as const
-  const [data, transactions, transfers, cashFlow] = await Promise.all([
+  const [data, movementPage, chartTransactions, chartTransfers, cashFlow] = await Promise.all([
     getCajasData(...periodArgs),
-    // La lista de movimientos muestra todo, desde el primero; el gráfico recorta el período solo
-    getAllTransactions(),
-    getAllCashTransfers(),
+    getCajasMovementsPage(),
+    getAllTransactions(...periodArgs),
+    getCashTransfers(...periodArgs),
     getCashFlowByCurrency(...periodArgs),
   ])
 
   // Cada cambio de caja aparece como dos movimientos: sale de una caja y entra en la otra
-  const transferLegs = transfers.flatMap((t) => {
+  const transferLegs = chartTransfers.flatMap((t) => {
     const label = `${t.fromAccount.name} → ${t.toAccount.name}`
     const base = { description: t.description ?? label, date: t.date, esCredito: false, category: null, isTransfer: true, transferLabel: label }
     return [
@@ -53,7 +53,7 @@ export default async function CajasPage({
       { ...base, id: `${t.id}-in`, type: 'INCOME', amount: t.amountTo, currency: t.toAccount.currency, account: { name: t.toAccount.name, type: t.toAccount.type } },
     ]
   })
-  const movements = [...transactions, ...transferLegs]
+  const chartMovements = [...chartTransactions, ...transferLegs]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
@@ -81,7 +81,9 @@ export default async function CajasPage({
       {/* ══ CONTENIDO PRINCIPAL — Client Component ═══════════════════════════ */}
       <CajasClient
         data={data}
-        movements={movements}
+        movements={movementPage.movements}
+        movementCursor={movementPage.nextCursor}
+        chartMovements={chartMovements}
         cashFlow={cashFlow}
         period={periodo}
         customFrom={customFrom}

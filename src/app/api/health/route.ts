@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { getSafeErrorDiagnostics } from '@/lib/error-diagnostics'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -23,8 +24,9 @@ export async function GET() {
     dbLatencyMs = Date.now() - dbStart
     dbOk = true
   } catch (err) {
-    // El detalle del error queda en logs del servidor, no en la respuesta pública.
-    console.error('[health] database check failed', err)
+    console.error('[health] database check failed', {
+      causes: getSafeErrorDiagnostics(err),
+    })
   }
 
   // Respuesta pública mínima: sin versión, entorno ni mensajes internos.
