@@ -62,3 +62,6 @@ next-env.d.ts
 # reference material (local only)
 /.ai-skills
 /.github/instructions/web-design.md
+
+# repo dumps (never commit)
+repomix-output.xml

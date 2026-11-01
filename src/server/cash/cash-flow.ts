@@ -58,7 +58,11 @@ async function getCashEffects(businessId: string, accountIds: string[], date: { 
         date,
         OR: [{ fromAccountId: { in: accountIds } }, { toAccountId: { in: accountIds } }],
       },
-      select: { fromAccountId: true, toAccountId: true, amountFrom: true, amountTo: true },
+      select: {
+        fromAccountId: true, toAccountId: true, amountFrom: true, amountTo: true,
+        fromAccount: { select: { currency: true } },
+        toAccount: { select: { currency: true } },
+      },
     }),
   ])
 
@@ -73,7 +77,9 @@ async function getCashEffects(businessId: string, accountIds: string[], date: { 
     else { egresos += tx.amount; add(tx.accountId, -tx.amount) }
   }
 
-  // Transferencias: se compensan si origen y destino están en el conjunto
+  // Transferencias: se compensan si origen y destino están en el conjunto.
+  // "cambioMoneda" es SOLO el efecto de cambios que cruzan de moneda; un cambio entre
+  // cajas de la misma moneda mueve saldo pero no es conversión (va en entradas/salidasCaja).
   let cambioMoneda = 0
   let entradasCaja = 0
   let salidasCaja = 0
@@ -82,8 +88,9 @@ async function getCashEffects(businessId: string, accountIds: string[], date: { 
     const toIn = ids.has(t.toAccountId)
     if (fromIn) add(t.fromAccountId, -t.amountFrom)
     if (toIn) add(t.toAccountId, t.amountTo)
-    if (fromIn && !toIn) { cambioMoneda -= t.amountFrom; salidasCaja += t.amountFrom }
-    if (toIn && !fromIn) { cambioMoneda += t.amountTo; entradasCaja += t.amountTo }
+    const cruzaMoneda = t.fromAccount.currency !== t.toAccount.currency
+    if (fromIn && !toIn) { salidasCaja += t.amountFrom; if (cruzaMoneda) cambioMoneda -= t.amountFrom }
+    if (toIn && !fromIn) { entradasCaja += t.amountTo; if (cruzaMoneda) cambioMoneda += t.amountTo }
   }
 
   return { byAccount, ingresos, egresos, cambioMoneda, entradasCaja, salidasCaja }
@@ -128,7 +135,10 @@ export async function getCashFlowSummary(businessId: string, from: Date, to: Dat
   const saldoActual = accounts.reduce((s, a) => s + a.currentBalance, 0)
   const efectoPosterior = Object.values(after.byAccount).reduce((s, v) => s + v, 0)
   const saldoFinal = saldoActual - efectoPosterior
-  const saldoInicial = saldoFinal - period.ingresos + period.egresos - period.cambioMoneda
+  // El saldo inicial descuenta TODOS los cambios de caja netos del conjunto (misma o
+  // distinta moneda), no solo las conversiones.
+  const netoCambiosCaja = period.entradasCaja - period.salidasCaja
+  const saldoInicial = saldoFinal - period.ingresos + period.egresos - netoCambiosCaja
 
   return {
     currency,

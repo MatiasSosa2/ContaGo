@@ -81,7 +81,7 @@ test.describe('Smoke / salud del sistema', () => {
 
     await page.goto('/auth/verify-code?email=demo%40example.com&purpose=PASSWORD_RESET')
     await expect(page).toHaveURL(/\/auth\/reset-password\?email=/)
-    await expect(page.getByLabel('Codigo')).toBeVisible()
+    await expect(page.getByLabel('Código')).toBeVisible()
     await expect(page.getByLabel('Nueva contraseña')).toBeVisible()
   })
 

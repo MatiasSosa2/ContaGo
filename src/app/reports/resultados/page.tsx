@@ -75,7 +75,7 @@ export default async function ResultadosPage({
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[var(--ds-neutral-800)] dark:text-gray-100 min-h-screen bg-[var(--ds-gray-100)] dark:bg-black">
+    <div className="section-polish mx-auto min-h-screen max-w-[1920px] bg-[var(--surface-muted)] p-4 font-sans text-[var(--text)] sm:p-6 lg:p-8">
       <AppHeader
         title="Estado de Resultados"
         showRoleBadge={false}

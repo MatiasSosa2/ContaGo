@@ -56,7 +56,7 @@ export default async function InformeCompletoPage({ searchParams }: { searchPara
   const prevLabel = previousPeriodArgs(periodo, selectedYear, selectedMonth)?.label ?? 'anterior'
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1100px] space-y-8 bg-[var(--ds-gray-100)] p-6 dark:bg-black" style={{ fontFamily: SF_FONT }}>
+    <div className="section-polish mx-auto min-h-screen max-w-[1100px] space-y-8 bg-[var(--surface-muted)] p-4 text-[var(--text)] sm:p-6" style={{ fontFamily: SF_FONT }}>
       <AutoPrint />
       <header>
         <p className="text-[13px] text-[var(--ds-gray-500)]">{sessionContext.activeBusiness.name}</p>

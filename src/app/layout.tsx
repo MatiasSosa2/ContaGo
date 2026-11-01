@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Archivo, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { getSessionContext } from "@/server/auth/get-session-context";
@@ -10,12 +10,6 @@ import { Suspense } from "react";
 
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const archivo = Archivo({
-  variable: "--font-archivo",
   subsets: ["latin"],
   display: "swap",
 });
@@ -47,7 +41,7 @@ async function AuthenticatedNavigation() {
 
   return (
     <>
-      <Sidebar businessName={sessionContext.activeBusiness.name} />
+      <Sidebar businessName={sessionContext.activeBusiness.name} role={sessionContext.activeBusiness.role} />
       <FloatingActionButton />
     </>
   );
@@ -73,7 +67,7 @@ export default function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className={`${inter.variable} ${archivo.variable} ${geistMono.variable} antialiased flex`}
+        className={`${inter.variable} ${geistMono.variable} antialiased flex`}
       >
         <Suspense fallback={null}>
           <AuthenticatedNavigation />

@@ -69,7 +69,7 @@ export default function DatePickerField({ value, onChange, disabled, className, 
           disabled={disabled}
           onClick={() => setOpen((v) => !v)}
           aria-label="Cambiar fecha"
-          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-gray-500 dark:hover:text-gray-300"
+          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium text-[var(--text-tertiary)] transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-[var(--text-tertiary)] dark:hover:text-[var(--text-tertiary)]"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -83,10 +83,10 @@ export default function DatePickerField({ value, onChange, disabled, className, 
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all hover:border-gray-300 focus:border-brand-military disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-gray-900 dark:text-gray-200"
       >
-        <span className={selected ? '' : 'text-gray-400'}>
+        <span className={selected ? '' : 'text-[var(--text-tertiary)]'}>
           {selected ? formatLabel(selected) : (placeholder ?? 'Seleccionar fecha')}
         </span>
-        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <svg className="h-4 w-4 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
         </svg>
       </button>
@@ -108,11 +108,11 @@ export default function DatePickerField({ value, onChange, disabled, className, 
             classNames={{
               caption_label: 'text-sm font-semibold text-gray-700 capitalize',
               nav_button: 'rounded-lg p-1 hover:bg-gray-100 transition-colors',
-              head_cell: 'text-[10px] font-bold uppercase tracking-wider text-gray-400 pb-1',
+              head_cell: 'text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] pb-1',
               day: 'h-8 w-8 rounded-lg text-sm font-medium hover:bg-brand-military/10 transition-colors',
               day_selected: 'bg-brand-military text-white hover:bg-brand-military-dark hover:text-white',
               day_today: 'font-bold text-brand-military',
-              day_outside: 'text-gray-300',
+              day_outside: 'text-[var(--text-tertiary)]',
             }}
           />
           <button

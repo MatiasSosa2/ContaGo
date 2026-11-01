@@ -1,17 +1,19 @@
-﻿import { getDashboardStats, getAssetSnapshotAsOf, getCashFlowKpis } from '@/app/actions'
+import { getDashboardStats, getAssetSnapshotAsOf, getCashFlowKpis } from '@/app/actions'
 import { EvolutionTabs } from '@/components/DashboardCharts'
 import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
+import { getArtCalendarParts } from '@/server/db/shared'
 import { Suspense } from 'react'
 import KpiNumber from '@/components/dashboard/KpiNumber'
 import Link from 'next/link'
 import BienesDeUsoModal from '@/components/BienesDeUsoModal'
+import { periodQueryFrom } from '@/lib/period-navigation'
 
 export const dynamic = 'force-dynamic'
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
+// -- Skeleton ------------------------------------------------------------------
 function DashboardSkeleton() {
   return (
     <>
@@ -21,8 +23,8 @@ function DashboardSkeleton() {
         ))}
       </section>
       <div className="mb-5 h-[380px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
-      <section className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[0, 1, 2, 3].map(i => (
+      <section className="mb-5 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        {[0, 1, 2, 3, 4].map(i => (
           <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
         ))}
       </section>
@@ -40,7 +42,7 @@ function DashboardSkeleton() {
   )
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// -- Helpers --------------------------------------------------------------------
 function fmt(v: number) {
   return '$' + Math.round(Math.abs(v)).toLocaleString('es-AR')
 }
@@ -55,7 +57,7 @@ function variationState(value: number | null, trend: 'direct' | 'inverse' = 'dir
   const positive = value >= 0
   const favorable = trend === 'inverse' ? !positive : positive
   return {
-    label: `${positive ? '▲ +' : '▼ '}${dec1(Math.abs(value))}%`,
+    label: `${positive ? '? +' : '? '}${dec1(Math.abs(value))}%`,
     positive,
     favorable,
   }
@@ -63,15 +65,15 @@ function variationState(value: number | null, trend: 'direct' | 'inverse' = 'dir
 
 /** Pastilla iOS: fondo suave verde (favorable), rojo (desfavorable) o gris (sin comparación) */
 function variationClass(state: ReturnType<typeof variationState>) {
-  if (state.favorable === null) return 'bg-black/[0.04] text-gray-400 dark:bg-white/[0.06] dark:text-gray-500'
+  if (state.favorable === null) return 'bg-black/[0.04] text-[var(--text-tertiary)] dark:bg-white/[0.06] dark:text-[var(--text-tertiary)]'
   return state.favorable
     ? 'bg-[var(--ds-green)]/[0.12] text-[var(--ds-green-strong)] dark:bg-[var(--ds-green-dark)]/[0.16] dark:text-[var(--ds-green-dark)]'
     : 'bg-[var(--ds-red)]/[0.10] text-[var(--ds-red-strong)] dark:bg-[var(--ds-red-dark)]/[0.16] dark:text-[var(--ds-coral)]'
 }
 
-// ── Async content component ────────────────────────────────────────────────────
+// -- Async content component ----------------------------------------------------
 async function DashboardContent({
-  periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart,
+  periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart, periodQuery,
 }: {
   periodo: PeriodKey
   customFrom?: string
@@ -80,14 +82,16 @@ async function DashboardContent({
   selectedMonth?: number
   selectedDay?: string
   selectedWeekStart?: string
+  periodQuery: string
 }) {
+  const sectionHref = (path: string) => `${path}${periodQuery ? `?${periodQuery}` : ''}`
   const [stats, snapshot, cashFlow] = await Promise.all([
     getDashboardStats(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getAssetSnapshotAsOf(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
     getCashFlowKpis(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])
 
-  const { chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown } = stats
+  const { chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown, debtStatus } = stats
   // Ingresos, egresos y variación neta = Estado de flujo de efectivo (pesos), igual que Informes:
   // la variación incluye el cambio de moneda. Rentabilidad y ROA salen de la ganancia neta del
   // Estado de resultados (no de la caja).
@@ -115,10 +119,17 @@ async function DashboardContent({
   const expenseV = variationState(expenseGrowth, 'inverse')
   const gainV = variationState(gainGrowth)
 
-  const { totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod, prev } = snapshot
+  const { totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod, prev, fxRate, fxSource } = snapshot
   // Caja = saldo real de las cajas en pesos al cierre del período (igual que la pestaña Cajas)
   const cajaTotal = cashFlow.current.saldoFinal
   const cajaUsd = cashFlow.usdSaldoFinal
+
+  // Disponible para usar = caja al cierre del período menos las deudas urgentes
+  // (vencidas + las que vencen en las próximas 48 hs). Las deudas futuras se informan aparte.
+  const deudasUrgentes = debtStatus.vencidos.total + debtStatus.en48hs.total
+  const deudasFuturas = debtStatus.futuros.total
+  const disponible = cajaTotal - deudasUrgentes
+  const disponibleOk = disponible >= 0
 
   // Total de activos al cierre del período (para ROA)
   const activosTotal = cajaTotal + totalACobrar + stockTotal + bienesTotal
@@ -136,57 +147,57 @@ async function DashboardContent({
 
   const deltaClass = (d: number | null) =>
     d === null ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-    : d >= 0 ? 'bg-[#E8F5EC] text-[#15803D] dark:bg-[#15321F] dark:text-[#86EFAC]'
-    : 'bg-[#FEF3F2] text-[#B91C1C] dark:bg-[#3A1717] dark:text-[#FCA5A5]'
-  const deltaArrow = (d: number | null) => (d === null ? '' : d >= 0 ? '▲' : '▼')
+    : d >= 0 ? 'bg-[var(--income-soft)] text-[var(--income)]'
+    : 'bg-[var(--expense-soft)] text-[var(--expense)]'
+  const deltaArrow = (d: number | null) => (d === null ? '' : d > 0 ? '↑' : d < 0 ? '↓' : '→')
 
 
   return (
     <>
-      {/* ══ SECCIÓN 1 — KPIs principales (3 columnas) ════════════════ */}
-      <section className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* -- SECCIÓN 1 — KPIs principales (3 columnas) ---------------- */}
+      <section className="premium-metrics dashboard-metrics mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
 
         {/* KPI Ingresos — verde */}
-        <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-[#D5E3D8] bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] sm:p-7 dark:border-[#1E3627] dark:bg-[var(--ds-ink)] dark:shadow-none">
+        <div className="metric-card metric-card--income flex min-h-[148px] min-w-0 flex-col gap-3 p-4 sm:p-7">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#2D6A4F] dark:text-[#8FD0A7]">Ingresos</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--income)]">Ingresos</span>
             <span title={incomeV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(incomeV)}`}>{incomeV.label}</span>
           </div>
-          <p className="mt-3 break-all font-mono text-[clamp(22px,7vw,34px)] font-bold leading-tight tracking-[-0.03em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] num-tabular">
+          <p className="metric-value mt-3 w-full text-[clamp(20px,2.2vw,34px)] font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
             <KpiNumber id="ingresos" value={kpis.income} />
           </p>
         </div>
 
         {/* KPI Egresos — rojo */}
-        <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-[#FEE4E2] bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] sm:p-7 dark:border-[#2E1919] dark:bg-[var(--ds-ink)] dark:shadow-none">
+        <div className="metric-card metric-card--expense flex min-h-[148px] min-w-0 flex-col gap-3 p-4 sm:p-7">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#B91C1C] dark:text-[#F87171]">Egresos</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--expense)]">Egresos</span>
             <span title={expenseV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(expenseV)}`}>{expenseV.label}</span>
           </div>
-          <p className="mt-3 break-all font-mono text-[clamp(22px,7vw,34px)] font-bold leading-tight tracking-[-0.03em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)] num-tabular">
+          <p className="metric-value mt-3 w-full text-[clamp(20px,2.2vw,34px)] font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
             <KpiNumber id="egresos" value={kpis.expense} />
           </p>
         </div>
 
-        {/* KPI Variación neta de caja (entró − salió ± cambio de moneda) — celeste */}
-        <div className={`flex min-w-0 flex-col gap-3 rounded-2xl border p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] sm:p-7 dark:shadow-none ${
-          gainIsPositive ? 'border-[#C6F0D8] bg-white dark:border-[#15321F] dark:bg-[var(--ds-ink)]' : 'border-[#FEE4E2] bg-white dark:border-[#2E1919] dark:bg-[var(--ds-ink)]'
+        {/* KPI Variación neta de caja (entró - salió ± cambio de moneda) — celeste */}
+        <div className={`metric-card flex min-h-[148px] min-w-0 flex-col gap-3 p-4 sm:p-7 ${gainIsPositive ? 'metric-card--income' : 'metric-card--expense'} ${
+          gainIsPositive ? 'border-[var(--income)]/30 bg-white dark:bg-[var(--ds-ink)]' : 'border-[var(--expense)]/30 bg-white dark:bg-[var(--ds-ink)]'
         }`}>
           <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${gainIsPositive ? 'text-[#1B4332] dark:text-[#5B9A78]' : 'text-[#B91C1C] dark:text-[#F87171]'}`}>
+            <span className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${gainIsPositive ? 'text-[var(--income)]' : 'text-[var(--expense)]'}`}>
               Variación neta
             </span>
             <span title={gainV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(gainV)}`}>{gainV.label}</span>
           </div>
-          <p className={`mt-3 break-all font-mono text-[clamp(22px,7vw,34px)] font-bold leading-tight tracking-[-0.03em] num-tabular ${
-            gainIsPositive ? 'text-[#1B4332] dark:text-[#5B9A78]' : 'text-[#B91C1C] dark:text-[#F87171]'
+          <p className={`metric-value mt-3 w-full text-[clamp(20px,2.2vw,34px)] font-bold ${
+            gainIsPositive ? 'text-[var(--income)]' : 'text-[var(--expense)]'
           }`}>
             <KpiNumber id="variacion" value={kpis.gain} conSigno />
           </p>
           {/* Mismo número que la Variación neta de Informes: aclara el cambio de moneda si lo hubo */}
           {kpis.cambioMoneda !== 0 && (
-            <p className="mt-3 text-[11px] text-gray-400">
-              Incluye cambio de moneda {kpis.cambioMoneda < 0 ? '−' : '+'}{fmt(kpis.cambioMoneda)}
+            <p className="mt-3 text-[11px] text-[var(--text-tertiary)]">
+              Incluye cambio de moneda {kpis.cambioMoneda < 0 ? '-' : '+'}{fmt(kpis.cambioMoneda)}
             </p>
           )}
         </div>
@@ -201,52 +212,83 @@ async function DashboardContent({
         </div>
       </div>
 
-      {/* ══ SECCIÓN 3 — RESUMEN OPERATIVO 2×2 ══════════════════════════════ */}
-      <section className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* -- SECCIÓN 3 — RESUMEN OPERATIVO ----------------------------------- */}
+      <section className="dashboard-summary-grid mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
 
         {/* Caja */}
         <Link
-          href="/cajas"
-          className="group flex min-h-[150px] min-w-0 flex-col rounded-2xl border-2 border-[#2D5A41]/20 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#2D5A41]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] sm:min-h-[180px] sm:p-7 dark:border-[#9AC7A8]/40 dark:hover:border-[#9AC7A8]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
+          href={sectionHref('/cajas')}
+          className="dashboard-summary-card group flex min-h-[150px] min-w-0 flex-col rounded-xl border border-[var(--brand-700)]/20 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-700)]/50 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] dark:border-[#9AC7A8]/30 dark:hover:border-[#9AC7A8]/70 dark:bg-[var(--ds-ink)] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F0F5F2] text-[#4F7A63] dark:bg-[#1F3428] dark:text-[#9AC7A8]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--income-soft)] text-[var(--income)]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Caja</span>
           </div>
-          {/* Monto centrado en el espacio que queda debajo del título */}
-          <div className="flex flex-1 flex-col justify-center">
-          <p className="break-all font-mono text-[clamp(18px,5vw,32px)] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{cajaTotal < 0 ? '−' : ''}{fmt(cajaTotal)}</p>
+          <div className="dashboard-summary-body flex flex-1 flex-col justify-center">
+          <p className="dashboard-summary-value metric-value w-full font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{cajaTotal < 0 ? '-' : ''}{fmt(cajaTotal)}</p>
           {cajaUsd !== 0 && (
-            <p className="mt-1 font-mono text-sm font-semibold num-tabular text-gray-500 dark:text-gray-400">
-              {cajaUsd < 0 ? '− ' : '+ '}US${Math.abs(cajaUsd).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+            <p className="dashboard-summary-meta mt-2 w-fit rounded-md bg-black/[0.045] px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-white/[0.07] dark:text-gray-300">
+              {cajaUsd < 0 ? '- ' : '+ '}US${Math.abs(cajaUsd).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
             </p>
           )}
           </div>
         </Link>
 
-        {/* Créditos / Deudas */}
+        {/* Disponible para usar: caja menos deudas urgentes (vencidas + 48 hs) */}
         <Link
-          href="/creditos"
-          className="group flex min-h-[150px] min-w-0 flex-col rounded-2xl border-2 border-[#B42318]/20 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#B42318]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] sm:min-h-[180px] sm:p-7 dark:border-[#B42318]/40 dark:hover:border-[#B42318]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
+          href={sectionHref('/creditos')}
+          title={`Caja ${fmt(cajaTotal)} menos compromisos urgentes ${fmt(deudasUrgentes)}${deudasFuturas > 0 ? `; futuras ${fmt(deudasFuturas)}` : ''}${fxRate !== null ? `; dólar ${fxSource === 'dolarapi' ? 'oficial' : 'registrado'} $${Math.round(fxRate).toLocaleString('es-AR')}` : ''}`}
+          className={`dashboard-summary-card group flex min-h-[150px] min-w-0 flex-col rounded-xl border bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] dark:bg-[var(--ds-ink)] dark:shadow-none ${
+            disponibleOk
+              ? 'border-[var(--income)]/25 hover:border-[var(--income)]/60'
+              : 'border-[var(--expense)]/30 hover:border-[var(--expense)]/60'
+          }`}
         >
           <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FEF3F2] text-[#F97066] dark:bg-[#1F1514] dark:text-[#B42318]">
+            <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+              disponibleOk
+                ? 'bg-[var(--income-soft)] text-[var(--income)]'
+                : 'bg-[var(--expense-soft)] text-[var(--expense)]'
+            }`}>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Disponible</span>
+          </div>
+          <div className="dashboard-summary-body flex flex-1 flex-col justify-center">
+            <p className={`dashboard-summary-value metric-value w-full font-bold ${
+              disponibleOk
+                ? 'text-[var(--income)]'
+                : 'text-[var(--expense)]'
+            }`}>{disponible < 0 ? '-' : ''}{fmt(disponible)}</p>
+            <p className="dashboard-summary-meta mt-2 text-[11px] leading-4 text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">
+              Neto de deudas urgentes
+            </p>
+          </div>
+        </Link>
+
+        {/* Créditos / Deudas */}
+        <Link
+          href={sectionHref('/creditos')}
+          className="dashboard-summary-card group flex min-h-[150px] min-w-0 flex-col rounded-xl border border-[var(--expense)]/25 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--expense)]/50 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] dark:border-[var(--expense)]/35 dark:hover:border-[var(--expense)]/70 dark:bg-[var(--ds-ink)] dark:shadow-none"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--expense-soft)] text-[var(--expense)]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Créditos / Deudas</span>
           </div>
           {/* Monto centrado en el espacio que queda debajo del título */}
-          <div className="flex flex-1 flex-col justify-center">
-          <div className="flex flex-col gap-1.5">
+          <div className="dashboard-summary-body dashboard-summary-ledger flex flex-1 flex-col justify-center">
+          <div className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-[10px] font-semibold text-ds-green-500/80 dark:text-ds-green-400">A cobrar</p>
-              <p className="max-w-[65%] break-all text-right font-mono text-[clamp(12px,3.8vw,18px)] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{fmt(totalACobrar)}</p>
+              <p className="shrink-0 text-[10px] font-medium text-[var(--text-tertiary)]">A cobrar</p>
+              <p className="dashboard-summary-value min-w-0 flex-1 text-right font-semibold text-[var(--income)]">{fmt(totalACobrar)}</p>
             </div>
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-[10px] font-semibold text-ds-red-600/80 dark:text-ds-red-300">A pagar</p>
-              <p className="max-w-[65%] break-all text-right font-mono text-[clamp(12px,3.8vw,18px)] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{fmt(totalAPagar)}</p>
+            <div className="flex items-baseline justify-between gap-2 border-t border-black/[0.07] pt-2 dark:border-white/[0.1]">
+              <p className="shrink-0 text-[10px] font-medium text-[var(--text-tertiary)]">A pagar</p>
+              <p className="dashboard-summary-value min-w-0 flex-1 text-right font-semibold text-[var(--expense)]">{fmt(totalAPagar)}</p>
             </div>
           </div>
           </div>
@@ -254,18 +296,18 @@ async function DashboardContent({
 
         {/* Stock */}
         <Link
-          href="/stock"
-          className="group flex flex-col rounded-2xl border-2 border-[var(--ds-violet)]/20 bg-[var(--ds-white)] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[var(--ds-violet)]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[var(--ds-violet-light)]/40 dark:hover:border-[var(--ds-violet-light)]/80 dark:bg-[var(--ds-ink)] dark:shadow-none"
+          href={sectionHref('/stock')}
+          className="dashboard-summary-card dashboard-summary-stock group flex min-h-[150px] min-w-0 flex-col rounded-xl border border-[var(--brand-700)]/20 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-700)]/50 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] dark:border-[var(--brand-300)]/30 dark:hover:border-[var(--brand-300)]/70 dark:bg-[var(--ds-ink)] dark:shadow-none"
         >
           <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F5FAF7] text-[#5B9A78] dark:bg-[#14301F] dark:text-[var(--ds-violet-light)]">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--brand-100)] text-[var(--brand-700)] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             </span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Stock</span>
           </div>
           {/* Monto centrado en el espacio que queda debajo del título */}
-          <div className="flex flex-1 flex-col justify-center">
-          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{fmt(stockTotal)}</p>
+          <div className="dashboard-summary-body flex flex-1 flex-col justify-center">
+          <p className="dashboard-summary-value metric-value w-full font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{fmt(stockTotal)}</p>
           </div>
         </Link>
 
@@ -273,81 +315,81 @@ async function DashboardContent({
         <BienesDeUsoModal bienesTotal={bienesTotal} />
       </section>
 
-      {/* ══ SECCIÓN 4 — INDICADORES CLAVE ══════════════════════════════════ */}
-      <section className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {/* -- SECCIÓN 4 — INDICADORES CLAVE ---------------------------------- */}
+      <section className="dashboard-ratios mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
 
         {/* Rentabilidad */}
-        <div className="flex flex-col overflow-hidden ds-panel">
+        <div className="dashboard-ratio-card flex min-w-0 flex-col overflow-hidden ds-panel">
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E8F5EC] text-[#1B4332] dark:bg-[#14301F] dark:text-[#5B9A78]">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--income-soft)] text-[var(--income)]">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.281m5.94 2.28l-2.28 5.941" /></svg>
                 </span>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Rentabilidad</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(rentDelta)}`}>
                 <span>{deltaArrow(rentDelta)} {rentDelta === null ? '—' : `${rentDelta >= 0 ? '+' : ''}${dec1(rentDelta)} pp`}</span>
-                <span className="text-[9px] font-medium opacity-80">vs anterior</span>
+                <span className="text-[11px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
-            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#1B4332] dark:text-[#5B9A78]">
+            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[var(--income)]">
               {kpis.hasSales ? `${dec1(kpis.marginPct)}%` : '—'}
             </p>
-            <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">Ganancia neta / Ingresos</p>
+            <p className="mt-2 text-[11px] text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">Ganancia neta / Ingresos</p>
           </div>
-          <div className="h-1.5 bg-[#E8F5EC] dark:bg-[#14301F]">
-            <div className="h-full bg-gradient-to-r from-[#1B4332] to-[#5B9A78]" style={{ width: `${Math.min(100, Math.max(0, kpis.marginPct))}%` }} />
+          <div className="h-1.5 bg-[var(--income-soft)]">
+            <div className="h-full bg-[var(--income)]" style={{ width: `${Math.min(100, Math.max(0, kpis.marginPct))}%` }} />
           </div>
         </div>
 
         {/* ROA — Rentabilidad sobre Activos */}
-        <div className="flex flex-col overflow-hidden ds-panel">
+        <div className="dashboard-ratio-card flex min-w-0 flex-col overflow-hidden ds-panel">
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#D7F3DF] text-[#2D6A4F] dark:bg-[#0C2E2A] dark:text-[#9AC7A8]">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--income-soft)] text-[var(--income)]">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </span>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">ROA</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(roaDelta)}`}>
                 <span>{deltaArrow(roaDelta)} {roaDelta === null ? '—' : `${roaDelta >= 0 ? '+' : ''}${dec1(roaDelta)} pp`}</span>
-                <span className="text-[9px] font-medium opacity-80">vs anterior</span>
+                <span className="text-[11px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
-            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[#2D6A4F] dark:text-[#9AC7A8]">
+            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[var(--income)]">
               {activosTotal > 0 ? `${dec1(roaPct)}%` : '—'}
             </p>
-            <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">Ganancia neta / Activos</p>
+            <p className="mt-2 text-[11px] text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">Ganancia neta / Activos</p>
           </div>
-          <div className="h-1.5 bg-[#D7F3DF] dark:bg-[#0C2E2A]">
-            <div className="h-full bg-gradient-to-r from-[#2D6A4F] to-[#9AC7A8]" style={{ width: `${Math.min(100, Math.max(0, roaPct))}%` }} />
+          <div className="h-1.5 bg-[var(--income-soft)]">
+            <div className="h-full bg-[var(--income)]" style={{ width: `${Math.min(100, Math.max(0, roaPct))}%` }} />
           </div>
         </div>
 
         {/* Rotación de Inventario */}
-        <div className="flex flex-col overflow-hidden ds-panel">
+        <div className="dashboard-ratio-card flex min-w-0 flex-col overflow-hidden ds-panel">
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF6F1] text-[var(--ds-violet)] dark:bg-[#14301F] dark:text-[var(--ds-violet-light)]">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--brand-100)] text-[var(--brand-700)] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]">
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
                 </span>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Rotación de Inventario</p>
               </div>
               <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(rotDelta)}`}>
                 <span>{deltaArrow(rotDelta)} {rotDelta === null ? '—' : `${rotDelta >= 0 ? '+' : ''}${dec1(rotDelta)}×`}</span>
-                <span className="text-[9px] font-medium opacity-80">vs anterior</span>
+                <span className="text-[11px] font-medium opacity-80">vs anterior</span>
               </span>
             </div>
             <p className="font-mono text-3xl font-bold leading-none num-tabular text-[var(--ds-violet)] dark:text-[var(--ds-violet-light)]">
               {stockTotal > 0 ? `${dec1(rotacionInventario)}×` : '—'}
             </p>
-            <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">Costo de mercadería vendida / Inventario</p>
+            <p className="mt-2 text-[11px] text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">Costo de mercadería vendida / Inventario</p>
           </div>
-          <div className="h-1.5 bg-[#EEF6F1] dark:bg-[#14301F]">
-            <div className="h-full bg-gradient-to-r from-[var(--ds-violet)] to-[var(--ds-violet-light)]" style={{ width: `${Math.min(100, (rotacionInventario / 12) * 100)}%` }} />
+          <div className="h-1.5 bg-[var(--brand-100)] dark:bg-[var(--brand-800)]">
+            <div className="h-full bg-[var(--brand-700)] dark:bg-[var(--brand-300)]" style={{ width: `${Math.min(100, (rotacionInventario / 12) * 100)}%` }} />
           </div>
         </div>
       </section>
@@ -357,7 +399,7 @@ async function DashboardContent({
   )
 }
 
-// ── Página principal ──────────────────────────────────────────────────────────
+// -- Página principal ----------------------------------------------------------
 export default async function Home({
   searchParams,
 }: {
@@ -367,9 +409,9 @@ export default async function Home({
   const periodo = (sp.periodo ?? 'mensual') as PeriodKey
   const customFrom = sp.from
   const customTo = sp.to
-  const today = new Date()
-  const currentYear = today.getFullYear()
-  const currentMonth = today.getMonth() + 1
+  const today = getArtCalendarParts()
+  const currentYear = today.year
+  const currentMonth = today.monthIndex + 1
   const selectedYear = sp.year
     ? Number.parseInt(sp.year, 10)
     : (periodo === 'mensual' || periodo === 'anual' ? currentYear : undefined)
@@ -380,10 +422,10 @@ export default async function Home({
   const selectedWeekStart = sp.weekStart
 
   return (
-    <div className="mx-auto min-h-screen max-w-[1920px] bg-[#F7F9FB] p-4 font-sans text-[var(--ds-neutral-800)] dark:bg-black dark:text-gray-100 sm:p-6 lg:p-8">
+    <div className="premium-page dashboard-polish mx-auto min-h-screen max-w-[1920px] bg-[var(--surface-muted)] p-4 font-sans text-[var(--text)] sm:p-6 lg:p-8">
 
 
-      {/* ── Header con selector de período moderno ───────────────────────────── */}
+      {/* -- Header con selector de período moderno ----------------------------- */}
       <AppHeader
         title="Balance General"
         sessionContext={sessionContext}
@@ -407,7 +449,7 @@ export default async function Home({
         }
       />
 
-      {/* ── Dashboard streaming ──────────────────────────────────────────────── */}
+      {/* -- Dashboard streaming ------------------------------------------------ */}
       <Suspense fallback={<DashboardSkeleton />}>
         <DashboardContent
           periodo={periodo}
@@ -417,6 +459,7 @@ export default async function Home({
           selectedMonth={selectedMonth}
           selectedDay={selectedDay}
           selectedWeekStart={selectedWeekStart}
+          periodQuery={periodQueryFrom(sp)}
         />
       </Suspense>
     </div>

@@ -41,7 +41,9 @@ export async function getProductos(
       cmvPeriodo: 0,
       valorInicialPeriodo: 0,
       valorCompradoPeriodo: 0,
-      valorFinalPeriodo: 0,
+      // Valorizado actual al costo efectivo (fijo si lo hay): la lista y las tarjetas
+      // usan el mismo costo que las ventas y los reportes.
+      valorFinalPeriodo: (p.stockActual ?? 0) * costoEfectivo(p),
     }))
   }
 
@@ -255,21 +257,33 @@ export async function ajustarStock(productoId: string, contado: number, motivo: 
   const entra = diferencia > 0
   const costo = costoEfectivo(producto)
   const detalle = motivo.trim().slice(0, 150)
-  await prisma.$transaction([
-    prisma.movimientoStock.create({
-      data: {
-        productoId,
-        tipo: entra ? 'ENTRADA' : 'SALIDA',
-        concepto: DIF_INVENTARIO,
-        cantidad: Math.abs(diferencia),
-        precio: costo,
-        costoUnitario: costo,
-        motivo: `${entra ? 'Sobrante' : 'Faltante'} de inventario${detalle ? `: ${detalle}` : ''}`,
-        fecha: cuando,
-      },
-    }),
-    prisma.producto.update({ where: { id: productoId }, data: { stockActual: contado } }),
-  ])
+  // Escritura atómica condicionada al stock leído: si una venta concurrente lo cambió,
+  // se rechaza en vez de pisar el valor (el movimiento y el stock nunca se desincronizan).
+  try {
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.producto.updateMany({
+        where: { id: productoId, businessId, stockActual: producto.stockActual },
+        data: { stockActual: contado },
+      })
+      if (updated.count === 0) {
+        throw new Error('El stock cambió durante el ajuste. Volvé a intentarlo.')
+      }
+      await tx.movimientoStock.create({
+        data: {
+          productoId,
+          tipo: entra ? 'ENTRADA' : 'SALIDA',
+          concepto: DIF_INVENTARIO,
+          cantidad: Math.abs(diferencia),
+          precio: costo,
+          costoUnitario: costo,
+          motivo: `${entra ? 'Sobrante' : 'Faltante'} de inventario${detalle ? `: ${detalle}` : ''}`,
+          fecha: cuando,
+        },
+      })
+    })
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'No se pudo ajustar el stock' }
+  }
   revalidateTag(`dashboard:${businessId}`, 'max')
   revalidatePath('/stock')
   return { success: true }
@@ -425,12 +439,21 @@ export async function addMovimientoStock(formData: FormData): Promise<ActionResu
   const result = await prisma.$transaction(async (tx) => {
     const producto = await tx.producto.findFirst({
       where: { id: productoId, businessId },
-      select: { id: true, nombre: true, stockActual: true, precioCosto: true },
+      select: { id: true, nombre: true, stockActual: true, precioCosto: true, costoFijo: true },
     })
     if (!producto) return { success: false as const, error: 'El producto no existe o no pertenece al negocio activo' }
     if (tipo === 'SALIDA' && cantidad > producto.stockActual) {
       return { success: false as const, error: `No hay stock suficiente de ${producto.nombre}` }
     }
+
+    // Entrada con precio: el promedio ponderado sube/baja con lo que entró (salvo que
+    // haya costo fijo, que manda). Salida: sale al costo efectivo del momento.
+    const stockPrevio = Math.max(0, producto.stockActual)
+    const promedioPrevio = producto.precioCosto ?? 0
+    const nuevoPrecioCosto =
+      tipo === 'ENTRADA' && precio > 0 && producto.costoFijo == null
+        ? (stockPrevio * promedioPrevio + cantidad * precio) / (stockPrevio + cantidad)
+        : undefined
 
     const updated = await tx.producto.updateMany({
       where: {
@@ -444,6 +467,7 @@ export async function addMovimientoStock(formData: FormData): Promise<ActionResu
           : tipo === 'SALIDA'
             ? { decrement: cantidad }
             : cantidad,
+        ...(nuevoPrecioCosto !== undefined ? { precioCosto: nuevoPrecioCosto } : {}),
       },
     })
     if (updated.count === 0) {
@@ -453,7 +477,7 @@ export async function addMovimientoStock(formData: FormData): Promise<ActionResu
     await tx.movimientoStock.create({
       data: {
         productoId, tipo, cantidad, precio, motivo: motivo || null, fecha,
-        costoUnitario: tipo === 'SALIDA' ? producto.precioCosto : null,
+        costoUnitario: tipo === 'SALIDA' ? costoEfectivo(producto) : (producto.costoFijo ?? null),
       },
     })
     return { success: true as const }

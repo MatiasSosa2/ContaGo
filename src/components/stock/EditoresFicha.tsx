@@ -37,7 +37,7 @@ function Botones({ onGuardar, pending, texto = 'Guardar', disabled = false }: {
   return (
     <button
       type="button" onClick={onGuardar} disabled={pending || disabled}
-      className="mt-5 w-full rounded-xl bg-[#007AFF] py-3 text-[16px] font-semibold text-white transition active:scale-[0.99] active:opacity-90 disabled:opacity-40 dark:bg-[#0A84FF]"
+      className="mt-5 w-full rounded-xl bg-[var(--brand-700)] py-3 text-[16px] font-semibold text-white transition active:scale-[0.99] active:opacity-90 disabled:opacity-40 dark:bg-[var(--brand-300)]"
     >
       {pending ? 'Guardando…' : texto}
     </button>
@@ -70,7 +70,7 @@ export function DiferenciaStock({ productoId, etiqueta, stockHoy, costo, unidad,
   const valido = n !== null && Number.isFinite(n) && n >= 0
   const dif = valido ? Math.round((n! - stockHoy) * 100) / 100 : 0
   const sobra = dif > 0
-  const tono = sobra ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : 'text-[#B8664F] dark:text-[#E3A592]'
+  const tono = sobra ? 'text-[var(--income)] dark:text-[var(--income)]' : 'text-[var(--expense)] dark:text-[var(--expense)]'
 
   const registrar = () => {
     if (!valido) { setError('Ingresá el stock nuevo'); return }
@@ -123,7 +123,7 @@ export function DiferenciaStock({ productoId, etiqueta, stockHoy, costo, unidad,
       <div className="flex flex-wrap gap-1.5">
         {MOTIVOS.map((m) => (
           <button key={m} type="button" onClick={() => setMotivo((prev) => (prev === m ? '' : m))} aria-pressed={motivo === m}
-            className={`rounded-full px-3 py-1 text-[13px] transition active:scale-95 ${motivo === m ? 'bg-[#007AFF] text-white dark:bg-[#0A84FF]' : 'bg-black/[0.04] text-[#3C3C43] dark:bg-white/[0.08] dark:text-[#EBEBF5]'}`}>
+            className={`rounded-full px-3 py-1 text-[13px] transition active:scale-95 ${motivo === m ? 'bg-[var(--brand-700)] text-white dark:bg-[var(--brand-300)]' : 'bg-black/[0.04] text-[#3C3C43] dark:bg-white/[0.08] dark:text-[#EBEBF5]'}`}>
             {m}
           </button>
         ))}
@@ -149,7 +149,7 @@ export function DiferenciaStock({ productoId, etiqueta, stockHoy, costo, unidad,
       </div>
 
       <p className="mt-3 text-[12px] text-[#8E8E93]">Se registra como diferencia de inventario. No mueve la caja.</p>
-      {error && <p className="mt-2 text-[12px] text-[#FF3B30]">{error}</p>}
+      {error && <p className="mt-2 text-[12px] text-[var(--expense)]">{error}</p>}
       <Botones onCancelar={onCancelar} onGuardar={registrar} pending={pending} texto="Registrar" disabled={!valido || Math.abs(dif) < 0.001} />
     </div>
   )
@@ -210,7 +210,7 @@ export function CostoUnitario({ productoId, costoHoy, promedio, fijo, precio, st
         </div>
         <div className="flex items-center justify-between px-3 py-2">
           <span className="text-[#8E8E93]">Margen con precio {fmt$(precio)}</span>
-          <span className={`tabular-nums ${margen < 0 ? 'text-[#B8664F] dark:text-[#E3A592]' : 'text-[#1C1C1E] dark:text-white'}`}>
+          <span className={`tabular-nums ${margen < 0 ? 'text-[var(--expense)] dark:text-[var(--expense)]' : 'text-[#1C1C1E] dark:text-white'}`}>
             {margen < 0 ? '−' : ''}{fmt$(Math.abs(margen))} · {margenPct.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%
           </span>
         </div>
@@ -226,11 +226,11 @@ export function CostoUnitario({ productoId, costoHoy, promedio, fijo, precio, st
         Vale desde hoy: el stock se valoriza a este costo y las próximas ventas salen con él. Lo anterior no cambia.
       </p>
       {fijo && (
-        <button type="button" onClick={() => guardar(null)} disabled={pending} className="mt-2 text-[13px] text-[#007AFF] transition-opacity active:opacity-60 disabled:opacity-40 dark:text-[#0A84FF]">
+        <button type="button" onClick={() => guardar(null)} disabled={pending} className="mt-2 text-[13px] text-[var(--brand-700)] transition-opacity active:opacity-60 disabled:opacity-40 dark:text-[var(--brand-300)]">
           Usar el costo promedio ({fmt$(promedio)})
         </button>
       )}
-      {error && <p className="mt-2 text-[12px] text-[#FF3B30]">{error}</p>}
+      {error && <p className="mt-2 text-[12px] text-[var(--expense)]">{error}</p>}
       <Botones onCancelar={onCancelar} onGuardar={() => guardar(costo)} pending={pending} texto="Fijar costo" disabled={!valido} />
     </div>
   )
@@ -269,17 +269,17 @@ export function UnidadMedida({ articuloId, productoId, unidad, stock, onCancelar
       <div className="mt-2 flex flex-wrap gap-1.5">
         {UNIDADES.map((u) => (
           <button key={u} type="button" onClick={() => setValor(u)} aria-pressed={valor === u}
-            className={`rounded-full px-2.5 py-0.5 text-[12px] transition active:scale-95 ${valor === u ? 'bg-[#007AFF] text-white dark:bg-[#0A84FF]' : 'bg-black/[0.04] text-[#3C3C43] dark:bg-white/[0.08] dark:text-[#EBEBF5]'}`}>
+            className={`rounded-full px-2.5 py-0.5 text-[12px] transition active:scale-95 ${valor === u ? 'bg-[var(--brand-700)] text-white dark:bg-[var(--brand-300)]' : 'bg-black/[0.04] text-[#3C3C43] dark:bg-white/[0.08] dark:text-[#EBEBF5]'}`}>
             {u}
           </button>
         ))}
       </div>
       {cambia && (
-        <div className="mt-3 rounded-xl bg-[#FF9F0A]/[0.12] px-3 py-2 text-[13px] text-[#C93400] dark:text-[#FFB340]">
+        <div className="mt-3 rounded-xl bg-[var(--warning)]/[0.12] px-3 py-2 text-[13px] text-[#C93400] dark:text-[var(--warning)]">
           Solo cambia el nombre: tus {fmtU(stock)} {unidadDe(unidad, stock)} pasan a ser {fmtU(stock)} {unidadDe(nueva, stock)}. El stock, el costo y el precio no se convierten.
         </div>
       )}
-      {error && <p className="mt-2 text-[12px] text-[#FF3B30]">{error}</p>}
+      {error && <p className="mt-2 text-[12px] text-[var(--expense)]">{error}</p>}
       <Botones onCancelar={onCancelar} onGuardar={guardar} pending={pending} texto="Cambiar" disabled={!cambia} />
     </div>
   )

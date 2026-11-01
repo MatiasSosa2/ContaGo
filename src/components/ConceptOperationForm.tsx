@@ -189,7 +189,7 @@ export default function ConceptOperationForm({
   return (
     <div className={`mt-5 flex flex-col ${IOS_FONT}`}>
       {error && (
-        <div className="mb-3 flex items-center justify-between rounded-xl bg-[#FF3B30]/10 px-4 py-2.5 text-[13px] text-[#D70015] dark:text-[#FF6961]">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-[var(--expense)]/10 px-4 py-2.5 text-[13px] text-[var(--expense)] dark:text-[var(--expense)]">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar aviso" className="ml-3 opacity-60">×</button>
         </div>
@@ -219,7 +219,7 @@ export default function ConceptOperationForm({
                 <button
                   type="button"
                   onClick={() => { setBienId(''); setMontoText('') }}
-                  className="flex justify-end text-[#D1D1D6] opacity-0 transition hover:text-[#B8664F] group-hover:opacity-100 focus:opacity-100 dark:text-[#48484A]"
+                  className="flex justify-end text-[#D1D1D6] opacity-0 transition hover:text-[var(--expense)] group-hover:opacity-100 focus:opacity-100 dark:text-[#48484A]"
                   aria-label="Quitar bien de uso"
                 >
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -261,7 +261,7 @@ export default function ConceptOperationForm({
                       >
                         <span className="min-w-0 flex-1 truncate text-[12px] text-[#1C1C1E] dark:text-white">{b.nombre}</span>
                         <span className="shrink-0 text-[10px] tabular-nums text-[#AEAEB2]">Libros {fmt(libros(b))}</span>
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none text-[var(--reg-accent,#4F8A6B)]" aria-hidden>+</span>
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none text-[var(--reg-accent,var(--income))]" aria-hidden>+</span>
                       </button>
                     ))}
                   </div>
@@ -272,7 +272,7 @@ export default function ConceptOperationForm({
             {/* Total (= precio de venta) */}
             <div className="flex min-h-[44px] items-center justify-between gap-3 border-t border-black/[0.08] px-3 dark:border-white/[0.1]">
               <span className="text-[14px] font-medium text-[#1C1C1E] dark:text-white">Total</span>
-              <span className="text-[17px] font-semibold tabular-nums text-[var(--reg-accent,#4F8A6B)]">{fmt(monto)}</span>
+              <span className="text-[17px] font-semibold tabular-nums text-[var(--reg-accent,var(--income))]">{fmt(monto)}</span>
             </div>
           </div>
         )
@@ -335,9 +335,9 @@ export default function ConceptOperationForm({
                           type="button"
                           onClick={() => { setSaldoContactId(on ? '' : c.contactId); setSeleccion([]); setMontoManual(false) }}
                           aria-pressed={on}
-                          className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl bg-[#fff] px-2 py-3 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition active:scale-[0.97] dark:bg-[#1C1C1E] ${on ? 'ring-2 ring-[var(--reg-accent,#4F8A6B)]' : 'ring-1 ring-black/[0.04] dark:ring-white/[0.06]'}`}
+                          className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl bg-[#fff] px-2 py-3 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition active:scale-[0.97] dark:bg-[#1C1C1E] ${on ? 'ring-2 ring-[var(--reg-accent,var(--income))]' : 'ring-1 ring-black/[0.04] dark:ring-white/[0.06]'}`}
                         >
-                          <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-semibold ${on ? 'bg-[var(--reg-accent,#4F8A6B)] text-white' : 'bg-black/[0.05] text-[#3C3C43] dark:bg-white/[0.08] dark:text-[#EBEBF5]'}`}>
+                          <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-semibold ${on ? 'bg-[var(--reg-accent,var(--income))] text-white' : 'bg-black/[0.05] text-[#3C3C43] dark:bg-white/[0.08] dark:text-[#EBEBF5]'}`}>
                             {iniciales(c.nombre)}
                           </span>
                           <span className="w-full truncate text-[12px] text-[#1C1C1E] dark:text-white">{c.nombre}</span>
@@ -368,7 +368,7 @@ export default function ConceptOperationForm({
                       aria-pressed={on}
                       className="flex min-h-[38px] w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors active:bg-black/[0.04] dark:active:bg-white/[0.06]"
                     >
-                      <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border ${on ? 'border-[var(--reg-accent,#4F8A6B)] bg-[var(--reg-accent,#4F8A6B)] text-white' : 'border-[#C7C7CC]'}`}>
+                      <span className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border ${on ? 'border-[var(--reg-accent,var(--income))] bg-[var(--reg-accent,var(--income))] text-white' : 'border-[#C7C7CC]'}`}>
                         {on && <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                       </span>
                       {(() => {
@@ -383,7 +383,7 @@ export default function ConceptOperationForm({
                             {/* Monto y, debajo, el vencimiento */}
                             <span className="shrink-0 text-right">
                               <span className="block text-[12px] tabular-nums text-[#1C1C1E] dark:text-white">{fmt(c.saldoPendiente)}</span>
-                              <span className={`block text-[10px] ${vencida ? 'text-[#B8664F] dark:text-[#E3A592]' : 'text-[#AEAEB2] dark:text-[#636366]'}`}>
+                              <span className={`block text-[10px] ${vencida ? 'text-[var(--expense)] dark:text-[var(--expense)]' : 'text-[#AEAEB2] dark:text-[#636366]'}`}>
                                 {c.fechaVencimiento ? `${vencida ? 'Venció' : 'Vence'} ${fechaCorta(c.fechaVencimiento)}` : 'Sin vencimiento'}
                               </span>
                             </span>

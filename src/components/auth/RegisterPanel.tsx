@@ -54,7 +54,7 @@ export default function RegisterPanel({
   return (
     <div className="space-y-6">
       <p className="text-sm leading-6 text-gray-500">
-        Crea tu cuenta con Google, Microsoft o email. Confirmaremos tu correo antes de iniciar y no necesitas cargar información contable ahora.
+        Creá tu cuenta con Google, Microsoft o email. Confirmaremos tu correo antes de iniciar y no necesitás cargar información contable ahora.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <button
@@ -74,7 +74,7 @@ export default function RegisterPanel({
           Registrarme con Microsoft
         </button>
       </div>
-      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-gray-300">
+      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
         <div className="h-px flex-1 bg-gray-200" />
         o con email
         <div className="h-px flex-1 bg-gray-200" />
@@ -95,7 +95,7 @@ export default function RegisterPanel({
             <option value="PRODUCTS">Productos</option>
             <option value="BOTH">Servicios y productos</option>
           </select>
-          <p className="text-xs leading-5 text-gray-400">Podrás cambiarlo más adelante.</p>
+          <p className="text-xs leading-5 text-[var(--text-tertiary)]">Podrás cambiarlo más adelante.</p>
         </div>
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-xs font-medium text-gray-500">Email</label>
@@ -109,19 +109,19 @@ export default function RegisterPanel({
               {showPassword ? 'Ocultar' : 'Mostrar'}
             </button>
           </div>
-          <p className="text-xs leading-5 text-gray-400">Usa al menos 8 caracteres. No la compartas con otras personas.</p>
+          <p className="text-xs leading-5 text-[var(--text-tertiary)]">Usa al menos 8 caracteres. No la compartas con otras personas.</p>
         </div>
 
         {error && <div className="rounded-2xl border border-ds-red-100 bg-ds-red-50 px-4 py-3 text-sm text-ds-red-600">{error}</div>}
 
         <button type="submit" disabled={isPending} className="w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
-          {isPending ? 'Preparando tu cuenta...' : 'Crear cuenta'}
+          {isPending ? 'Preparando tu cuenta…' : 'Crear cuenta'}
         </button>
       </form>
 
       <div className="text-sm text-gray-500">
         ¿Ya tienes una cuenta?{' '}
-        <Link href="/auth/login" className="font-medium text-brand-military hover:text-brand-military-dark">Iniciar sesion</Link>
+        <Link href="/auth/login" className="font-medium text-brand-military hover:text-brand-military-dark">Iniciar sesión</Link>
       </div>
     </div>
   )

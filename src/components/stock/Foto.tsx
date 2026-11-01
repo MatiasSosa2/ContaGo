@@ -41,7 +41,7 @@ export async function achicarFoto(file: File, lado = 640): Promise<string> {
 }
 
 /** Miniatura del artículo; sin foto, un ícono gris sutil */
-export default function Foto({ src, alt, className = 'h-7 w-7 rounded-[7px]', icono = 'h-3.5 w-3.5' }: {
+export default function Foto({ src, alt, className = 'h-7 w-7 rounded-lg', icono = 'h-3.5 w-3.5' }: {
   src: string | null
   alt: string
   className?: string

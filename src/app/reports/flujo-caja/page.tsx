@@ -75,7 +75,7 @@ export default async function FlujoCajaPage({
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[var(--ds-neutral-800)] dark:text-gray-100 min-h-screen bg-[var(--ds-gray-100)] dark:bg-black">
+    <div className="section-polish mx-auto min-h-screen max-w-[1920px] bg-[var(--surface-muted)] p-4 font-sans text-[var(--text)] sm:p-6 lg:p-8">
       <AppHeader
         title="Estado de Flujo de Efectivo"
         showRoleBadge={false}
@@ -113,7 +113,7 @@ export default async function FlujoCajaPage({
                   key={moneda}
                   href={monedaHref(moneda)}
                   aria-current={cashCurrency === moneda ? 'true' : undefined}
-                  className={`rounded-[7px] px-3 py-1 text-[13px] font-medium transition ${
+                  className={`rounded-lg px-3 py-1 text-[13px] font-medium transition ${
                     cashCurrency === moneda
                       ? 'bg-white text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[var(--ds-gray-600)] dark:text-white'
                       : 'text-[var(--ds-gray-700)] hover:opacity-70 dark:text-[var(--ds-gray-200)]/80'

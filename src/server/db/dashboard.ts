@@ -5,7 +5,8 @@
 
 import prisma from '@/lib/prisma'
 import { unstable_cache } from 'next/cache'
-import { CASH_ACCOUNT_TYPES } from '@/server/cash/cash-flow'
+import { CASH_ACCOUNT_TYPES, getCashBalancesAt } from '@/server/cash/cash-flow'
+import { getArsRate, toArs } from '@/server/fx/dolar'
 import { getBusinessId, type DashboardPeriodKey, computePeriodRange } from './shared'
 import { costoEfectivo } from '@/lib/stock-costos'
 
@@ -293,6 +294,7 @@ async function _fetchDashboardStats(
       where: { businessId, esCredito: true, estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] } },
       select: {
         amount: true,
+        currency: true,
         estado: true,
         fechaVencimiento: true,
         cobrosAplicados: { where: { businessId }, select: { amount: true } },
@@ -383,6 +385,9 @@ async function _fetchDashboardStats(
   }))
 
   // ── Debt status (independent of period) ──
+  // Los totales se expresan en pesos: el dólar se convierte con el oficial actual
+  // (DolarAPI; si no responde, la última cotización registrada por el negocio).
+  const fx = await getArsRate(businessId)
   const now48h = new Date(now.getTime() + 48 * 60 * 60 * 1000)
   const vencidos = creditosDeudas.filter(c =>
     c.estado === 'VENCIDO' || (c.fechaVencimiento && new Date(c.fechaVencimiento) < now && (c.estado === 'PENDIENTE' || c.estado === 'PARCIAL'))
@@ -394,7 +399,11 @@ async function _fetchDashboardStats(
     (c.estado === 'PENDIENTE' || c.estado === 'PARCIAL') && (!c.fechaVencimiento || new Date(c.fechaVencimiento) > now48h)
   )
   const saldoDeuda = (credit: (typeof creditosDeudas)[number]) =>
-    Math.max(0, credit.amount - credit.cobrosAplicados.reduce((sum, payment) => sum + payment.amount, 0))
+    toArs(
+      Math.max(0, credit.amount - credit.cobrosAplicados.reduce((sum, payment) => sum + payment.amount, 0)),
+      credit.currency,
+      fx?.rate ?? null,
+    )
   const debtStatus = {
     vencidos: { count: vencidos.length, total: vencidos.reduce((s, c) => s + saldoDeuda(c), 0) },
     en48hs: { count: en48hs.length, total: en48hs.reduce((s, c) => s + saldoDeuda(c), 0) },
@@ -431,6 +440,9 @@ export interface AssetSnapshot {
   stockTotal: number
   bienesTotal: number
   cmvPeriod: number
+  /** Cotización usada para convertir dólares a pesos en este snapshot (null si no hubo USD) */
+  fxRate: number | null
+  fxSource: 'dolarapi' | 'registrada' | null
   prev: {
     cajaTotal: number
     totalACobrar: number
@@ -451,27 +463,56 @@ export async function getAssetSnapshotAsOf(
   selectedWeekStart?: string,
 ): Promise<AssetSnapshot> {
   const businessId = await getBusinessId()
+  const cacheKey = `asset-snapshot:${businessId}:${period}:${customFrom ?? ''}:${customTo ?? ''}:${selectedYear ?? ''}:${selectedMonth ?? ''}:${selectedDay ?? ''}:${selectedWeekStart ?? ''}`
+  const cached = unstable_cache(
+    () => _getAssetSnapshotAsOf(businessId, period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
+    [cacheKey],
+    { revalidate: 15, tags: [`dashboard:${businessId}`] },
+  )
+  return cached()
+}
+
+async function _getAssetSnapshotAsOf(
+  businessId: string,
+  period: DashboardPeriodKey,
+  customFrom?: string,
+  customTo?: string,
+  selectedYear?: number,
+  selectedMonth?: number,
+  selectedDay?: string,
+  selectedWeekStart?: string,
+): Promise<AssetSnapshot> {
   const { from: periodStart, to: periodEnd, prevFrom, prevTo } = computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
 
   // Helper interno: computa un snapshot para (start, end) con queries en paralelo
   async function computeSnapshot(start: Date, end: Date) {
-    const [txAggregates, creditosAbiertos, productos, bienesAggregate, salidasPeriodo] = await Promise.all([
-      prisma.transaction.groupBy({
-        by: ['type'],
-        where: { businessId, date: { lte: end } },
-        _sum: { amount: true },
+    // Cotización del corte: períodos pasados usan la última tasa registrada hasta esa
+    // fecha; el corte actual usa el oficial (DolarAPI). Nunca se suman monedas sin convertir.
+    const esCorteHistorico = end.getTime() < Date.now() - 12 * 60 * 60 * 1000
+    const fx = await getArsRate(businessId, esCorteHistorico ? end : undefined)
+
+    const [cashAccounts, creditosAbiertos, productos, bienes, bienesVendidos, salidasPeriodo] = await Promise.all([
+      prisma.account.findMany({
+        where: { businessId, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] } },
+        select: { id: true, currency: true },
       }),
       prisma.transaction.findMany({
         where: { businessId, esCredito: true, date: { lte: end } },
-        select: { id: true, amount: true, type: true },
+        select: { id: true, amount: true, type: true, currency: true },
       }),
+      // Sin filtro por activo: un producto archivado hoy igual tenía stock al corte
       prisma.producto.findMany({
-        where: { businessId, activo: true, tipo: 'MERCADERIA' },
+        where: { businessId, tipo: 'MERCADERIA' },
         select: { id: true, stockActual: true, precioCosto: true, costoFijo: true },
       }),
-      prisma.bienDeUso.aggregate({
-        where: { businessId, activo: true, fechaAdquisicion: { lte: end } },
-        _sum: { valorAdquisicion: true },
+      // Bienes comprados hasta el corte; los vendidos antes del corte se excluyen abajo
+      prisma.bienDeUso.findMany({
+        where: { businessId, fechaAdquisicion: { lte: end } },
+        select: { id: true, valorAdquisicion: true, depreciacionAcumulada: true },
+      }),
+      prisma.transaction.findMany({
+        where: { businessId, subType: 'SALE_BIEN_USO', date: { lte: end }, bienDeUsoId: { not: null } },
+        select: { bienDeUsoId: true },
       }),
       prisma.movimientoStock.findMany({
         where: {
@@ -485,12 +526,18 @@ export async function getAssetSnapshotAsOf(
       }),
     ])
 
+    // Caja al cierre = saldos reales de las cuentas de dinero (con saldo de apertura,
+    // sin créditos no cobrados), cada moneda convertida a pesos con la tasa del corte
+    const saldosCaja = await getCashBalancesAt(businessId, end)
     let cajaTotal = 0
-    for (const row of txAggregates) {
-      const sum = row._sum.amount ?? 0
-      if (row.type === 'INCOME') cajaTotal += sum
-      else if (row.type === 'EXPENSE') cajaTotal -= sum
+    for (const acc of cashAccounts) {
+      cajaTotal += toArs(saldosCaja[acc.id] ?? 0, acc.currency, fx?.rate ?? null)
     }
+
+    const bienesVendidosAntes = new Set(bienesVendidos.map((v) => v.bienDeUsoId))
+    const bienesAggregateTotal = bienes
+      .filter((b) => !bienesVendidosAntes.has(b.id))
+      .reduce((s, b) => s + Math.max(0, b.valorAdquisicion - b.depreciacionAcumulada), 0)
 
     const creditoIds = creditosAbiertos.map(c => c.id)
     const productoIds = productos.map(p => p.id)
@@ -518,7 +565,7 @@ export async function getAssetSnapshotAsOf(
     let totalAPagar = 0
     for (const c of creditosAbiertos) {
       const aplicado = aplicadoPorCredito.get(c.id) ?? 0
-      const pendiente = Math.max(0, c.amount - aplicado)
+      const pendiente = toArs(Math.max(0, c.amount - aplicado), c.currency, fx?.rate ?? null)
       if (c.type === 'INCOME') totalACobrar += pendiente
       else if (c.type === 'EXPENSE') totalAPagar += pendiente
     }
@@ -534,11 +581,14 @@ export async function getAssetSnapshotAsOf(
       stockTotal += stockAt * costoEfectivo(p)
     }
 
-    const bienesTotal = bienesAggregate._sum.valorAdquisicion ?? 0
+    const bienesTotal = bienesAggregateTotal
     // Costo de lo vendido (al costo de cada venta; salidas viejas sin costo: el precio)
     const cmvPeriod = salidasPeriodo.reduce((acc, m) => acc + m.cantidad * (m.costoUnitario ?? m.precio), 0)
 
-    return { cajaTotal, totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod }
+    return {
+      cajaTotal, totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod,
+      fxRate: fx?.rate ?? null, fxSource: fx?.source ?? null,
+    }
   }
 
   const [current, prev] = await Promise.all([
@@ -546,7 +596,17 @@ export async function getAssetSnapshotAsOf(
     computeSnapshot(prevFrom, prevTo),
   ])
 
-  return { ...current, prev }
+  return {
+    ...current,
+    prev: {
+      cajaTotal: prev.cajaTotal,
+      totalACobrar: prev.totalACobrar,
+      totalAPagar: prev.totalAPagar,
+      stockTotal: prev.stockTotal,
+      bienesTotal: prev.bienesTotal,
+      cmvPeriod: prev.cmvPeriod,
+    },
+  }
 }
 
 

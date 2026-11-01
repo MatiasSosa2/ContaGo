@@ -13,7 +13,7 @@ import { SubtleDelta } from './modern'
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
-const IOS_COLORS = { green: '#34C759', blue: '#0A84FF', red: '#FF3B30', cyan: '#32ADE6', neta: '#0E7C9E' }
+const IOS_COLORS = { green: 'var(--income)', blue: 'var(--brand-700)', red: 'var(--expense)', cyan: 'var(--brand-300)', neta: 'var(--brand-700)' }
 
 /** Escala de rojos según el peso: el más grande rojo oscuro, el más chico rojo clarito */
 function rojoSegunPeso(i: number, n: number) {
@@ -43,7 +43,7 @@ function fmtShort(value: number, currency = 'ARS') {
 }
 
 
-function ChartCard({ title, subtitle, legend, children, modern = false, fluid = false, alto }: {
+function ChartCard({ title, subtitle, legend, children, modern = false, fluid = false, alto, className = '' }: {
   /** Alto mínimo de la tarjeta (px) */
   alto?: number
   title: string
@@ -51,14 +51,15 @@ function ChartCard({ title, subtitle, legend, children, modern = false, fluid = 
   legend?: { label: string; color: string }[]
   children: ReactNode
   modern?: boolean
+  className?: string
   /** Contenido en flujo normal (no un gráfico que llena el alto): la tarjeta crece con él */
   fluid?: boolean
 }) {
   return (
     <div
-      className={modern
+      className={`${className} ${modern
         ? 'flex min-h-[260px] flex-1 flex-col rounded-2xl bg-white px-5 pb-4 pt-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] dark:bg-[#1C1C1E] dark:shadow-none'
-        : 'flex min-h-[280px] flex-1 flex-col border border-[#E5E7EB] bg-white p-5 dark:border-white/10 dark:bg-[#141414]'}
+        : 'flex min-h-[280px] flex-1 flex-col border border-[#E5E7EB] bg-white p-5 dark:border-white/10 dark:bg-[#141414]'}`}
       style={modern ? { fontFamily: MODERN_FONT, ...(alto ? { minHeight: alto } : {}) } : { boxShadow: '0px 2px 8px rgba(0,0,0,0.04)' }}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -108,7 +109,7 @@ function DeltaM({ actual, anterior }: { actual: number; anterior: number | null 
   if (Math.abs(d) < 1) return null
   const sube = d > 0
   return (
-    <span className={`rounded-md px-1.5 py-px text-[11px] font-medium tabular-nums ${sube ? 'bg-[#34C759]/[0.14] text-[#248A3D] dark:text-[#30D158]' : 'bg-[#FF3B30]/[0.12] text-[#C4271F] dark:text-[#FF6961]'}`}>
+    <span className={`rounded-md px-1.5 py-px text-[11px] font-medium tabular-nums ${sube ? 'bg-[var(--income)]/[0.14] text-[var(--income)] dark:text-[var(--income)]' : 'bg-[var(--expense)]/[0.12] text-[var(--expense)] dark:text-[var(--expense)]'}`}>
       {sube ? '▲' : '▼'} {(Math.abs(d) / 1_000_000).toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M
     </span>
   )
@@ -368,7 +369,7 @@ export function FlujoCharts({ series, currency, activeMonth }: { series: YearlyS
 // ── Estado patrimonial ──────────────────────────────────────────
 
 // Colores de la composición del activo
-const ACTIVO_COLORS: Record<string, string> = { caja: '#0A84FF', creditos: '#34C759', mercaderia: '#FF9F0A', bienes: '#AF52DE' }
+const ACTIVO_COLORS: Record<string, string> = { caja: 'var(--brand-700)', creditos: 'var(--income)', mercaderia: 'var(--brand-300)', bienes: 'var(--brand-800)' }
 
 
 type BalancePointView = {
@@ -387,8 +388,8 @@ function BalanceTooltip({ active, label, payload, currency }: {
   const p = payload?.[0]?.payload
   if (!active || !p || p.patrimonio === null) return null
   const filas: [string, number | null, number | null, string, boolean][] = [
-    ['Activo', p.activos, p.dActivos, '#0A84FF', false],
-    ['Pasivo', p.pasivos, p.dPasivos, '#FF9F0A', true],
+    ['Activo', p.activos, p.dActivos, 'var(--brand-700)', false],
+    ['Pasivo', p.pasivos, p.dPasivos, 'var(--expense)', true],
   ]
   const variacion = (v: number | null, inverse: boolean) => (v === null ? <span /> : <SubtleDelta value={v} inverse={inverse} />)
   return (
@@ -409,7 +410,7 @@ function BalanceTooltip({ active, label, payload, currency }: {
         ))}
         <span className="col-span-3 my-1 border-t border-black/[0.08] dark:border-white/10" />
         <span className="text-[13px] font-medium text-[#1C1C1E] dark:text-white">Patrimonio</span>
-        <span className="text-right text-[15px] font-semibold tabular-nums text-[#0071A4] dark:text-[#64D2FF]">{fmtAmount(p.patrimonio, currency)}</span>
+        <span className="text-right text-[15px] font-semibold tabular-nums text-[var(--brand-700)] dark:text-[var(--brand-300)]">{fmtAmount(p.patrimonio, currency)}</span>
         {variacion(p.dPatrimonio, false)}
       </div>
     </div>
@@ -438,7 +439,7 @@ export function PatrimonioCharts({ series, balance, currency, activeMonth }: { s
 
   return (
     <>
-      <ChartCard modern title="Patrimonio neto">
+      <ChartCard className="balance-sheet-chart-card" modern title="Patrimonio neto">
         {empty ? <Empty text="Sin datos en el año." /> : (
           <ResponsiveChartContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
@@ -464,12 +465,12 @@ export function PatrimonioCharts({ series, balance, currency, activeMonth }: { s
         )}
       </ChartCard>
 
-      <ChartCard modern fluid title="Composición">
+      <ChartCard className="balance-sheet-chart-card" modern fluid title="Composición">
         {/* Una barra fina por rubro, de mayor a menor (como Tiempo en pantalla) */}
         {(() => {
           const filas = [
             ...balance.activo.map((r) => ({ label: r.label, amount: conv(r.amount), color: ACTIVO_COLORS[r.key] ?? '#8E8E93' })),
-            ...balance.pasivo.map((r) => ({ label: r.label, amount: conv(r.amount), color: '#FF3B30' })),
+            ...balance.pasivo.map((r) => ({ label: r.label, amount: conv(r.amount), color: 'var(--expense)' })),
           ].filter((f) => f.amount > 0.5).sort((x, y) => y.amount - x.amount)
           const max = Math.max(1, ...filas.map((f) => f.amount))
           return (

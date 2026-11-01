@@ -105,7 +105,7 @@ export default function ContactPicker({ type, contacts, value, onChange, onCreat
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={esCliente ? 'Cliente' : 'Proveedor'}
-        className={`flex max-w-full items-center gap-1 text-[13px] font-medium transition-opacity active:opacity-60 ${invalid ? 'text-[#B8664F] dark:text-[#E3A592]' : 'text-[#1C1C1E] dark:text-white'}`}
+        className={`flex max-w-full items-center gap-1 text-[13px] font-medium transition-opacity active:opacity-60 ${invalid ? 'text-[var(--expense)] dark:text-[var(--expense)]' : 'text-[#1C1C1E] dark:text-white'}`}
       >
         <span className="max-w-[180px] truncate">{actual?.name ?? (invalid ? `Elegí ${esCliente ? 'el cliente' : 'el proveedor'}` : sinContacto)}</span>
       </button>
@@ -150,20 +150,20 @@ export default function ContactPicker({ type, contacts, value, onChange, onCreat
                 type="button"
                 onClick={agregar}
                 disabled={creando}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] font-medium text-[#007AFF] transition-colors hover:bg-black/[0.05] disabled:opacity-50 dark:text-[#0A84FF] dark:hover:bg-white/[0.08]"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] font-medium text-[var(--brand-700)] transition-colors hover:bg-black/[0.05] disabled:opacity-50 dark:text-[var(--brand-300)] dark:hover:bg-white/[0.08]"
               >
                 <span className="flex h-4 w-4 items-center justify-center text-[16px] leading-none" aria-hidden>+</span>
                 <span className="truncate">{creando ? 'Agregando…' : `Agregar «${query.trim()}»`}</span>
               </button>
             )}
-            {error && <p className="px-3 py-1.5 text-[12px] text-[#FF3B30]">{error}</p>}
+            {error && <p className="px-3 py-1.5 text-[12px] text-[var(--expense)]">{error}</p>}
 
             {/* Siempre a la vista: "+ Nuevo cliente" pasa el buscador a modo alta */}
             {!q && !nuevo && (
               <button
                 type="button"
                 onClick={() => { setNuevo(true); inputRef.current?.focus() }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] font-medium text-[#007AFF] transition-colors hover:bg-black/[0.05] dark:text-[#0A84FF] dark:hover:bg-white/[0.08]"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] font-medium text-[var(--brand-700)] transition-colors hover:bg-black/[0.05] dark:text-[var(--brand-300)] dark:hover:bg-white/[0.08]"
               >
                 <span className="flex h-4 w-4 items-center justify-center text-[16px] leading-none" aria-hidden>+</span>
                 <span>{esCliente ? 'Nuevo cliente' : 'Nuevo proveedor'}</span>
@@ -196,7 +196,7 @@ function Opcion({ selected, onClick, muted = false, children }: { selected: bool
       onClick={onClick}
       className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.08] ${muted ? 'text-[#8E8E93]' : 'text-[#1C1C1E] dark:text-white'}`}
     >
-      <span className="w-4 shrink-0 text-[var(--reg-accent,#4F8A6B)]">{selected ? '✓' : ''}</span>
+      <span className="w-4 shrink-0 text-[var(--reg-accent,var(--income))]">{selected ? '✓' : ''}</span>
       <span className="truncate">{children}</span>
     </button>
   )

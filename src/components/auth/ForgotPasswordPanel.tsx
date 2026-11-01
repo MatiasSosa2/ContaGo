@@ -35,7 +35,7 @@ export default function ForgotPasswordPanel() {
       {error && <div className="rounded-2xl border border-ds-red-100 bg-ds-red-50 px-4 py-3 text-sm text-ds-red-600">{error}</div>}
 
       <button type="submit" disabled={isPending} className="min-h-11 w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
-        {isPending ? 'Enviando...' : 'Enviar codigo'}
+        {isPending ? 'Enviando…' : 'Enviar código'}
       </button>
     </form>
   )

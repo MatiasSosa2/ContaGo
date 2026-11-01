@@ -11,7 +11,7 @@ export default async function ResetPasswordPage({
   return (
     <AuthShell
       title="Define una nueva contraseña"
-      subtitle="Valida el codigo recibido y establece una nueva contraseña para tu cuenta."
+      subtitle="Validá el código recibido y establece una nueva contraseña para tu cuenta."
     >
       <ResetPasswordPanel email={params.email || ''} />
     </AuthShell>

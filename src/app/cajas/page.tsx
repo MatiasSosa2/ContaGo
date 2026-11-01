@@ -3,6 +3,7 @@ import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
+import { getArtCalendarParts } from '@/server/db/shared'
 import CajasClient from '@/components/CajasClient'
 import { Suspense } from 'react'
 
@@ -27,9 +28,9 @@ export default async function CajasPage({
   const fallbackDate = !hasExplicitPeriodSelection && periodo !== 'custom'
     ? await getLatestTransactionDate()
     : null
-  const today = fallbackDate ? new Date(fallbackDate) : new Date()
-  const currentYear = today.getFullYear()
-  const currentMonth = today.getMonth() + 1
+  const today = getArtCalendarParts(fallbackDate ? new Date(fallbackDate) : new Date())
+  const currentYear = today.year
+  const currentMonth = today.monthIndex + 1
   const selectedYear = sp?.year ? Number.parseInt(sp.year, 10) : (periodo === 'mensual' || periodo === 'anual' ? currentYear : undefined)
   const selectedMonth = sp?.month ? Number.parseInt(sp.month, 10) : (periodo === 'mensual' ? currentMonth : undefined)
   const selectedDay = sp?.day
@@ -57,7 +58,7 @@ export default async function CajasPage({
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[var(--ds-neutral-800)] dark:text-gray-100 min-h-screen bg-white dark:bg-black">
+    <div className="premium-page section-polish mx-auto min-h-screen max-w-[1920px] bg-[var(--surface-muted)] p-4 font-sans text-[var(--text)] sm:p-6 lg:p-8">
 
       <AppHeader
         title="Cajas"

@@ -21,7 +21,7 @@ export default function ResetPasswordPanel({ email }: { email: string }) {
         setError(result.error)
         return
       }
-      setMessage('La contraseña fue actualizada. Ya puedes iniciar sesion.')
+      setMessage('La contraseña fue actualizada. Ya podés iniciar sesión.')
     })
   }
 
@@ -35,7 +35,7 @@ export default function ResetPasswordPanel({ email }: { email: string }) {
 
       <form action={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label htmlFor="code" className="text-xs font-medium text-gray-500">Codigo</label>
+          <label htmlFor="code" className="text-xs font-medium text-gray-500">Código</label>
           <input id="code" name="code" type="text" inputMode="numeric" autoComplete="one-time-code" autoCapitalize="none" pattern="[0-9]{6}" maxLength={6} required className="min-h-11 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-center text-lg tracking-[0.45em] text-gray-900 outline-none transition focus:border-brand-military focus-visible:ring-2 focus-visible:ring-brand-military/30" />
         </div>
         <div className="space-y-1.5">
@@ -47,7 +47,7 @@ export default function ResetPasswordPanel({ email }: { email: string }) {
         {message && <div className="rounded-2xl border border-ds-green-200 bg-ds-green-50 px-4 py-3 text-sm text-ds-green-700">{message}</div>}
 
         <button type="submit" disabled={isPending} className="min-h-11 w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60">
-          {isPending ? 'Actualizando...' : 'Actualizar contraseña'}
+          {isPending ? 'Actualizando…' : 'Actualizar contraseña'}
         </button>
       </form>
 

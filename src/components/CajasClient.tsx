@@ -7,32 +7,33 @@ import { CalendarPopover, RangeCalendar, rangeLabel } from './ui/IosCalendar'
 import MovementDetailSheet from './cajas/MovementDetailSheet'
 import { useStoredValue } from '@/lib/useStoredValue'
 import { useSearchParams } from 'next/navigation'
+import EmptyState from '@/components/ui/EmptyState'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import {
-  ComposedChart,
-  Line,
+  AreaChart,
+  Area,
+  BarChart,
   Bar,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
   ReferenceLine,
 } from 'recharts'
 import { ResponsiveChartContainer } from '@/components/ResponsiveChartContainer'
 
 // ── Paleta del gráfico Historial ──────────────────────────────────────────
 const CHART_COLORS = {
-  ing: '#235347',
-  ingSoft: '#8EB698',
-  egr: '#B42318',
-  egrSoft: '#F97066',
+  ing: 'var(--income)',
+  ingSoft: 'var(--income)',
+  egr: 'var(--expense)',
+  egrSoft: 'var(--expense)',
 } as const
 
 /** Línea de saldo acumulado: azul petróleo (más claro en modo oscuro para que se lea) */
 function useSaldoColor() {
   const [theme] = useStoredValue('theme')
-  return theme === 'dark' ? '#8EB698' : '#163832'
+  return theme === 'dark' ? '#A8C89C' : '#1E4B1C'
 }
 
 interface CajasAccountItem {
@@ -106,10 +107,10 @@ function groupByOperacion(movements: CajasMovementItem[]): MovementRow[] {
 function CajaIcon({ kind }: { kind: 'efectivo' | 'virtual' | 'cambio' | 'credito' | 'deuda' }) {
   const cls = {
     efectivo: 'bg-[#6B7280]/15 text-[#4B5563] dark:text-[#9CA3AF]',
-    virtual: 'bg-[#DAF1DE] text-[#235347] dark:bg-[#0B2B26] dark:text-[#8EB698]',
+    virtual: 'bg-[#E8EFE5] text-[#1E4B1C] dark:bg-[#151515] dark:text-[#A8C89C]',
     cambio: 'bg-black/[0.06] text-[var(--ds-gray-500)] dark:bg-white/10',
-    credito: 'bg-[#DAF1DE] text-[#235347] dark:bg-[#0B2B26] dark:text-[#8EB698]',
-    deuda: 'bg-[var(--ds-orange-dark)]/15 text-[#B42318] dark:text-[#F97066]',
+    credito: 'bg-[#E8EFE5] text-[#1E4B1C] dark:bg-[#151515] dark:text-[#A8C89C]',
+    deuda: 'bg-[var(--warning-soft)] text-[var(--warning)]',
   }[kind]
   const path = {
     efectivo: 'M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
@@ -394,7 +395,7 @@ function HistorialTooltip({ active, payload, fmt }: { active?: boolean; payload?
   const rows: [string, number, string][] = [
     ['Ingresos', point.ingresos, CHART_COLORS.ing],
     ['Egresos', point.egresos, CHART_COLORS.egr],
-    ...(point.cambios !== 0 ? [['Cambio de moneda', point.cambios, '#71717A'] as [string, number, string]] : []),
+    ...(point.cambios !== 0 ? [['Transferencias', point.cambios, '#71717A'] as [string, number, string]] : []),
     ['Saldo', point.saldo, saldoColor],
   ]
   return (
@@ -406,7 +407,7 @@ function HistorialTooltip({ active, payload, fmt }: { active?: boolean; payload?
             <span className="h-2 w-2 rounded-full" style={{ background: color }} />
             {name}
           </span>
-          <span className="font-mono font-semibold text-[var(--ds-neutral-800)] tabular-nums dark:text-[var(--ds-line)]">{name === 'Cambio de moneda' && value > 0 ? '+' : ''}{fmt(value)}</span>
+          <span className="font-mono font-semibold text-[var(--ds-neutral-800)] tabular-nums dark:text-[var(--ds-line)]">{name === 'Transferencias' && value > 0 ? '+' : ''}{fmt(value)}</span>
         </p>
       ))}
     </div>
@@ -443,6 +444,99 @@ function useHistorialData(props: HistorialProps, currency: CajaCurrency) {
   return { summary, chartData }
 }
 
+type CashChartView = 'saldo' | 'movimientos'
+
+function CashChartViewToggle({ view, onChange }: { view: CashChartView; onChange: (view: CashChartView) => void }) {
+  return (
+    <div className="inline-flex shrink-0 rounded-md border border-[var(--border-token)] bg-[var(--surface-muted)] p-0.5" role="group" aria-label="Tipo de gráfico">
+      {([['saldo', 'Saldo'], ['movimientos', 'Movimientos']] as const).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => onChange(value)}
+          aria-pressed={view === value}
+          className={`min-h-8 rounded px-2.5 text-[11px] font-medium transition ${view === value ? 'bg-[var(--surface)] text-[var(--text)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text)]'}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CashChartLegend({ view }: { view: CashChartView }) {
+  const items: { label: string; color: string; line?: boolean }[] = view === 'saldo'
+    ? [{ label: 'Saldo acumulado', color: '#1E4B1C', line: true }]
+    : [
+        { label: 'Ingresos', color: CHART_COLORS.ing },
+        { label: 'Egresos', color: CHART_COLORS.egr },
+        { label: 'Transferencias', color: '#89938B' },
+      ]
+
+  return (
+    <div className="cash-chart-legend flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-medium text-[var(--text-secondary)]" aria-label="Referencias del gráfico">
+      {items.map((item) => (
+        <span key={item.label} className="inline-flex items-center gap-1.5">
+          <span className={item.line ? 'h-[2px] w-3' : 'h-1.5 w-1.5 rounded-full'} style={{ backgroundColor: item.color }} aria-hidden />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function CashFlowPlot({
+  data,
+  view,
+  compact,
+  saldoInicial,
+  saldoColor,
+  format,
+}: {
+  data: HistorialPoint[]
+  view: CashChartView
+  compact: boolean
+  saldoInicial: number
+  saldoColor: string
+  format: (value: number) => string
+}) {
+  const fmtAxis = (value: number) => {
+    const abs = Math.abs(value)
+    const prefix = value < 0 ? '−' : ''
+    if (abs >= 1_000_000) return `${prefix}${(abs / 1_000_000).toFixed(1)}M`
+    if (abs >= 1_000) return `${prefix}${(abs / 1_000).toFixed(0)}K`
+    return `${prefix}${Math.round(abs)}`
+  }
+  const chartMargin = compact
+    ? { top: 6, right: 3, left: 3, bottom: 0 }
+    : { top: 8, right: 14, left: 4, bottom: 4 }
+
+  return (
+    <ResponsiveChartContainer width="100%" height="100%">
+      {view === 'saldo' ? (
+        <AreaChart data={data} margin={chartMargin}>
+          <CartesianGrid stroke="currentColor" className="text-black/[0.08] dark:text-white/10" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: compact ? 9 : 10, fill: '#737D75' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={compact ? 18 : 12} />
+          <YAxis hide={compact} tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: '#737D75' }} axisLine={false} tickLine={false} width={48} />
+          <Tooltip cursor={{ stroke: saldoColor, strokeOpacity: 0.18 }} content={(p) => <HistorialTooltip active={p.active} payload={p.payload as never} fmt={format} />} />
+          {saldoInicial !== 0 && !compact && <ReferenceLine y={saldoInicial} stroke={saldoColor} strokeDasharray="4 4" strokeOpacity={0.5} />}
+          <Area type="linear" dataKey="saldo" name="Saldo" stroke={saldoColor} strokeWidth={2.5} fill={saldoColor} fillOpacity={0.1} dot={false} activeDot={{ r: compact ? 3 : 5, stroke: '#fff', strokeWidth: 2, fill: saldoColor }} />
+        </AreaChart>
+      ) : (
+        <BarChart data={data} margin={chartMargin} barCategoryGap={compact ? '24%' : '28%'} barGap={compact ? 1 : 3}>
+          <CartesianGrid stroke="currentColor" className="text-black/[0.08] dark:text-white/10" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: compact ? 9 : 10, fill: '#737D75' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={compact ? 18 : 12} />
+          <YAxis hide={compact} tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: '#737D75' }} axisLine={false} tickLine={false} width={48} />
+          <Tooltip cursor={{ fill: 'rgba(20, 40, 26, .045)' }} content={(p) => <HistorialTooltip active={p.active} payload={p.payload as never} fmt={format} />} />
+          <Bar dataKey="ingresos" name="Ingresos" fill={CHART_COLORS.ing} fillOpacity={0.92} radius={[3, 3, 0, 0] as [number, number, number, number]} maxBarSize={compact ? 12 : 30} />
+          <Bar dataKey="egresos" name="Egresos" fill={CHART_COLORS.egr} fillOpacity={0.88} radius={[3, 3, 0, 0] as [number, number, number, number]} maxBarSize={compact ? 12 : 30} />
+          <Bar dataKey="cambios" name="Transferencias" fill="#89938B" fillOpacity={0.78} radius={[3, 3, 0, 0] as [number, number, number, number]} maxBarSize={compact ? 12 : 30} />
+        </BarChart>
+      )}
+    </ResponsiveChartContainer>
+  )
+}
+
 function CurrencyToggle({ value, onChange, size = 'sm' }: { value: CajaCurrency; onChange: (c: CajaCurrency) => void; size?: 'xs' | 'sm' }) {
   return (
     <div className="flex overflow-hidden rounded-lg border border-[var(--ds-neutral-200)] dark:border-white/10" role="group" aria-label="Moneda">
@@ -453,7 +547,7 @@ function CurrencyToggle({ value, onChange, size = 'sm' }: { value: CajaCurrency;
           onClick={(e) => { e.stopPropagation(); onChange(c) }}
           aria-pressed={value === c}
           className={`font-semibold transition ${size === 'xs' ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-[11px]'} ${
-            value === c ? 'bg-brand-military text-white' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+            value === c ? 'bg-brand-military text-white' : 'text-[var(--text-tertiary)] hover:text-gray-600 dark:hover:text-gray-200'
           }`}
         >
           {c}
@@ -466,35 +560,34 @@ function CurrencyToggle({ value, onChange, size = 'sm' }: { value: CajaCurrency;
 function HistorialModal({
   currency,
   onCurrencyChange,
+  view,
+  onViewChange,
   onClose,
   ...props
-}: HistorialProps & { currency: CajaCurrency; onCurrencyChange: (c: CajaCurrency) => void; onClose: () => void }) {
+}: HistorialProps & { currency: CajaCurrency; onCurrencyChange: (c: CajaCurrency) => void; view: CashChartView; onViewChange: (view: CashChartView) => void; onClose: () => void }) {
   const { summary, chartData } = useHistorialData(props, currency)
   const saldoColor = useSaldoColor()
   const sym = CURRENCY_SYMBOL[currency]
-
-  const fmtAxis = (v: number) => {
-    const abs = Math.abs(v)
-    if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
-    if (abs >= 1_000) return `${(v / 1_000).toFixed(0)}K`
-    return String(v)
-  }
   const fmtSaldo = (v: number) => `${v < 0 ? '− ' : ''}${sym}${Math.abs(Math.round(v)).toLocaleString('es-AR')}`
-  const saldoCls = (v: number) => v >= 0 ? 'text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]' : 'text-[#B42318]'
+  const saldoCls = (v: number) => v >= 0 ? 'text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]' : 'text-[var(--expense)]'
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative z-10 flex h-[90vh] w-[92vw] max-w-[1600px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[var(--ds-ink)]">
-        <div className="flex items-center justify-between border-b border-[var(--ds-sand-warm)] bg-[#FAFBFC] px-5 py-4 dark:border-white/10 dark:bg-[#171717]">
-          <h3 className="text-base font-semibold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">Historial de caja</h3>
+      <div className="section-polish cash-history-modal relative z-10 flex h-[90vh] w-[92vw] max-w-[1440px] flex-col overflow-hidden rounded-2xl border border-[var(--border-token)] bg-[var(--surface)] shadow-2xl">
+        <div className="cash-history-heading flex items-center justify-between border-b border-[var(--border-token)] bg-[var(--surface-muted)] px-5 py-4">
+          <div>
+            <h3 className="text-base font-semibold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">Evolución de caja</h3>
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">{view === 'saldo' ? 'El saldo acumulado a lo largo del período' : 'Ingresos, egresos y transferencias del período'}</p>
+          </div>
           <div className="flex items-center gap-3">
+            <CashChartViewToggle view={view} onChange={onViewChange} />
             <CurrencyToggle value={currency} onChange={onCurrencyChange} />
             <button
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="rounded-xl border border-gray-200 bg-white p-2 text-gray-400 transition hover:text-gray-700 dark:border-white/10 dark:bg-[#1B1B1B] dark:hover:text-gray-200"
+              className="rounded-xl border border-gray-200 bg-white p-2 text-[var(--text-tertiary)] transition hover:text-gray-700 dark:border-white/10 dark:bg-[#1B1B1B] dark:hover:text-gray-200"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -503,73 +596,32 @@ function HistorialModal({
           </div>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col p-5">
+        <div className="cash-history-plot flex min-h-0 flex-1 flex-col p-5">
+          <CashChartLegend view={view} />
           {chartData.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-gray-400">Sin datos para este período</div>
+            <div className="flex flex-1 items-center justify-center text-sm text-[var(--text-tertiary)]">Sin datos para este período</div>
           ) : (
             <div className="min-h-0 flex-1">
-              <ResponsiveChartContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 12, right: 16, left: 4, bottom: 4 }} barCategoryGap="22%" barGap={2}>
-                  <defs>
-                    <linearGradient id="modalIngFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.ing} stopOpacity={0.95} />
-                      <stop offset="100%" stopColor={CHART_COLORS.ing} stopOpacity={0.45} />
-                    </linearGradient>
-                    <linearGradient id="modalEgrFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.egr} stopOpacity={0.95} />
-                      <stop offset="100%" stopColor={CHART_COLORS.egr} stopOpacity={0.45} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-200 dark:text-white/10" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                  <YAxis yAxisId="left" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} width={48} />
-                  <YAxis yAxisId="right" orientation="right" tickFormatter={fmtAxis} tick={{ fontSize: 10, fill: saldoColor }} axisLine={false} tickLine={false} width={52} />
-                  <Tooltip cursor={{ fill: 'rgba(7,89,133,0.06)' }} content={(p) => <HistorialTooltip active={p.active} payload={p.payload as never} fmt={fmtSaldo} />} />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    iconType="circle"
-                    iconSize={8}
-                    wrapperStyle={{ paddingBottom: 8 }}
-                    formatter={(value) => {
-                      const m: Record<string, string> = { ingresos: 'Ingresos', egresos: 'Egresos', saldo: 'Saldo' }
-                      return <span style={{ fontSize: 11, color: '#6B7280' }}>{m[String(value)] ?? String(value)}</span>
-                    }}
-                  />
-                  {summary.saldoInicial !== 0 && (
-                    <ReferenceLine
-                      yAxisId="right"
-                      y={summary.saldoInicial}
-                      stroke={saldoColor}
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.55}
-                      label={{ value: 'Saldo inicial', position: 'insideTopRight', fill: saldoColor, fontSize: 10 }}
-                    />
-                  )}
-                  <Bar yAxisId="left" dataKey="ingresos" fill="url(#modalIngFill)" radius={[4, 4, 0, 0] as [number, number, number, number]} maxBarSize={28} />
-                  <Bar yAxisId="left" dataKey="egresos" fill="url(#modalEgrFill)" radius={[4, 4, 0, 0] as [number, number, number, number]} maxBarSize={28} />
-                  <Line yAxisId="right" type="monotone" dataKey="saldo" stroke={saldoColor} strokeWidth={2.25} dot={false} activeDot={{ r: 5, stroke: '#fff', strokeWidth: 2, fill: saldoColor }} />
-                </ComposedChart>
-              </ResponsiveChartContainer>
+              <CashFlowPlot data={chartData} view={view} compact={false} saldoInicial={summary.saldoInicial} saldoColor={saldoColor} format={fmtSaldo} />
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-2 divide-x divide-[var(--ds-neutral-200)] border-t border-[var(--ds-sand-warm)] dark:divide-white/10 dark:border-white/10 sm:grid-cols-4">
-          <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Saldo inicial</p>
+        <div className="cash-history-summary grid grid-cols-2 divide-x divide-[var(--ds-neutral-200)] border-t border-[var(--ds-sand-warm)] dark:divide-white/10 dark:border-white/10 sm:grid-cols-4">
+          <div className="cash-history-stat px-5 py-4 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">Saldo inicial</p>
             <p className={`mt-1 font-mono text-sm font-bold ${saldoCls(summary.saldoInicial)}`}>{fmtSaldo(summary.saldoInicial)}</p>
           </div>
-          <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Ingresos</p>
-            <p className="mt-1 font-mono text-sm font-bold text-[#163832]">{fmtSaldo(summary.ingresos)}</p>
+          <div className="cash-history-stat px-5 py-4 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">Ingresos</p>
+            <p className="mt-1 font-mono text-sm font-bold text-[var(--income)]">{fmtSaldo(summary.ingresos)}</p>
           </div>
-          <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Egresos</p>
-            <p className="mt-1 font-mono text-sm font-bold text-[#B42318] dark:text-[#F97066]">{fmtSaldo(summary.egresos)}</p>
+          <div className="cash-history-stat px-5 py-4 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">Egresos</p>
+            <p className="mt-1 font-mono text-sm font-bold text-[var(--expense)]">{fmtSaldo(summary.egresos)}</p>
           </div>
-          <div className="px-5 py-4 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Saldo final</p>
+          <div className="cash-history-stat px-5 py-4 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">Saldo final</p>
             <p className={`mt-1 font-mono text-sm font-bold ${saldoCls(summary.saldoFinal)}`}>{fmtSaldo(summary.saldoFinal)}</p>
           </div>
         </div>
@@ -581,6 +633,7 @@ function HistorialModal({
 function HistorialCard(props: HistorialProps) {
   const [open, setOpen] = useState(false)
   const [currency, setCurrency] = useState<CajaCurrency>('ARS')
+  const [view, setView] = useState<CashChartView>('saldo')
   const { summary, chartData } = useHistorialData(props, currency)
   const saldoColor = useSaldoColor()
   const sym = CURRENCY_SYMBOL[currency]
@@ -592,73 +645,55 @@ function HistorialCard(props: HistorialProps) {
     if (abs >= 1_000) return `${sign}${sym}${(abs / 1_000).toFixed(0)}K`
     return `${sign}${sym}${Math.round(abs)}`
   }
-  const saldoCls = (v: number) => v >= 0 ? 'text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]' : 'text-[#B42318] dark:text-[#F97066]'
+  const saldoCls = (v: number) => v >= 0 ? 'text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]' : 'text-[var(--expense)]'
 
   return (
     <>
-      <div className="relative flex h-full flex-col overflow-hidden rounded-2xl bg-white dark:border dark:border-white/10 dark:bg-[var(--ds-ink)]">
-        {/* Sin fila de título: el selector de moneda flota en la esquina y el gráfico usa todo el alto */}
-        <div className="absolute right-3 top-3 z-10 bg-white/80 backdrop-blur-sm dark:bg-[var(--ds-ink)]/80">
+      <div className="cash-chart-card flex flex-col overflow-hidden rounded-xl border border-[var(--border-token)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(5,31,32,0.04)]">
+        <div className="cash-chart-header flex items-start justify-between gap-3 border-b border-[var(--border-token)] px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="text-[13px] font-semibold text-[var(--text)]">Evolución de caja</h2>
+            <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{view === 'saldo' ? 'Saldo acumulado' : 'Movimientos del período'}</p>
+          </div>
           <CurrencyToggle value={currency} onChange={setCurrency} size="xs" />
         </div>
 
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label={`Ver historial de caja en ${currency} en grande`}
-          className="group flex flex-1 flex-col gap-3 px-3 pt-3 pb-3 text-left transition hover:bg-[#FAFBFC] dark:hover:bg-[#171717]"
-        >
-          {chartData.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center py-8">
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-400">Sin movimientos</p>
-            </div>
-          ) : (
-            <div className="relative min-h-[180px] w-full flex-1">
-              <div className="absolute inset-0">
-              <ResponsiveChartContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 30, right: 6, left: 6, bottom: 0 }} barCategoryGap="22%" barGap={1}>
-                  <defs>
-                    <linearGradient id="histIngFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.ing} stopOpacity={0.9} />
-                      <stop offset="100%" stopColor={CHART_COLORS.ing} stopOpacity={0.35} />
-                    </linearGradient>
-                    <linearGradient id="histEgrFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={CHART_COLORS.egr} stopOpacity={0.9} />
-                      <stop offset="100%" stopColor={CHART_COLORS.egr} stopOpacity={0.35} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#9CA3AF' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={14} height={16} />
-                  <YAxis yAxisId="left" hide />
-                  <YAxis yAxisId="right" orientation="right" hide />
-                  <Tooltip cursor={{ fill: 'rgba(7,89,133,0.06)' }} content={(p) => <HistorialTooltip active={p.active} payload={p.payload as never} fmt={fmtCompact} />} />
-                  <Bar yAxisId="left" dataKey="ingresos" fill="url(#histIngFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={8} />
-                  <Bar yAxisId="left" dataKey="egresos" fill="url(#histEgrFill)" radius={[2, 2, 0, 0] as [number, number, number, number]} maxBarSize={8} />
-                  <Line yAxisId="right" type="monotone" dataKey="saldo" stroke={saldoColor} strokeWidth={2.25} dot={false} activeDot={{ r: 3.5, stroke: '#fff', strokeWidth: 1.5, fill: saldoColor }} />
-                </ComposedChart>
-              </ResponsiveChartContainer>
-              </div>
-            </div>
-          )}
+        <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+          <CashChartViewToggle view={view} onChange={setView} />
+          <button type="button" onClick={() => setOpen(true)} className="cash-chart-expand min-h-8 rounded px-2 text-[11px] font-medium text-[var(--brand-700)] transition hover:bg-[var(--brand-100)] dark:text-[var(--brand-300)] dark:hover:bg-white/[0.06]" aria-label={`Ampliar gráfico de ${view === 'saldo' ? 'saldo' : 'movimientos'} en ${currency}`}>
+            Ampliar
+          </button>
+        </div>
+        <div className="px-4 pt-2"><CashChartLegend view={view} /></div>
 
-          <div className="grid grid-cols-4 gap-1 pt-1">
-            <div className="text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Saldo inicial</p>
-              <p className={`mt-0.5 font-mono text-[11px] font-bold ${saldoCls(summary.saldoInicial)}`}>{fmtCompact(summary.saldoInicial)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Ingresos</p>
-              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#163832] dark:text-[#8EB698]">{fmtCompact(summary.ingresos)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Egresos</p>
-              <p className="mt-0.5 font-mono text-[11px] font-bold text-[#B42318] dark:text-[#F97066]">{fmtCompact(summary.egresos)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Saldo final</p>
-              <p className={`mt-0.5 font-mono text-[11px] font-bold ${saldoCls(summary.saldoFinal)}`}>{fmtCompact(summary.saldoFinal)}</p>
-            </div>
+        {chartData.length === 0 ? (
+          <div className="flex h-[142px] items-center justify-center px-4">
+            <p className="text-xs text-[var(--text-tertiary)]">Sin movimientos en este período</p>
           </div>
-        </button>
+        ) : (
+          <div className="cash-chart-content h-[190px] w-full px-4 pb-2 pt-2 sm:h-[220px]">
+            <CashFlowPlot data={chartData} view={view} compact saldoInicial={summary.saldoInicial} saldoColor={saldoColor} format={fmtCompact} />
+          </div>
+        )}
+
+        <div className="cash-chart-summary grid grid-cols-2 gap-x-2 gap-y-2 border-t border-[var(--border-token)] px-4 py-3 sm:grid-cols-4">
+          <div className="cash-chart-stat text-left sm:text-center">
+            <p className="text-[10px] font-semibold text-[var(--text-tertiary)]">Saldo inicial</p>
+            <p className={`mt-0.5 font-mono text-[11px] font-bold ${saldoCls(summary.saldoInicial)}`}>{fmtCompact(summary.saldoInicial)}</p>
+          </div>
+          <div className="cash-chart-stat text-left sm:text-center">
+            <p className="text-[10px] font-semibold text-[var(--text-tertiary)]">Ingresos</p>
+            <p className="mt-0.5 font-mono text-[11px] font-bold text-[var(--income)]">{fmtCompact(summary.ingresos)}</p>
+          </div>
+          <div className="cash-chart-stat text-left sm:text-center">
+            <p className="text-[10px] font-semibold text-[var(--text-tertiary)]">Egresos</p>
+            <p className="mt-0.5 font-mono text-[11px] font-bold text-[var(--expense)]">{fmtCompact(summary.egresos)}</p>
+          </div>
+          <div className="cash-chart-stat text-left sm:text-center">
+            <p className="text-[10px] font-semibold text-[var(--text-tertiary)]">Saldo final</p>
+            <p className={`mt-0.5 font-mono text-[11px] font-bold ${saldoCls(summary.saldoFinal)}`}>{fmtCompact(summary.saldoFinal)}</p>
+          </div>
+        </div>
       </div>
 
       {open && (
@@ -666,6 +701,8 @@ function HistorialCard(props: HistorialProps) {
           {...props}
           currency={currency}
           onCurrencyChange={setCurrency}
+          view={view}
+          onViewChange={setView}
           onClose={() => setOpen(false)}
         />
       )}
@@ -816,36 +853,34 @@ function MovementsPanel({
     {
       key: 'efectivo',
       label: 'Efectivo',
-      active: 'border-[#4B5563] bg-[#4B5563] text-white',
-      idle: 'border-[#E5E7EB] bg-[#F4F6F9] text-[#4B576B] dark:border-[#374151] dark:bg-[#161A20] dark:text-[#98A4B8]',
+      active: 'border-[var(--brand-700)] bg-[var(--brand-700)] text-white',
+      idle: 'border-[var(--border-token)] bg-[var(--surface)] text-[var(--text-secondary)]',
     },
     {
       key: 'virtual',
       label: 'Virtual',
-      active: 'border-[#235347] bg-[#235347] text-white',
-      idle: 'border-[#DAF1DE] bg-[#F9FAFB] text-[#235347] dark:border-[#163832] dark:bg-[#0B2B26] dark:text-[#8EB698]',
+      active: 'border-[var(--brand-700)] bg-[var(--brand-700)] text-white',
+      idle: 'border-[var(--border-token)] bg-[var(--surface)] text-[var(--brand-700)] dark:text-[var(--brand-300)]',
     },
     {
       key: 'credito',
       label: 'Créditos',
-      // Créditos (te deben): índigo
-      active: 'border-[#235347] bg-[#235347] text-white',
-      idle: 'border-[#DAF1DE] bg-[#DAF1DE] text-[#235347] dark:border-[#163832] dark:bg-[#0B2B26] dark:text-[#8EB698]',
+      active: 'border-[var(--brand-700)] bg-[var(--brand-700)] text-white',
+      idle: 'border-[var(--income)]/25 bg-[var(--income-soft)] text-[var(--income)]',
     },
     {
       key: 'deuda',
       label: 'Deudas',
-      // Deudas (debés): ámbar
-      active: 'border-[var(--ds-orange-dark)] bg-[var(--ds-orange-dark)] text-white',
-      idle: 'border-[#FECDCA] bg-[#FEF3F2] text-[#B42318] dark:border-[#5A2A24] dark:bg-[#1F1514] dark:text-[#F97066]',
+      active: 'border-[var(--expense)] bg-[var(--expense)] text-white',
+      idle: 'border-[var(--expense)]/25 bg-[var(--expense-soft)] text-[var(--expense)]',
     },
   ]
 
   return (
-    <div ref={panelRef} className="scroll-mt-4 overflow-hidden rounded-2xl bg-white dark:border dark:border-white/10 dark:bg-[var(--ds-ink)]">
-      <div className="border-b border-[var(--ds-sand-warm)] bg-[#FAFBFC] px-5 pb-4 pt-5 dark:border-white/10 dark:bg-[#171717]">
+    <div ref={panelRef} className="scroll-mt-4 overflow-hidden rounded-2xl border border-[var(--border-token)] bg-[var(--surface)] shadow-[0_1px_2px_rgba(5,31,32,0.04)]">
+      <div className="border-b border-[var(--border-token)] bg-[var(--surface-muted)] px-5 pb-4 pt-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-9 w-9 items-center justify-center bg-brand-military-light text-brand-military dark:bg-[#0B2B26] dark:text-[#8EB698]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--brand-100)] text-[var(--brand-700)] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]">
             <MovementIcon />
           </div>
           <h3 className="text-base font-semibold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">Movimientos</h3>
@@ -864,15 +899,15 @@ function MovementsPanel({
         )}
 
         {filtered.length > 0 && (
-            <span className="ml-auto text-[11px] font-semibold text-gray-400">{filtered.length}{cursor ? '+' : ''} registros cargados</span>
+            <span className="ml-auto text-[11px] font-semibold text-[var(--text-tertiary)]">{filtered.length}{cursor ? '+' : ''} registros cargados</span>
           )}
         </div>
 
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[220px] flex-1 basis-[260px]">
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">Buscar</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Buscar</p>
             <div className="relative">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z" />
               </svg>
               <input
@@ -881,20 +916,20 @@ function MovementsPanel({
                 onChange={e => { setQuery(e.target.value); setPage(1) }}
                 placeholder="Descripción, cliente, proveedor, categoría, producto…"
                 aria-label="Buscar movimientos"
-                className="h-11 w-full border border-[var(--ds-neutral-200)] bg-white pl-9 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-brand-military dark:border-white/10 dark:bg-[#16181b] dark:text-gray-200"
+                className="h-11 w-full rounded-xl border border-[var(--border-token)] bg-[var(--surface)] pl-9 pr-3 text-sm text-[var(--text)] outline-none transition placeholder:text-[var(--text-tertiary)] focus:border-[var(--brand-700)]"
               />
             </div>
           </div>
 
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">Origen</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Origen</p>
             <div className="flex flex-wrap gap-2">
               {originOptions.map(({ key, label, active, idle }) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => toggleOrigin(key)}
-                  className={`min-h-11 border px-3 text-[11px] font-semibold uppercase tracking-[0.12em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military ${origins.has(key) ? active : idle}`}
+                  className={`min-h-11 rounded-lg border px-3 text-[11px] font-semibold uppercase tracking-[0.08em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-700)] ${origins.has(key) ? active : idle}`}
                 >
                   {label}
                 </button>
@@ -903,16 +938,16 @@ function MovementsPanel({
           </div>
 
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">Fecha</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Fecha</p>
             {/* Un solo calendario iOS de rango (desde–hasta) */}
             <button
               ref={fechasRef}
               type="button"
               onClick={() => setFechasOpen((v) => !v)}
               aria-expanded={fechasOpen}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-3 py-2 text-[14px] text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ds-blue)] dark:bg-[var(--ds-gray-900)] dark:text-white dark:ring-white/10"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--border-token)] bg-[var(--surface)] px-3 py-2 text-[14px] text-[var(--text)] transition hover:border-[var(--brand-300)] active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand-700)]"
             >
-              <svg className="h-4 w-4 text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+              <svg className="h-4 w-4 text-[var(--brand-700)] dark:text-[var(--brand-300)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
               </svg>
               <span className={dateFrom ? '' : 'text-[var(--ds-gray-500)]'}>{rangeLabel(rangoFechas) ?? 'Todas las fechas'}</span>
@@ -930,11 +965,11 @@ function MovementsPanel({
 
       <div>
         {paginated.length === 0 ? (
-          <div className="px-5 py-12 text-center">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              {shouldLoadAll && cursor ? 'Buscando en el historial completo…' : 'No hay movimientos que coincidan.'}
-            </p>
-          </div>
+          <EmptyState
+            compact
+            title={shouldLoadAll && cursor ? 'Buscando en el historial completo…' : 'No hay movimientos que coincidan'}
+            description={shouldLoadAll && cursor ? undefined : 'Probá con otra búsqueda o cambiá el filtro de fechas.'}
+          />
         ) : (
           <>
           <div className="space-y-2 p-3 xl:hidden">
@@ -958,9 +993,9 @@ function MovementsPanel({
                   type="button"
                   onClick={() => setDetalle(mov)}
                   aria-label={`Ver movimiento: ${mov.isTransfer ? 'Cambio de caja' : mov.category?.name ?? getSubTypeLabel(mov.subType)}, ${fmtMoney(mov.amount, mov.currency)}, ${fmtDate(mov.date)}`}
-                  className={`flex min-h-[88px] w-full items-center justify-between gap-3 rounded-xl border-0 border-l-4 bg-white px-3 py-3 text-left transition-colors active:bg-black/[0.025] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ds-blue)] dark:border dark:border-white/10 dark:border-l-4 dark:bg-[#16181b] dark:active:bg-white/[0.04] ${
-                    mov.isTransfer ? 'border-l-[#71717A]' : isIncome ? 'border-l-[#235347]' : 'border-l-[#B42318]'
-                  } ${highlight && mov.id === targetRowId ? 'bg-[#FEF3F2] dark:bg-[#1E2A1E]' : ''}`}
+                  className={`flex min-h-[88px] w-full items-center justify-between gap-3 rounded-xl border border-[var(--border-token)] border-l-4 bg-[var(--surface)] px-3 py-3 text-left transition-colors hover:bg-[var(--surface-muted)] active:bg-[var(--surface-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--brand-700)] ${
+                    mov.isTransfer ? 'border-l-[#71717A]' : isIncome ? 'border-l-[var(--income)]' : 'border-l-[var(--expense)]'
+                  } ${highlight && mov.id === targetRowId ? 'bg-[var(--expense-soft)]' : ''}`}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block text-[11px] text-[var(--ds-gray-500)]">{fmtDate(mov.date)}</span>
@@ -972,9 +1007,9 @@ function MovementsPanel({
                     </span>
                   </span>
                   <span className="max-w-[42%] shrink-0 text-right [overflow-wrap:anywhere]">
-                    <span className={`block text-[clamp(11px,3.2vw,14px)] font-bold tabular-nums ${
+                    <span className={`metric-value block text-[clamp(10px,3vw,14px)] font-bold ${
                       mov.isTransfer ? 'text-gray-600 dark:text-gray-300'
-                        : isIncome ? 'text-[#235347] dark:text-[#8EB698]' : 'text-[#B42318] dark:text-[#F97066]'
+                        : isIncome ? 'text-[var(--income)]' : 'text-[var(--expense)]'
                     }`}>
                       {isIncome ? '+' : '−'}{fmtMoney(mov.amount, mov.currency)}
                     </span>
@@ -993,7 +1028,7 @@ function MovementsPanel({
           <div className="hidden overflow-x-auto xl:block">
             <table className="w-full min-w-[860px] border-collapse text-xs">
               <thead>
-                <tr className="border-y border-[var(--ds-sand-warm)] bg-[#FAFBFC] text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-neutral-500)] dark:border-white/10 dark:bg-[#171717] dark:text-gray-400">
+                <tr className="border-y border-[var(--border-token)] bg-[var(--surface-muted)] text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
                   <th className="px-5 py-3 text-left">Fecha</th>
                   <th className="px-5 py-3 text-left">Categoría</th>
                   <th className="px-5 py-3 text-left">Estado</th>
@@ -1013,9 +1048,9 @@ function MovementsPanel({
                       id={`mov-${mov.id}`}
                       onClick={() => setDetalle(mov)}
                       title="Ver detalle"
-                      className={`cursor-pointer transition-colors duration-700 hover:bg-[#FAFBFA] dark:border-b dark:border-white/5 dark:hover:bg-white/[0.03] border-l-[3px] ${
-                        mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[#163832]' : 'border-l-[#B42318]'
-                      } ${highlight && mov.id === targetRowId ? 'bg-[#FEF3F2] dark:bg-[#1E2A1E]' : ''}`}
+                      className={`cursor-pointer border-b border-[var(--border-token)] border-l-[3px] transition-colors hover:bg-[var(--surface-muted)] ${
+                      mov.isTransfer ? 'border-l-[#3F3F46]' : isIncome ? 'border-l-[var(--income)]' : 'border-l-[var(--expense)]'
+                      } ${highlight && mov.id === targetRowId ? 'bg-[var(--expense-soft)]' : ''}`}
                     >
                       <td className="px-5 py-3 align-middle whitespace-nowrap">
                         <span className="text-sm font-medium text-[var(--ds-neutral-600)] dark:text-gray-300">{fmtDate(mov.date)}</span>
@@ -1048,14 +1083,14 @@ function MovementsPanel({
                       <td className="px-5 py-3 align-middle">
                         {mov.contact?.name
                           ? <span className="text-sm text-gray-600 dark:text-gray-300">{mov.contact.name}</span>
-                          : <span className="text-sm text-gray-400">—</span>
+                          : <span className="text-sm text-[var(--text-tertiary)]">—</span>
                         }
                       </td>
 
                       <td className="px-5 py-3 text-right align-middle whitespace-nowrap">
-                        <span className={`text-sm font-mono font-bold num-tabular ${
+                        <span className={`metric-value text-sm font-bold ${
                           mov.isTransfer ? 'text-gray-600 dark:text-gray-300'
-                            : isIncome ? 'text-[#235347] dark:text-[#8EB698]' : 'text-[#B42318] dark:text-[#F97066]'
+                            : isIncome ? 'text-[var(--income)]' : 'text-[var(--expense)]'
                         }`}>
                           {isIncome ? '+' : '−'}{fmtMoney(mov.amount, mov.currency)}
                         </span>
@@ -1070,8 +1105,8 @@ function MovementsPanel({
         )}
 
         {filtered.length > 0 && (
-          <div className="border-t border-[var(--ds-sand-warm)] px-5 py-4 flex items-center justify-between dark:border-white/10">
-            <p className="text-[11px] text-gray-400">
+          <div className="flex items-center justify-between border-t border-[var(--border-token)] px-5 py-4">
+            <p className="text-[11px] text-[var(--text-tertiary)]">
               {paginated.length} de {filtered.length}{cursor ? '+' : ''} movimientos cargados
             </p>
               {(hasMoreVisible || cursor) && (
@@ -1101,11 +1136,11 @@ const EVENTO_FILTRAR_CAJA = 'cajas:filtrar-caja'
 function CajaGroupColumn({
   label,
   group,
-  variant = 'military',
+  variant = 'efectivo',
 }: {
   label: string
   group: CajasGroupData
-  variant?: 'military' | 'gold'
+  variant?: 'efectivo' | 'virtual'
 }) {
   const availableCurrencies = new Set(group.accounts.map((a) => a.currency))
   const defaultCurrency: CajaCurrency = availableCurrencies.has('ARS') ? 'ARS' : 'USD'
@@ -1115,27 +1150,29 @@ function CajaGroupColumn({
   const filteredTotal = filtered.reduce((s, a) => s + a.currentBalance, 0)
   const isNegative = filteredTotal < 0
 
-  const tone = variant === 'gold'
+  const tone = variant === 'virtual'
     ? {
-        // Virtual: marrón cuero
-        selectorWrap: 'border-[#E5E7EB] bg-[#F9FAFB] dark:border-[#2A2F36] dark:bg-[#1F1514]',
-        selectorActive: 'bg-[#235347] text-white shadow-sm dark:bg-[#163832] dark:text-white',
-        selectorIdle: 'text-[#235347] hover:text-[#163832] dark:text-[#8EB698] dark:hover:text-[#DAF1DE]',
+        // Virtual: verde de marca
+        selectorWrap: 'border-[var(--border-token)] bg-[var(--surface-muted)] dark:border-white/10 dark:bg-[var(--surface-muted)]',
+        selectorActive: 'bg-[var(--brand-700)] text-white shadow-sm dark:bg-[#151515] dark:text-[#A8C89C] dark:ring-1 dark:ring-[#A8C89C]/35',
+        selectorIdle: 'text-[var(--brand-700)] hover:text-[var(--income)] dark:text-[var(--brand-300)] dark:hover:text-[var(--brand-100)]',
       }
     : {
-        // Efectivo: azul pizarra (no se confunde con ingresos, egresos ni ganancias)
-        selectorWrap: 'border-[#E5E7EB] bg-[#F4F6F9] dark:border-[#374151] dark:bg-[#161A20]',
-        selectorActive: 'bg-[#4B5563] text-white shadow-sm dark:bg-[#374151] dark:text-white',
-        selectorIdle: 'text-[#4B576B] hover:text-[#374151] dark:text-[#98A4B8] dark:hover:text-[#D1D5DB]',
+        // Efectivo: gris pizarra (no se confunde con ingresos, egresos ni ganancias)
+        selectorWrap: 'border-[var(--border-token)] bg-[var(--surface-muted)] dark:border-white/10 dark:bg-[var(--surface-muted)]',
+        selectorActive: 'bg-[var(--text-secondary)] text-white shadow-sm dark:bg-[#374151] dark:text-white',
+        selectorIdle: 'text-[var(--text-secondary)] hover:text-[var(--text)] dark:text-[#98A4B8] dark:hover:text-[#D1D5DB]',
       }
 
   const filtrarPor = (nombre: string) => window.dispatchEvent(new CustomEvent(EVENTO_FILTRAR_CAJA, { detail: nombre }))
 
   return (
-    <div className="flex h-full flex-col ds-panel p-6 sm:p-7">
-      {/* Título suave y saldo grande (estilo iOS) */}
-      <h2 className="text-[13px] font-medium text-[var(--ds-gray-500)]">{label}</h2>
-      <p className={`mt-1 text-[36px] font-semibold leading-tight tracking-tight tabular-nums ${
+    <div className="cash-account-card flex h-full flex-col ds-panel bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(5,31,32,0.04)] sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">{label}</h2>
+        <span className="rounded-md bg-[var(--surface-muted)] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-tertiary)]">Saldo operativo</span>
+      </div>
+      <p className={`metric-value mt-2 w-full text-[clamp(22px,2vw,30px)] font-semibold ${
         isNegative ? 'text-[var(--ds-red)] dark:text-[var(--ds-red-dark)]' : 'text-[var(--ds-gray-900)] dark:text-white'
       }`}>
         {isNegative ? '−' : ''}{fmtMoney(Math.abs(filteredTotal), selectedCurrency)}
@@ -1143,17 +1180,17 @@ function CajaGroupColumn({
 
       {/* Subcajas adentro de la tarjeta (si hay más de una): tocás una y la tabla se filtra */}
       {filtered.length > 1 && (
-        <ul className="mt-4 divide-y divide-black/[0.06] border-t border-black/[0.06] dark:divide-white/[0.08] dark:border-white/[0.08]">
+        <ul className="mt-3 divide-y divide-[var(--border-token)] border-t border-[var(--border-token)]">
           {filtered.map((acc) => (
             <li key={acc.id}>
               <button
                 type="button"
                 onClick={() => filtrarPor(acc.name)}
                 title={`Ver movimientos de ${acc.name}`}
-                className="flex w-full items-center justify-between gap-3 py-2.5 text-left text-[14px] transition-opacity active:opacity-60"
+                className="flex w-full items-center justify-between gap-3 py-3 text-left text-[14px] transition-colors hover:text-[var(--brand-700)] active:opacity-70"
               >
-                <span className="min-w-0 truncate text-[var(--ds-gray-900)] dark:text-white">{acc.name}</span>
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80">
+                <span className="min-w-0 truncate font-medium text-[var(--text)]">{acc.name}</span>
+                <span className="metric-value flex w-28 shrink-0 items-center justify-end gap-1.5 text-[13px] text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80">
                   {fmtMoney(acc.currentBalance, acc.currency)}
                   <svg className="h-3 w-3 text-[var(--ds-gray-300)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -1165,9 +1202,8 @@ function CajaGroupColumn({
         </ul>
       )}
 
-      {/* Empuja Pesos/USD al pie: queda a la misma altura en las dos tarjetas, tengan o no subcajas */}
-      <div className="min-h-6 flex-1" aria-hidden />
-      <div className={`inline-flex w-full items-center gap-1 border p-1 ${tone.selectorWrap}`}>
+      <div className="mt-auto pt-3">
+        <div className={`inline-flex w-full items-center gap-1 rounded-lg border p-1 ${tone.selectorWrap}`}>
         {CAJA_CURRENCIES.map((currency) => {
           const isActive = selectedCurrency === currency
           const isAvailable = availableCurrencies.has(currency)
@@ -1176,7 +1212,7 @@ function CajaGroupColumn({
               key={currency}
               type="button"
               onClick={() => setSelectedCurrency(currency)}
-              className={`flex-1 px-3 py-2 text-[11px] font-semibold transition ${
+              className={`min-h-9 flex-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition ${
                 isActive ? tone.selectorActive : tone.selectorIdle
               } ${!isAvailable ? 'opacity-55' : ''}`}
             >
@@ -1184,6 +1220,7 @@ function CajaGroupColumn({
             </button>
           )
         })}
+        </div>
       </div>
     </div>
   )
@@ -1221,9 +1258,10 @@ export default function CajasClient({
 }: CajasClientProps) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-stretch">
-        <CajaGroupColumn label="Efectivo" group={data.efectivo} variant="military" />
-        <CajaGroupColumn label="Virtual" group={data.virtual} variant="gold" />
+      <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 lg:gap-5">
+        <CajaGroupColumn label="Efectivo" group={data.efectivo} variant="efectivo" />
+        <CajaGroupColumn label="Virtual" group={data.virtual} variant="virtual" />
+        <div className="md:col-span-2">
         <HistorialCard
           cashFlow={cashFlow}
           movements={chartMovements}
@@ -1235,6 +1273,7 @@ export default function CajasClient({
           selectedDay={selectedDay}
           selectedWeekStart={selectedWeekStart}
         />
+        </div>
       </div>
       <MovementsPanel movements={movements} initialCursor={movementCursor} />
     </div>

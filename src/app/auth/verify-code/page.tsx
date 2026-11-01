@@ -30,8 +30,8 @@ export default async function VerifyCodePage({
 
   return (
     <AuthShell
-      title="Verifica tu codigo"
-      subtitle="Ingresa el codigo enviado a tu email para completar el proceso."
+      title="Verificá tu código"
+      subtitle="Ingresá el código enviado a tu email para completar el proceso."
     >
       <VerifyCodePanel email={email} purpose={purpose} />
     </AuthShell>

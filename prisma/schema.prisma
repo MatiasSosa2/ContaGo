@@ -12,51 +12,51 @@ datasource db {
 // --- AUTHENTICATION (NextAuth.js Standard + Custom User Fields) ---
 
 model User {
-  id            String    @id @default(uuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?   // Para logueo con contraseña
-  defaultBusinessId String?
-  lastLoginAt    DateTime?
+  id                      String    @id @default(uuid())
+  name                    String?
+  email                   String    @unique
+  emailVerified           DateTime?
+  image                   String?
+  password                String? // Para logueo con contraseña
+  defaultBusinessId       String?
+  lastLoginAt             DateTime?
   lastSecurityChallengeAt DateTime?
-  passwordChangedAt DateTime?
-  activeSessionId String?
-  activeSessionExpiresAt DateTime?
-  activeSessionId2 String?
+  passwordChangedAt       DateTime?
+  activeSessionId         String?
+  activeSessionExpiresAt  DateTime?
+  activeSessionId2        String?
   activeSessionExpiresAt2 DateTime?
-  activeSessionId3 String?
+  activeSessionId3        String?
   activeSessionExpiresAt3 DateTime?
-  
-  accounts      AccountAuth[]
-  sessions      Session[]
-  emailChallenges EmailChallenge[]
-  devices       UserDevice[]
-  
-  // Relación con Negocios (Un usuario puede estar en varios negocios)
-  memberships   BusinessMember[]
-  defaultBusiness Business? @relation("UserDefaultBusiness", fields: [defaultBusinessId], references: [id], onDelete: SetNull)
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  accounts        AccountAuth[]
+  sessions        Session[]
+  emailChallenges EmailChallenge[]
+  devices         UserDevice[]
+
+  // Relación con Negocios (Un usuario puede estar en varios negocios)
+  memberships     BusinessMember[]
+  defaultBusiness Business?        @relation("UserDefaultBusiness", fields: [defaultBusinessId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([defaultBusinessId])
 }
 
 model AccountAuth {
-  id                 String  @id @default(uuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -89,20 +89,20 @@ model PasswordResetToken {
 }
 
 model EmailChallenge {
-  id         String   @id @default(uuid())
-  userId     String?
-  email      String
-  purpose    String   // SIGNUP_VERIFY | SOCIAL_LOGIN_VERIFY | PASSWORD_RESET | RISK_CHALLENGE
-  codeHash   String
-  expiresAt  DateTime
-  consumedAt DateTime?
+  id              String    @id @default(uuid())
+  userId          String?
+  email           String
+  purpose         String // SIGNUP_VERIFY | SOCIAL_LOGIN_VERIFY | PASSWORD_RESET | RISK_CHALLENGE
+  codeHash        String
+  expiresAt       DateTime
+  consumedAt      DateTime?
   loginConsumedAt DateTime?
-  attempts   Int      @default(0)
-  maxAttempts Int     @default(5)
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(5)
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -112,14 +112,14 @@ model EmailChallenge {
 }
 
 model UserDevice {
-  id                    String   @id @default(uuid())
+  id                    String    @id @default(uuid())
   userId                String
   deviceFingerprintHash String
   label                 String?
-  lastSeenAt            DateTime @default(now())
+  lastSeenAt            DateTime  @default(now())
   trustedAt             DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -130,47 +130,51 @@ model UserDevice {
 // --- BUSINESS LOGIC (Multi-Tenancy) ---
 
 model Business {
-  id          String   @id @default(uuid())
-  name        String
-  slug        String?  @unique // Para URLs amigables opcional
-  currency    String   @default("ARS") // Moneda base del negocio
-  operatingModel String @default("BOTH") // SERVICES | PRODUCTS | BOTH
+  id                    String    @id @default(uuid())
+  name                  String
+  slug                  String?   @unique // Para URLs amigables opcional
+  currency              String    @default("ARS") // Moneda base del negocio
+  operatingModel        String    @default("BOTH") // SERVICES | PRODUCTS | BOTH
   onboardingCompletedAt DateTime?
 
-  members     BusinessMember[]
+  members BusinessMember[]
 
   // Tablas Financieras pertenecientes al negocio
-  accounts       Account[]
-  categories     Category[]
-  subcategories  Subcategory[]
-  cashTransfers  CashTransfer[]
-  operaciones    Operacion[]
-  transactions   Transaction[]
-  contacts       Contact[]
-  areas          AreaNegocio[]
-  productos      Producto[]
-  articulos      Articulo[]
-  empleados      Empleado[]
-  journalEntries JournalEntry[]
-  bienesDeUso    BienDeUso[]
-  defaultUsers   User[] @relation("UserDefaultBusiness")
+  accounts              Account[]
+  categories            Category[]
+  subcategories         Subcategory[]
+  cashTransfers         CashTransfer[]
+  cashClosings          CashClosing[]
+  operaciones           Operacion[]
+  transactions          Transaction[]
+  contacts              Contact[]
+  areas                 AreaNegocio[]
+  productos             Producto[]
+  articulos             Articulo[]
+  empleados             Empleado[]
+  journalEntries        JournalEntry[]
+  bienesDeUso           BienDeUso[]
+  defaultUsers          User[]                 @relation("UserDefaultBusiness")
   mercadoPagoConnection MercadoPagoConnection?
   mercadoPagoPayments   MercadoPagoPayment[]
+  agentProposals        AgentProposal[]
+  auditLogs             AuditLog[]
+  invitations           BusinessInvitation[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // --- MERCADO PAGO (integración por negocio) ---
 
 // Una cuenta de Mercado Pago vinculada a un negocio. Los tokens se guardan cifrados.
 model MercadoPagoConnection {
-  id              String   @id @default(uuid())
-  mpUserId        String
-  accessTokenEnc  String
-  refreshTokenEnc String
-  expiresAt       DateTime
-  lastSyncAt      DateTime?
+  id                String    @id @default(uuid())
+  mpUserId          String
+  accessTokenEnc    String
+  refreshTokenEnc   String
+  expiresAt         DateTime
+  lastSyncAt        DateTime?
   connectedByUserId String
 
   businessId String   @unique
@@ -182,17 +186,17 @@ model MercadoPagoConnection {
 
 // Pagos aprobados traídos de Mercado Pago, pendientes de revisión antes de importarse.
 model MercadoPagoPayment {
-  id             String   @id @default(uuid())
-  mpPaymentId    String
-  amountGross    Float
-  feeAmount      Float    @default(0)
-  amountNet      Float
-  currency       String   @default("ARS")
-  dateApproved   DateTime
-  description    String?
-  paymentMethod  String?
-  payerEmail     String?
-  importStatus   String   @default("PENDING") // PENDING | IMPORTED | IGNORED
+  id            String   @id @default(uuid())
+  mpPaymentId   String
+  amountGross   Float
+  feeAmount     Float    @default(0)
+  amountNet     Float
+  currency      String   @default("ARS")
+  dateApproved  DateTime
+  description   String?
+  paymentMethod String?
+  payerEmail    String?
+  importStatus  String   @default("PENDING") // PENDING | IMPORTED | IGNORED
 
   transactionId String?      @unique
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
@@ -208,20 +212,20 @@ model MercadoPagoPayment {
 }
 
 model BusinessMember {
-  id         String   @id @default(uuid())
-  role       String   @default("COLLABORATOR") // ADMIN | COLLABORATOR | VIEWER
-  status     String   @default("ACTIVE") // ACTIVE | INVITED | SUSPENDED
+  id         String    @id @default(uuid())
+  role       String    @default("COLLABORATOR") // ADMIN | COLLABORATOR | VIEWER
+  status     String    @default("ACTIVE") // ACTIVE | INVITED | SUSPENDED
   invitedAt  DateTime?
   acceptedAt DateTime?
-  
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, businessId]) // Un usuario solo puede tener un rol por negocio
   @@index([userId, status])
@@ -231,78 +235,79 @@ model BusinessMember {
 // --- FINANCIAL MODELS (Scoped by Business) ---
 
 model Account {
-  id              String        @id @default(uuid())
-  name            String
-  description     String?
-  type            String        // CASH | BANK | WALLET (tipo de cuenta física)
-  currency        String        @default("ARS")
-  currentBalance  Float         @default(0)
+  id             String  @id @default(uuid())
+  name           String
+  description    String?
+  type           String // CASH | BANK | WALLET (tipo de cuenta física)
+  currency       String  @default("ARS")
+  currentBalance Float   @default(0)
 
   // --- Motor contable ---
   // Tipo contable: ASSET | LIABILITY | EQUITY | INCOME | EXPENSE
-  contableType    String?       // null = pendiente de clasificar
+  contableType    String? // null = pendiente de clasificar
   // Subtipo: CASH | BANK | RECEIVABLE | PAYABLE | SALES | EXPENSE_GEN | etc.
   subtype         String?
   // true = cuenta del sistema (CxC, CxP, Ventas, etc.) - oculta en formularios UX
-  isSystemAccount Boolean       @default(false)
+  isSystemAccount Boolean @default(false)
 
   transactions     Transaction[]
   journalLines     JournalLine[]
   transfersOut     CashTransfer[] @relation("TransferFrom")
   transfersIn      CashTransfer[] @relation("TransferTo")
+  cashClosings     CashClosing[]
   // Categorías que usan esta cuenta como su cuenta contable del sistema
-  categoryContable Category[]    @relation("CategoryContableAccount")
+  categoryContable Category[]     @relation("CategoryContableAccount")
 
-  businessId       String
-  business         Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Category {
-  id           String        @id @default(uuid())
-  name         String
-  type         String
-  transactions Transaction[]
+  id            String        @id @default(uuid())
+  name          String
+  type          String
+  transactions  Transaction[]
   subcategories Subcategory[]
 
   // Cuenta contable del sistema asociada a esta categoría (INCOME/EXPENSE)
-  contableAccountId String?   @unique
-  contableAccount   Account?  @relation("CategoryContableAccount", fields: [contableAccountId], references: [id], onDelete: SetNull)
+  contableAccountId String?  @unique
+  contableAccount   Account? @relation("CategoryContableAccount", fields: [contableAccountId], references: [id], onDelete: SetNull)
 
-  businessId   String
-  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Operación de venta (luego también compra) con varios productos y pago dividido.
 // Cada parte del pago —y cada cuota de la parte a crédito— es una Transaction con
 // operacionId; los productos son OperacionItem y mueven stock.
 model Operacion {
-  id           String          @id @default(uuid())
-  tipo         String          // VENTA | COMPRA
-  date         DateTime        @default(now())
-  description  String?
-  subtotal     Float           // Σ cantidad × precio de los ítems
-  descuento    Float           @default(0) // descuento general en monto
-  total        Float           // subtotal − descuento
+  id          String   @id @default(uuid())
+  tipo        String // VENTA | COMPRA
+  date        DateTime @default(now())
+  description String?
+  subtotal    Float // Σ cantidad × precio de los ítems
+  descuento   Float    @default(0) // descuento general en monto
+  total       Float // subtotal − descuento
 
-  contactId    String?
-  contact      Contact?        @relation(fields: [contactId], references: [id])
-  empleadoId   String?
-  empleado     Empleado?       @relation(fields: [empleadoId], references: [id])
+  contactId  String?
+  contact    Contact?  @relation(fields: [contactId], references: [id])
+  empleadoId String?
+  empleado   Empleado? @relation(fields: [empleadoId], references: [id])
 
   items        OperacionItem[]
   transactions Transaction[]
 
-  businessId   String
-  business     Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([businessId, date])
 }
@@ -325,29 +330,52 @@ model OperacionItem {
 // Cambio de caja: mueve plata entre dos cajas propias (puede cambiar de moneda).
 // No es ingreso ni egreso: solo cambia el saldo de las dos cajas.
 model CashTransfer {
-  id            String   @id @default(uuid())
-  date          DateTime @default(now())
-  description   String?
+  id          String   @id @default(uuid())
+  date        DateTime @default(now())
+  description String?
 
   fromAccountId String
-  fromAccount   Account  @relation("TransferFrom", fields: [fromAccountId], references: [id])
+  fromAccount   Account @relation("TransferFrom", fields: [fromAccountId], references: [id])
   toAccountId   String
-  toAccount     Account  @relation("TransferTo", fields: [toAccountId], references: [id])
+  toAccount     Account @relation("TransferTo", fields: [toAccountId], references: [id])
 
   // Monto que sale (moneda de origen) y que entra (moneda de destino)
-  amountFrom    Float
-  amountTo      Float
+  amountFrom   Float
+  amountTo     Float
   // Cotización en pesos por dólar, solo si cambia la moneda
-  exchangeRate  Float?
+  exchangeRate Float?
 
-  journalEntry  JournalEntry?
+  journalEntry JournalEntry?
 
-  businessId    String
-  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@index([businessId, date])
+}
+
+// Arqueo diario por caja: conserva el saldo esperado, el monto contado y la diferencia.
+model CashClosing {
+  id                      String       @id @default(uuid())
+  date                    DateTime
+  systemBalance           Float
+  countedBalance          Float
+  difference              Float
+  note                    String?
+  closedBy                String?
+  adjustmentTransactionId String?      @unique
+  adjustmentTransaction   Transaction? @relation("CashClosingAdjustment", fields: [adjustmentTransactionId], references: [id], onDelete: SetNull)
+
+  accountId  String
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([businessId, accountId, date])
   @@index([businessId, date])
 }
 
@@ -360,23 +388,23 @@ model Subcategory {
   category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   transactions Transaction[]
 
-  businessId   String
-  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([categoryId])
 }
 
 model Transaction {
-  id          String   @id @default(uuid())
-  description String
-  amount      Float
-  currency    String   @default("ARS")
-  exchangeRate Float?  @default(1) // Para convertir a moneda base si es diferente
-  date        DateTime @default(now())
-  type        String
+  id           String   @id @default(uuid())
+  description  String
+  amount       Float
+  currency     String   @default("ARS")
+  exchangeRate Float?   @default(1) // Para convertir a moneda base si es diferente
+  date         DateTime @default(now())
+  type         String
 
   // Créditos y Deudas
   esCredito        Boolean   @default(false)
@@ -384,9 +412,9 @@ model Transaction {
   fechaVencimiento DateTime?
 
   // Datos Fiscales (Facturación)
-  invoiceType      String?   // A, B, C, E, M, NotaCredito, etc.
-  invoiceNumber    String?   // 0001-00001234
-  invoiceFileUrl   String?   // Link a foto o PDF del comprobante
+  invoiceType    String? // A, B, C, E, M, NotaCredito, etc.
+  invoiceNumber  String? // 0001-00001234
+  invoiceFileUrl String? // Link a foto o PDF del comprobante
 
   accountId String
   account   Account @relation(fields: [accountId], references: [id])
@@ -398,11 +426,11 @@ model Transaction {
   subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
   // Parte de una operación con varios productos / pago dividido
-  operacionId   String?
-  operacion     Operacion?   @relation(fields: [operacionId], references: [id], onDelete: SetNull)
+  operacionId String?
+  operacion   Operacion? @relation(fields: [operacionId], references: [id], onDelete: SetNull)
   // Si es una cuota de la parte a crédito: número y total de cuotas
-  cuotaNumero   Int?
-  cuotasTotal   Int?
+  cuotaNumero Int?
+  cuotasTotal Int?
 
   contactId String?
   contact   Contact? @relation(fields: [contactId], references: [id])
@@ -432,15 +460,19 @@ model Transaction {
   // Pago de Mercado Pago importado como movimiento
   mercadoPagoPayment MercadoPagoPayment?
 
+  // Propuesta del agente IA que originó este movimiento al ser aprobada
+  agentProposals AgentProposal[]
+
   // Empleado (tracking de rendimiento)
   empleadoId String?
   empleado   Empleado? @relation(fields: [empleadoId], references: [id])
 
   // Motor contable: cada Transaction genera un JournalEntry
-  journalEntry   JournalEntry?
+  journalEntry JournalEntry?
+  cashClosing  CashClosing?  @relation("CashClosingAdjustment")
 
-  businessId     String
-  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -449,65 +481,65 @@ model Transaction {
 }
 
 model Producto {
-  id            String            @id @default(uuid())
-  nombre        String
-  descripcion   String?
-  imagenUrl     String?
+  id             String            @id @default(uuid())
+  nombre         String
+  descripcion    String?
+  imagenUrl      String?
   // Tipo: MERCADERIA (con stock) | SERVICIO (sin stock)
-  tipo          String            @default("MERCADERIA")
-  categoria     String?
-  marca         String?
-  unidad        String            @default("unidad")
-  metodoCosteo  String            @default("PROMEDIO") // PROMEDIO | FIFO | LIFO
-  currency      String            @default("ARS")      // Moneda del producto
-  precioVenta   Float             @default(0)
-  precioCosto   Float             @default(0)
-  stockActual   Float             @default(0)
-  enTransito    Float             @default(0)
-  alertaStock   Float?            // Umbral de stock bajo. Si es null, no alerta.
+  tipo           String            @default("MERCADERIA")
+  categoria      String?
+  marca          String?
+  unidad         String            @default("unidad")
+  metodoCosteo   String            @default("PROMEDIO") // PROMEDIO | FIFO | LIFO
+  currency       String            @default("ARS") // Moneda del producto
+  precioVenta    Float             @default(0)
+  precioCosto    Float             @default(0)
+  stockActual    Float             @default(0)
+  enTransito     Float             @default(0)
+  alertaStock    Float? // Umbral de stock bajo. Si es null, no alerta.
   // Variante de un artículo (ej. Remera Oversize · Negra · M). Null = producto suelto.
-  articuloId    String?
-  articulo      Articulo?         @relation(fields: [articuloId], references: [id])
+  articuloId     String?
+  articulo       Articulo?         @relation(fields: [articuloId], references: [id])
   // JSON {"Talle":"M","Color":"Negra"}; null = sin atributos
-  atributos     String?
+  atributos      String?
   // true = precio propio de la variante; false = sigue el precio del artículo
-  precioPropio  Boolean           @default(false)
-  codigoBarras  String?
+  precioPropio   Boolean           @default(false)
+  codigoBarras   String?
   // Costo unitario fijado a mano (desde que se fija vale para stock y ventas); null = promedio.
   // precioCosto sigue siendo el costo promedio que calcula el sistema (de referencia).
-  costoFijo     Float?
-  activo        Boolean           @default(true)
-  movimientos   MovimientoStock[]
-  transactions  Transaction[]
+  costoFijo      Float?
+  activo         Boolean           @default(true)
+  movimientos    MovimientoStock[]
+  transactions   Transaction[]
   operacionItems OperacionItem[]
 
-  businessId     String
-  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Bienes de Uso (activos fijos: maquinaria, vehículos, equipos, etc.)
 model BienDeUso {
-  id                    String   @id @default(uuid())
+  id                    String        @id @default(uuid())
   nombre                String
   descripcion           String?
   categoria             String?
   marca                 String?
-  valorAdquisicion      Float    @default(0)
-  valorResidual         Float    @default(0)
-  fechaAdquisicion      DateTime @default(now())
+  valorAdquisicion      Float         @default(0)
+  valorResidual         Float         @default(0)
+  fechaAdquisicion      DateTime      @default(now())
   vidaUtilMeses         Int?
-  depreciacionAcumulada Float    @default(0)
-  activo                Boolean  @default(true)
+  depreciacionAcumulada Float         @default(0)
+  activo                Boolean       @default(true)
   transactions          Transaction[]
 
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([businessId, activo])
 }
@@ -531,43 +563,43 @@ model Articulo {
   activo       Boolean    @default(true)
   productos    Producto[]
 
-  businessId   String
-  business     Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([businessId])
 }
 
 model MovimientoStock {
-  id         String   @id @default(uuid())
-  tipo       String   // ENTRADA | SALIDA | AJUSTE | REVALUACION (cambio de costo: cantidad 0, precio = costo nuevo)
+  id            String   @id @default(uuid())
+  tipo          String // ENTRADA | SALIDA | AJUSTE | REVALUACION (cambio de costo: cantidad 0, precio = costo nuevo)
   // DIFERENCIA_INVENTARIO = sobrante/faltante cargado a mano (va al resultado, no al costo de lo vendido)
-  concepto   String?
-  cantidad   Float
-  precio     Float    @default(0)
+  concepto      String?
+  cantidad      Float
+  precio        Float    @default(0)
   // SALIDA: costo promedio ponderado (CPP) del producto al momento de la salida.
   // CMV = cantidad × costoUnitario. Null en salidas viejas (se usa el costo actual).
   costoUnitario Float?
-  motivo     String?
-  fecha      DateTime @default(now())
-  productoId String
-  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  motivo        String?
+  fecha         DateTime @default(now())
+  productoId    String
+  producto      Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
 }
 
 model AreaNegocio {
   id           String        @id @default(uuid())
-  nombre       String        
+  nombre       String
   descripcion  String?
   transactions Transaction[]
 
-  businessId     String
-  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([nombre, businessId]) // El nombre es único SOLO dentro del mismo negocio
 }
@@ -577,16 +609,16 @@ model Contact {
   name         String
   phone        String?
   email        String?
-  taxId        String?       // CUIT / CUIL / DNI del contacto
-  type         String        // CLIENT, SUPPLIER
+  taxId        String? // CUIT / CUIL / DNI del contacto
+  type         String // CLIENT, SUPPLIER
   transactions Transaction[]
   operaciones  Operacion[]
 
-  businessId     String
-  business       Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Empleado {
@@ -599,35 +631,35 @@ model Empleado {
   transactions Transaction[]
   operaciones  Operacion[]
 
-  businessId   String
-  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // --- MOTOR DE DOBLE PARTIDA ---
 
 // Asiento contable (cabecera)
 model JournalEntry {
-  id            String        @id @default(uuid())
-  date          DateTime      @default(now())
-  description   String?
+  id          String   @id @default(uuid())
+  date        DateTime @default(now())
+  description String?
 
   // Relación 1:1 con la Transaction que lo originó
-  transactionId String?       @unique
-  transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   // O con el cambio de caja que lo originó
-  cashTransferId String?      @unique
+  cashTransferId String?       @unique
   cashTransfer   CashTransfer? @relation(fields: [cashTransferId], references: [id], onDelete: Cascade)
 
-  lines         JournalLine[]
+  lines JournalLine[]
 
-  businessId    String
-  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  createdAt     DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@index([businessId, date])
   @@index([transactionId])
@@ -635,22 +667,92 @@ model JournalEntry {
 
 // Línea de asiento: DEBE / HABER
 model JournalLine {
-  id             String       @id @default(uuid())
+  id String @id @default(uuid())
 
   journalEntryId String
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
 
-  accountId      String
-  account        Account      @relation(fields: [accountId], references: [id])
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
 
   // Doble partida: siempre uno de los dos es > 0 y el otro es 0
-  debit          Float        @default(0)  // DEBE
-  credit         Float        @default(0)  // HABER
+  debit  Float @default(0) // DEBE
+  credit Float @default(0) // HABER
 
-  description    String?
+  description String?
 
-  createdAt      DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([accountId])
   @@index([journalEntryId])
+}
+
+// --- AGENTE IA (propuestas de movimientos + auditoría) ---
+
+// Movimiento propuesto por el agente: nunca impacta en caja hasta que el usuario lo aprueba
+model AgentProposal {
+  id          String  @id @default(uuid())
+  source      String // TEXT | PHOTO | AUDIO
+  sourceText  String? // Texto original del usuario
+  documentUrl String? // Comprobante (Cloudinary, fases 2+)
+  draftJson   String // Borrador estructurado (src/lib/agent-drafts.ts)
+  confidence  Float   @default(0) // 0..1
+  status      String  @default("PENDING") // PENDING | APPROVED | REJECTED | EDITED
+  reviewNote  String?
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdById  String
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, status, createdAt])
+}
+
+// Registro de quién hizo qué (usuario, agente o sistema): base del soporte y del moat de datos
+model AuditLog {
+  id         String  @id @default(uuid())
+  actor      String // USER | AGENT | SYSTEM
+  action     String // proposal.created | proposal.approved | ...
+  entityType String?
+  entityId   String?
+  summary    String
+  metadata   String? // JSON sanitizado
+  userId     String?
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}
+
+// --- EQUIPO (invitaciones por email) ---
+
+// Invitación de un dueño a un empleado. No usa token: se reclama automáticamente
+// cuando el email invitado inicia sesión con el correo verificado.
+model BusinessInvitation {
+  id          String    @id @default(uuid())
+  email       String // normalizado a minúsculas
+  role        String    @default("COLLABORATOR") // ADMIN | COLLABORATOR | VIEWER
+  status      String    @default("PENDING") // PENDING | ACCEPTED | REVOKED
+  invitedById String
+  acceptedAt  DateTime?
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, status])
+  @@index([email, status])
 }

@@ -80,7 +80,7 @@ export default function LoginPanel({
       : searchParams.get('registered') === '1'
       ? 'Si ya tienes una cuenta, inicia sesión o recupera tu contraseña.'
       : searchParams.get('verified') === '1'
-      ? 'Codigo validado. Inicia sesion para continuar.'
+      ? 'Código validado. Inicia sesión para continuar.'
       : null,
   )
   const [isPending, startTransition] = useTransition()
@@ -139,7 +139,7 @@ export default function LoginPanel({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm dark:bg-black/60">
           <div className="flex flex-col items-center gap-3">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-brand-military/20 border-t-brand-military" />
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Ingresando...</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Ingresando…</p>
           </div>
         </div>
       )}
@@ -176,9 +176,9 @@ export default function LoginPanel({
         </button>
       </div>
 
-      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-gray-300 lg:gap-2">
+      <div className="flex items-center gap-3 text-xs uppercase tracking-[0.22em] text-[var(--text-tertiary)] lg:gap-2">
         <div className="h-px flex-1 bg-gray-200" />
-        o inicia sesion con email
+        o inicia sesión con email
         <div className="h-px flex-1 bg-gray-200" />
       </div>
 
@@ -205,12 +205,12 @@ export default function LoginPanel({
         )}
 
         <button type="submit" disabled={isPending} className="min-h-11 w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60 lg:py-2.5">
-          {isPending ? 'Ingresando...' : 'Iniciar sesion'}
+          {isPending ? 'Ingresando…' : 'Iniciar sesión'}
         </button>
       </form>
 
       <div className="flex items-center justify-between text-sm text-gray-500 lg:text-[13px]">
-        <Link href="/auth/forgot-password" className="hover:text-gray-700">Olvide mi contraseña</Link>
+        <Link href="/auth/forgot-password" className="hover:text-gray-700">Olvidé mi contraseña</Link>
       </div>
     </div>
   )

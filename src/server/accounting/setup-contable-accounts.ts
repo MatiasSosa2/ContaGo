@@ -31,6 +31,8 @@ export const CONTABLE_SUBTYPE = {
   INVENTORY: 'INVENTORY',     // Mercadería / stock
   FIXED_ASSET: 'FIXED_ASSET', // Bienes de uso
   COGS: 'COGS',               // Costo de mercadería vendida
+  FX_DIFF: 'FX_DIFF',         // Diferencia de cambio (conversiones entre monedas)
+  COST_VARIANCE: 'COST_VARIANCE', // Diferencia de costo (compras sobre/bajo el costo fijo)
 } as const
 
 // ─── Función principal ─────────────────────────────────────────────────────────
@@ -151,6 +153,44 @@ export async function setupContableAccountsForBusiness(
         type: 'SYSTEM',
         contableType: 'EXPENSE',
         subtype: CONTABLE_SUBTYPE.COGS,
+        isSystemAccount: true,
+        currency: 'ARS',
+        currentBalance: 0,
+        businessId,
+      },
+    })
+  }
+
+  // 3e. Crear cuenta sistema Diferencia de cambio si no existe
+  const existingFxDiff = await tx.account.findFirst({
+    where: { businessId, isSystemAccount: true, subtype: CONTABLE_SUBTYPE.FX_DIFF },
+  })
+  if (!existingFxDiff) {
+    await tx.account.create({
+      data: {
+        name: 'Diferencia de cambio',
+        type: 'SYSTEM',
+        contableType: 'EXPENSE',
+        subtype: CONTABLE_SUBTYPE.FX_DIFF,
+        isSystemAccount: true,
+        currency: 'ARS',
+        currentBalance: 0,
+        businessId,
+      },
+    })
+  }
+
+  // 3f. Crear cuenta sistema Diferencia de costo si no existe
+  const existingCostVariance = await tx.account.findFirst({
+    where: { businessId, isSystemAccount: true, subtype: CONTABLE_SUBTYPE.COST_VARIANCE },
+  })
+  if (!existingCostVariance) {
+    await tx.account.create({
+      data: {
+        name: 'Diferencia de costo de compras',
+        type: 'SYSTEM',
+        contableType: 'EXPENSE',
+        subtype: CONTABLE_SUBTYPE.COST_VARIANCE,
         isSystemAccount: true,
         currency: 'ARS',
         currentBalance: 0,

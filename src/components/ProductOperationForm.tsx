@@ -15,7 +15,7 @@ const ITEM_GRID = 'grid grid-cols-[minmax(0,1fr)_40px_84px_84px_12px] items-cent
 
 // Campo chico del carrito: sin caja, con línea al enfocar
 const CART_INPUT_CLS =
-  'ios-bare w-full border-b border-transparent bg-transparent text-right text-[12px] text-[#1C1C1E] outline-none focus:border-[var(--reg-accent,#4F8A6B)] dark:text-white tabular-nums'
+  'ios-bare w-full border-b border-transparent bg-transparent text-right text-[12px] text-[#1C1C1E] outline-none focus:border-[var(--reg-accent,var(--income))] dark:text-white tabular-nums'
 
 /** "Stock 37 · Marca · Categoría" */
 function productoDetalle(p: Producto, stock: number) {
@@ -258,7 +258,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
                 <span className="block truncate text-[10px] text-[#AEAEB2]">{productoDetalle(p, stock)}</span>
               </span>
               {precio > 0 && <span className="shrink-0 text-[12px] tabular-nums text-[#8E8E93]">{fmt(precio)}</span>}
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[15px] leading-none text-[var(--reg-accent,#4F8A6B)]" aria-hidden>+</span>
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[15px] leading-none text-[var(--reg-accent,var(--income))]" aria-hidden>+</span>
             </button>
           )
         })}
@@ -280,23 +280,23 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
           <input
             autoFocus value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })}
             placeholder="Nombre" maxLength={100}
-            className="ios-bare w-full border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#4F8A6B)] dark:border-white/10 dark:text-white"
+            className="ios-bare w-full border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,var(--income))] dark:border-white/10 dark:text-white"
           />
           <div className="mt-1 flex gap-3">
             <input
               type="number" min="0" step="0.01" value={nuevo.precioVenta} onChange={(e) => setNuevo({ ...nuevo, precioVenta: e.target.value })}
               placeholder="Precio de venta"
-              className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#4F8A6B)] dark:border-white/10 dark:text-white"
+              className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,var(--income))] dark:border-white/10 dark:text-white"
             />
             <input
               value={nuevo.categoria} onChange={(e) => setNuevo({ ...nuevo, categoria: e.target.value })}
               placeholder="Categoría (opcional)" maxLength={80}
-              className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,#4F8A6B)] dark:border-white/10 dark:text-white"
+              className="ios-bare w-1/2 border-b border-black/[0.08] bg-transparent py-1 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#C7C7CC] focus:border-[var(--reg-accent,var(--income))] dark:border-white/10 dark:text-white"
             />
           </div>
           <div className="mt-2 flex justify-end gap-4 text-[12px]">
             <button type="button" onClick={() => setNuevo(null)} className="text-[#8E8E93]">Cancelar</button>
-            <button type="button" onClick={crearProducto} disabled={creando} className="font-medium text-[var(--reg-accent,#4F8A6B)] disabled:opacity-50">
+            <button type="button" onClick={crearProducto} disabled={creando} className="font-medium text-[var(--reg-accent,var(--income))] disabled:opacity-50">
               {creando ? 'Guardando…' : 'Crear'}
             </button>
           </div>
@@ -325,7 +325,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
           <button
             type="button"
             onClick={() => setItems((prev) => prev.filter((x) => x.key !== i.key))}
-            className="flex justify-end text-[#D1D1D6] opacity-0 transition hover:text-[#B8664F] group-hover:opacity-100 focus:opacity-100 dark:text-[#48484A]"
+            className="flex justify-end text-[#D1D1D6] opacity-0 transition hover:text-[var(--expense)] group-hover:opacity-100 focus:opacity-100 dark:text-[#48484A]"
             aria-label="Quitar producto"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -385,7 +385,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
               </button>
             )}
           </span>
-          <span className="text-[17px] font-semibold tabular-nums text-[var(--reg-accent,#4F8A6B)]">{fmt(total)}</span>
+          <span className="text-[17px] font-semibold tabular-nums text-[var(--reg-accent,var(--income))]">{fmt(total)}</span>
         </div>
       </div>
     </div>
@@ -394,7 +394,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
   return (
     <div className="mt-5 flex flex-col">
       {error && (
-        <div className="mb-3 flex items-center justify-between rounded-xl bg-[#FF3B30]/10 px-4 py-2.5 text-[13px] text-[#D70015] dark:text-[#FF6961]">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-[var(--expense)]/10 px-4 py-2.5 text-[13px] text-[var(--expense)] dark:text-[var(--expense)]">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar aviso" className="ml-3 opacity-60">×</button>
         </div>

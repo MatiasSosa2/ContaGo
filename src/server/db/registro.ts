@@ -6,13 +6,14 @@
 import prisma from '@/lib/prisma'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createCashTransferSchema, createCashAdjustmentSchema, productOperationSchema, conceptOperationSchema, type ActionResult } from '@/lib/validations'
-import { generateJournalLines } from '@/server/accounting/journal-engine'
+import { generateJournalLines, buildTransferJournalLines, allocateProportionally } from '@/server/accounting/journal-engine'
 import { CASH_ACCOUNT_TYPES, getCashBalanceOf } from '@/server/cash/cash-flow'
 import { undoRegistroData } from '@/server/registro/undo'
 import type { UndoRef } from '@/lib/registro'
-import { getBusinessId, parseMovementDate, getOrCreateDefaultCategory, endOfMovementDay, round2 } from './shared'
+import { getBusinessId, parseMovementDate, getOrCreateDefaultCategory, endOfMovementDay, dueDateEndOfDay, round2, BUSINESS_TZ } from './shared'
 import { createTransaction } from './transactions'
 import { costoEfectivo } from '@/lib/stock-costos'
+import { requireBusinessWriteContext } from '@/server/auth/require-business-context'
 
 export async function createCashTransfer(formData: FormData): Promise<ActionResult<{ undo: UndoRef }>> {
   const rateRaw = parseFloat(formData.get('exchangeRate') as string)
@@ -70,19 +71,49 @@ export async function createCashTransfer(formData: FormData): Promise<ActionResu
     })
     await tx.account.update({ where: { id: from.id }, data: { currentBalance: { decrement: amount } } })
     await tx.account.update({ where: { id: to.id }, data: { currentBalance: { increment: amountTo } } })
-    // Asiento: entra a la caja destino (DEBE), sale de la caja origen (HABER)
+
+    // Asiento denominado en pesos: el lado en dólares se convierte al tipo de cambio del
+    // cambio y el residual va a Diferencia de cambio (se crea si el negocio no la tiene).
+    let fxDiffAccountId: string | null = null
+    if (from.currency !== to.currency) {
+      const existingFxDiff = await tx.account.findFirst({
+        where: { businessId, isSystemAccount: true, subtype: 'FX_DIFF' },
+        select: { id: true },
+      })
+      fxDiffAccountId = existingFxDiff?.id ?? (await tx.account.create({
+        data: {
+          name: 'Diferencia de cambio',
+          type: 'SYSTEM',
+          contableType: 'EXPENSE',
+          subtype: 'FX_DIFF',
+          isSystemAccount: true,
+          currency: 'ARS',
+          currentBalance: 0,
+          businessId,
+        },
+        select: { id: true },
+      })).id
+    }
+
+    const journal = buildTransferJournalLines({
+      amountFrom: amount,
+      amountTo,
+      fromCurrency: from.currency,
+      toCurrency: to.currency,
+      exchangeRate: exchangeRate ?? null,
+      fromAccountId: from.id,
+      toAccountId: to.id,
+      fxDiffAccountId,
+      description: note,
+    })
+    if (!journal.ok) throw new Error('No se pudo generar el asiento contable del cambio de caja.')
     await tx.journalEntry.create({
       data: {
         date,
         description: note,
         cashTransfer: { connect: { id: transfer.id } },
         business: { connect: { id: businessId } },
-        lines: {
-          create: [
-            { accountId: to.id, debit: amountTo, credit: 0, description: note },
-            { accountId: from.id, debit: 0, credit: amount, description: note },
-          ],
-        },
+        lines: { create: journal.lines },
       },
     })
     return transfer.id
@@ -93,7 +124,7 @@ export async function createCashTransfer(formData: FormData): Promise<ActionResu
   return { success: true, data: { undo: { kind: 'transfer', id: transferId } } }
 }
 
-export async function createCashAdjustment(formData: FormData): Promise<ActionResult<{ difference: number; undo?: UndoRef }>> {
+export async function createCashAdjustment(formData: FormData): Promise<ActionResult<{ difference: number; closingId?: string; undo?: UndoRef }>> {
   const countedRaw = parseFloat(formData.get('counted') as string)
   const parsed = createCashAdjustmentSchema.safeParse({
     accountId: formData.get('accountId') as string,
@@ -104,18 +135,75 @@ export async function createCashAdjustment(formData: FormData): Promise<ActionRe
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message }
   const { accountId, counted, date: dateStr, description } = parsed.data
 
-  const businessId = await getBusinessId(true)
+  const session = await requireBusinessWriteContext()
+  const businessId = session.activeBusiness.id
+  const closeDay = dateStr ?? new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TZ }).format(new Date())
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(closeDay)) return { success: false, error: 'La fecha del cierre no es válida' }
+  const closingDate = new Date(`${closeDay}T12:00:00-03:00`)
+  const canonicalDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC' }).format(closingDate)
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TZ }).format(new Date())
+  if (Number.isNaN(closingDate.getTime()) || canonicalDay !== closeDay || closeDay > today) {
+    return { success: false, error: 'Elegí una fecha válida que no sea futura' }
+  }
   const account = await prisma.account.findFirst({
     where: { id: accountId, businessId, isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] } },
-    select: { id: true, currency: true },
+    select: { id: true, name: true, currency: true },
   })
   if (!account) return { success: false, error: 'Caja no encontrada' }
+
+  const existing = await prisma.cashClosing.findUnique({
+    where: { businessId_accountId_date: { businessId, accountId, date: closingDate } },
+    select: { id: true },
+  })
+  if (existing) return { success: false, error: 'Esta caja ya tiene un cierre registrado para esa fecha' }
 
   // La diferencia se calcula acá, contra el saldo del sistema a esa fecha
   const systemBalance = await getCashBalanceOf(businessId, accountId, endOfMovementDay(dateStr))
   if (systemBalance === null) return { success: false, error: 'Caja no encontrada' }
   const difference = Math.round((counted - systemBalance) * 100) / 100
-  if (Math.abs(difference) < 0.01) return { success: false, error: 'No hay diferencia: lo contado coincide con el sistema' }
+
+  if (Math.abs(difference) < 0.01) {
+    let closing: { id: string }
+    try {
+      closing = await prisma.$transaction(async (tx) => {
+        const created = await tx.cashClosing.create({
+          data: {
+            date: closingDate,
+            systemBalance,
+            countedBalance: counted,
+            difference: 0,
+            note: description ?? null,
+            closedBy: session.user.name || session.user.email,
+            accountId,
+            businessId,
+          },
+          select: { id: true },
+        })
+        await tx.auditLog.create({
+          data: {
+            actor: 'USER',
+            action: 'cash_closing.created',
+            entityType: 'CashClosing',
+            entityId: created.id,
+            summary: `Cierre de ${account.name} sin diferencia`,
+            metadata: JSON.stringify({ accountId, date: closeDay, systemBalance, countedBalance: counted, difference: 0 }),
+            userId: session.user.id,
+            businessId,
+          },
+        })
+        return created
+      })
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+        return { success: false, error: 'Esta caja ya tiene un cierre registrado para esa fecha' }
+      }
+      throw error
+    }
+    revalidateTag(`dashboard:${businessId}`, 'max')
+    revalidatePath('/')
+    revalidatePath('/cajas')
+    return { success: true, data: { difference: 0, closingId: closing.id } }
+  }
 
   const isSobrante = difference > 0
   const fd = new FormData()
@@ -133,15 +221,27 @@ export async function createCashAdjustment(formData: FormData): Promise<ActionRe
     fd.set(field, '')
   }
 
-  const result = await createTransaction(fd)
-  if (!result.success) return { success: false, error: result.error }
-  // El movimiento recién creado, para poder deshacerlo
-  const creado = await prisma.transaction.findFirst({
-    where: { businessId, accountId, subType: 'DIFERENCIA_CAJA' },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true },
+  const result = await createTransaction(fd, {
+    date: closingDate,
+    day: closeDay,
+    systemBalance,
+    countedBalance: counted,
+    difference,
+    note: description ?? null,
+    closedBy: session.user.name || session.user.email,
+    userId: session.user.id,
+    accountName: account.name,
   })
-  return { success: true, data: { difference, undo: creado ? { kind: 'transactions', ids: [creado.id] } : undefined } }
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error?.includes('Unique constraint')
+        ? 'Esta caja ya tiene un cierre registrado para esa fecha'
+        : result.error,
+    }
+  }
+  revalidatePath('/cajas')
+  return { success: true, data: { difference, closingId: result.data?.closingId, undo: result.data?.transactionId ? { kind: 'transactions', ids: [result.data.transactionId] } : undefined } }
 }
 
 // ---- Venta / compra con varios productos y pago dividido ----
@@ -178,13 +278,13 @@ export async function createProductOperation(formData: FormData): Promise<Action
 
   const businessId = await getBusinessId(true)
 
-  // Productos (del negocio)
+  // Productos (del negocio y activos: no se opera sobre productos archivados)
   const productoIds = [...new Set(items.map((i) => i.productoId))]
   const productos = await prisma.producto.findMany({
-    where: { id: { in: productoIds }, businessId },
+    where: { id: { in: productoIds }, businessId, activo: true },
     select: { id: true, nombre: true, tipo: true, precioCosto: true, stockActual: true },
   })
-  if (productos.length !== productoIds.length) return { success: false, error: 'Algún producto no existe' }
+  if (productos.length !== productoIds.length) return { success: false, error: 'Algún producto no existe o está archivado' }
   const productoById = new Map(productos.map((p) => [p.id, p]))
 
   // Venta: no se vende más de lo que hay en stock (mercadería)
@@ -235,11 +335,30 @@ export async function createProductOperation(formData: FormData): Promise<Action
   const subType = esVenta ? 'SALE_PRODUCT' : 'PURCHASE_PRODUCT'
   const categoryId = await getOrCreateDefaultCategory(businessId, txType, subType)
   const date = parseMovementDate(dateStr)
+
+  // Una operación con fecha anterior al último movimiento de stock de un producto
+  // corruptaría el CPP de todos los movimientos posteriores: se rechaza.
+  const mercaderiaIds = productos.filter((p) => p.tipo === 'MERCADERIA').map((p) => p.id)
+  if (mercaderiaIds.length > 0) {
+    const ultimos = await prisma.movimientoStock.groupBy({
+      by: ['productoId'],
+      where: { productoId: { in: mercaderiaIds }, producto: { businessId } },
+      _max: { fecha: true },
+    })
+    const violado = ultimos.find((u) => u._max.fecha && u._max.fecha.getTime() > date.getTime())
+    if (violado) {
+      const nombre = productoById.get(violado.productoId)?.nombre ?? 'el producto'
+      return { success: false, error: `La fecha es anterior al último movimiento de ${nombre}. Registrá la operación con una fecha posterior.` }
+    }
+  }
+
   const nombres = items.map((i) => productoById.get(i.productoId)!.nombre)
   const listado = nombres.length > 2 ? `${nombres.slice(0, 2).join(', ')} y ${nombres.length - 2} más` : nombres.join(', ')
   const baseDescription = note || `${esVenta ? 'Venta' : 'Compra'}: ${listado}`
-  // Compra: el descuento general baja el costo de cada unidad en la misma proporción
-  const factorNeto = subtotal > 0 ? total / subtotal : 1
+  // Compra: el descuento general baja el costo de cada ítem en la misma proporción.
+  // El neto se reparte por ítem con el residual en el último: la suma es exactamente
+  // el total pagado (sin deriva de redondeo por unidad).
+  const netosItem = esVenta ? [] : allocateProportionally(total, items.map((i) => i.cantidad * i.precioUnitario))
 
   try {
     const txIds: string[] = []
@@ -269,17 +388,27 @@ export async function createProductOperation(formData: FormData): Promise<Action
       })
 
       let cmv = 0
-      for (const item of items) {
+      let inventoryValorTotal = 0
+      for (const [itemIndex, item] of items.entries()) {
         const producto = await tx.producto.findFirst({
-          where: { id: item.productoId, businessId },
+          where: { id: item.productoId, businessId, activo: true },
           select: { id: true, nombre: true, tipo: true, precioCosto: true, costoFijo: true, stockActual: true },
         })
-        if (!producto) throw new Error('Algún producto ya no pertenece al negocio activo')
+        if (!producto) throw new Error('Algún producto ya no pertenece al negocio activo o fue archivado')
         const esMercaderia = producto.tipo === 'MERCADERIA'
         // Costo de las ventas: el fijo si lo hay, si no el promedio
         const costoActual = costoEfectivo(producto)
         const promedio = producto.precioCosto ?? 0
-        const costoNeto = round2(item.precioUnitario * factorNeto)
+        // Costo neto por unidad (el neto del ítem repartido entre sus unidades, sin redondeo)
+        const costoNeto = item.cantidad > 0 ? netosItem[itemIndex] / item.cantidad : 0
+        if (!esVenta && esMercaderia) {
+          // Con costo fijo el inventario entra valorizado al fijo; la diferencia contra lo
+          // pagado va al resultado (Diferencia de costo) en el asiento de más abajo.
+          inventoryValorTotal += item.cantidad * (producto.costoFijo ?? costoNeto)
+        } else if (!esVenta) {
+          // Servicios comprados: conservan el tratamiento anterior (a lo pagado)
+          inventoryValorTotal += netosItem[itemIndex]
+        }
         await tx.operacionItem.create({
           data: {
             operacion: { connect: { id: operacion.id } },
@@ -338,13 +467,39 @@ export async function createProductOperation(formData: FormData): Promise<Action
           amount: c.monto,
           esCredito: true,
           accountId: creditAccountId,
-          fechaVencimiento: new Date(`${c.fecha}T12:00:00-03:00`),
+          fechaVencimiento: dueDateEndOfDay(c.fecha),
           cuota: [i + 1, cuotas.length] as [number, number],
         }))
       })
 
+      // Compra: el inventario se debita por su valor de ingreso (al fijo donde hay costo
+      // fijo) y la diferencia contra lo pagado se postea a Diferencia de costo. Se reparte
+      // entre las partes de pago en proporción, con residual en la última.
+      const inventoryValorTotalRedondeado = round2(inventoryValorTotal)
+      const inventoryPorParte = esVenta ? [] : allocateProportionally(inventoryValorTotalRedondeado, partes.map((p) => p.amount))
+      let costVarianceAccountId: string | null = null
+      if (!esVenta && Math.abs(round2(total - inventoryValorTotalRedondeado)) >= 0.01) {
+        const existingCostVariance = await tx.account.findFirst({
+          where: { businessId, isSystemAccount: true, subtype: 'COST_VARIANCE' },
+          select: { id: true },
+        })
+        costVarianceAccountId = existingCostVariance?.id ?? (await tx.account.create({
+          data: {
+            name: 'Diferencia de costo de compras',
+            type: 'SYSTEM',
+            contableType: 'EXPENSE',
+            subtype: 'COST_VARIANCE',
+            isSystemAccount: true,
+            currency: 'ARS',
+            currentBalance: 0,
+            businessId,
+          },
+          select: { id: true },
+        })).id
+      }
+
       let cmvPendiente = round2(cmv)
-      for (const parte of partes) {
+      for (const [parteIndex, parte] of partes.entries()) {
         const description = parte.cuota
           ? `${baseDescription} · cuota ${parte.cuota[0]}/${parte.cuota[1]}`
           : baseDescription
@@ -392,6 +547,9 @@ export async function createProductOperation(formData: FormData): Promise<Action
           costoMercaderia: esVenta && cmvPendiente > 0 ? cmvPendiente : undefined,
           inventoryAccountId: inventoryAccount?.id ?? null,
           cogsAccountId: cogsAccount?.id ?? null,
+          inventoryValue: !esVenta ? inventoryPorParte[parteIndex] : undefined,
+          costVariance: !esVenta ? round2(parte.amount - inventoryPorParte[parteIndex]) : undefined,
+          costVarianceAccountId,
         })
         if (!journal.ok) throw new Error('No se pudo generar el asiento contable. Verificá las cuentas del negocio.')
         if (journal.ok) {
@@ -546,7 +704,7 @@ export async function createConceptOperation(formData: FormData): Promise<Concep
       amount: c.monto,
       esCredito: true,
       accountId: creditAccountId,
-      fechaVencimiento: new Date(`${c.fecha}T12:00:00-03:00`),
+      fechaVencimiento: dueDateEndOfDay(c.fecha),
       cuota: [i + 1, cuotas.length] as [number, number],
     }))
   })

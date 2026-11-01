@@ -8,7 +8,7 @@ import type { ActionResult } from '@/lib/validations'
 import { CASH_ACCOUNT_TYPES, getCashBalanceOf, getCashBalancesAt, getCashFlowSummary } from '@/server/cash/cash-flow'
 import { getIncomeStatementData } from '@/server/results/income-statement'
 import { getCashStatementData } from '@/server/cash/cash-statement'
-import { getBusinessId, endOfMovementDay, type DashboardPeriodKey, computePeriodRange } from './shared'
+import { getBusinessId, endOfMovementDay, getArtCalendarParts, artStartOfDay, artEndOfDay, type DashboardPeriodKey, computePeriodRange } from './shared'
 
 /** Saldo de una caja al cierre del día indicado (para el arqueo). */
 export async function getCashAccountBalance(accountId: string, dateStr?: string): Promise<ActionResult<{ balance: number }>> {
@@ -17,6 +17,44 @@ export async function getCashAccountBalance(accountId: string, dateStr?: string)
   const balance = await getCashBalanceOf(businessId, accountId, asOf)
   if (balance === null) return { success: false, error: 'Caja no encontrada' }
   return { success: true, data: { balance } }
+}
+
+export type CashClosingSummary = {
+  id: string
+  date: Date
+  accountId: string
+  accountName: string
+  currency: string
+  systemBalance: number
+  countedBalance: number
+  difference: number
+  note: string | null
+  closedBy: string | null
+  createdAt: Date
+}
+
+/** Últimos cierres del negocio activo, ordenados por fecha de caja. */
+export async function getCashClosings(limit = 12): Promise<CashClosingSummary[]> {
+  const businessId = await getBusinessId()
+  const rows = await prisma.cashClosing.findMany({
+    where: { businessId },
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    take: Math.min(Math.max(Math.trunc(limit) || 12, 1), 50),
+    include: { account: { select: { id: true, name: true, currency: true } } },
+  })
+  return rows.map((row) => ({
+    id: row.id,
+    date: row.date,
+    accountId: row.account.id,
+    accountName: row.account.name,
+    currency: row.account.currency,
+    systemBalance: row.systemBalance,
+    countedBalance: row.countedBalance,
+    difference: row.difference,
+    note: row.note,
+    closedBy: row.closedBy,
+    createdAt: row.createdAt,
+  }))
 }
 
 /**
@@ -188,18 +226,27 @@ export async function getCajasData(
   const range = period
     ? computePeriodRange(period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
     : null
-  const periodFrom = range?.from ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-  const periodTo = range?.to ?? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  const hoy = getArtCalendarParts(now)
+  const periodFrom = range?.from ?? artStartOfDay(hoy.year, hoy.monthIndex, hoy.day)
+  const periodTo = range?.to ?? artEndOfDay(hoy.year, hoy.monthIndex, hoy.day)
   const periodLabel = range?.label
 
   // Saldo de cada caja al cierre del período (misma fuente que el historial y el flujo de efectivo)
   const balanceAsofByAccount = period ? await getCashBalancesAt(businessId, periodTo) : {}
 
-  // Movimientos del período que mueven plata: contar y calcular variación dentro de [periodFrom, periodTo]
-  const txPeriodo = await prisma.transaction.findMany({
-    where: { businessId, esCredito: false, date: { gte: periodFrom, lte: periodTo } },
-    select: { accountId: true, amount: true, type: true },
-  })
+  // Movimientos del período que mueven plata: transacciones no a crédito + cambios de
+  // caja (un cambio entre cajas no es ingreso/egreso pero sí cambia el saldo de cada una)
+  const accountIds = accounts.map((a) => a.id)
+  const [txPeriodo, transfersPeriodo] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { businessId, esCredito: false, accountId: { in: accountIds }, date: { gte: periodFrom, lte: periodTo } },
+      select: { accountId: true, amount: true, type: true },
+    }),
+    prisma.cashTransfer.findMany({
+      where: { businessId, date: { gte: periodFrom, lte: periodTo } },
+      select: { fromAccountId: true, toAccountId: true, amountFrom: true, amountTo: true },
+    }),
+  ])
 
   const movCountByAccount: Record<string, number> = {}
   const periodVarByAccount: Record<string, number> = {}
@@ -207,6 +254,10 @@ export async function getCajasData(
     movCountByAccount[tx.accountId] = (movCountByAccount[tx.accountId] || 0) + 1
     const delta = tx.type === 'INCOME' ? tx.amount : -tx.amount
     periodVarByAccount[tx.accountId] = (periodVarByAccount[tx.accountId] || 0) + delta
+  }
+  for (const t of transfersPeriodo) {
+    periodVarByAccount[t.fromAccountId] = (periodVarByAccount[t.fromAccountId] || 0) - t.amountFrom
+    periodVarByAccount[t.toAccountId] = (periodVarByAccount[t.toAccountId] || 0) + t.amountTo
   }
 
   // Clasificar: CASH = Efectivo, BANK/WALLET/otro = Virtual
@@ -236,15 +287,21 @@ export async function getCajasData(
   const todayVarEfectivo = efectivoAccounts.reduce((s, a) => s + a.todayVariation, 0)
   const todayVarVirtual = virtualAccounts.reduce((s, a) => s + a.todayVariation, 0)
 
-  // Resumen comparativo: período actual vs período anterior
+  // Resumen comparativo: período actual vs anterior, solo ingresos que movieron una
+  // caja en pesos (sin créditos ni cuentas del sistema — mismo criterio que el flujo).
   let incomeActual = 0, incomePrev = 0
+  const cashArsIncome = {
+    businessId,
+    type: 'INCOME' as const,
+    esCredito: false,
+    account: { isSystemAccount: false, type: { in: [...CASH_ACCOUNT_TYPES] }, currency: 'ARS' },
+  }
   if (period && range) {
     const txComp = await prisma.transaction.findMany({
-      where: { businessId, date: { gte: range.prevFrom, lte: periodTo } },
-      select: { amount: true, type: true, date: true },
+      where: { ...cashArsIncome, date: { gte: range.prevFrom, lte: periodTo } },
+      select: { amount: true, date: true },
     })
     for (const tx of txComp) {
-      if (tx.type !== 'INCOME') continue
       if (tx.date >= periodFrom && tx.date <= periodTo) incomeActual += tx.amount
       else if (tx.date >= range.prevFrom && tx.date <= range.prevTo) incomePrev += tx.amount
     }
@@ -252,22 +309,32 @@ export async function getCajasData(
     const hace30dias = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
     const hace60dias = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
     const tx30 = await prisma.transaction.findMany({
-      where: { businessId, date: { gte: hace60dias } },
-      select: { amount: true, type: true, date: true },
+      where: { ...cashArsIncome, date: { gte: hace60dias } },
+      select: { amount: true, date: true },
     })
     for (const tx of tx30) {
-      if (tx.type !== 'INCOME') continue
       if (tx.date >= hace30dias) incomeActual += tx.amount
       else incomePrev += tx.amount
     }
   }
 
   const growth = incomePrev > 0 ? ((incomeActual - incomePrev) / incomePrev) * 100 : 0
-  const totalGeneral = totalEfectivo + totalVirtual
+  // Totales por moneda: nunca se suman pesos con dólares en el mensaje
+  const totalesPorMoneda = (list: CajasAccountItem[]) => {
+    const byCurrency = new Map<string, number>()
+    for (const a of list) byCurrency.set(a.currency, (byCurrency.get(a.currency) ?? 0) + a.currentBalance)
+    return byCurrency
+  }
+  const totales = new Map<string, number>()
+  for (const [cur, v] of totalesPorMoneda(efectivoAccounts)) totales.set(cur, (totales.get(cur) ?? 0) + v)
+  for (const [cur, v] of totalesPorMoneda(virtualAccounts)) totales.set(cur, (totales.get(cur) ?? 0) + v)
+  const fmtTotal = (cur: string, v: number) =>
+    `${cur === 'USD' ? 'US$' : '$'}${Math.round(v).toLocaleString('es-AR')}`
+  const totalesTexto = [...totales.entries()].map(([cur, v]) => fmtTotal(cur, v)).join(' + ') || '$0'
   const periodWord = periodLabel ?? 'mes'
   const summaryMessage = growth !== 0
-    ? `Tus cajas suman $${totalGeneral.toLocaleString('es-AR')} en total. Tus ingresos ${growth >= 0 ? 'crecieron' : 'bajaron'} un ${Math.abs(growth).toFixed(1)}% respecto al período anterior.`
-    : `Tus cajas suman $${totalGeneral.toLocaleString('es-AR')} en total al cierre de ${periodWord}.`
+    ? `Tus cajas suman ${totalesTexto}. Tus ingresos ${growth >= 0 ? 'crecieron' : 'bajaron'} un ${Math.abs(growth).toFixed(1)}% respecto al período anterior.`
+    : `Tus cajas suman ${totalesTexto} al cierre de ${periodWord}.`
 
   // Consejos IA (placeholder inteligentes basados en datos)
   const aiTipEfectivo = efectivoAccounts.length === 0

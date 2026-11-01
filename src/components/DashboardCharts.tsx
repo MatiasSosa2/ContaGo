@@ -1,6 +1,6 @@
 'use client'
 
-import ReactECharts from 'echarts-for-react'
+import dynamic from 'next/dynamic'
 import type { EChartsOption } from 'echarts'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import CashEvolutionChart from '@/components/dashboard/CashEvolutionChart'
@@ -28,7 +28,7 @@ const C = {
   net:        '#235347',
   netFill:    'rgba(197,160,101,0.12)',
   red:        '#EF4444',
-  amber:      '#B42318',
+  amber:      'var(--warning)',
   green:      '#3E7F5F',
   axis:       '#d1d5db',
   label:      '#9ca3af',
@@ -271,10 +271,16 @@ interface EvolutionTabsProps {
 function EmptyChart({ message = 'Sin datos históricos aún' }: { message?: string }) {
   return (
     <div className="flex h-[280px] items-center justify-center">
-      <p className="text-sm text-gray-400 dark:text-gray-500">{message}</p>
+      <p className="text-sm text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">{message}</p>
     </div>
   )
 }
+
+// ECharts pesa bastante y solo hace falta al abrir una vista por categorías.
+const ReactECharts = dynamic(() => import('echarts-for-react'), {
+  ssr: false,
+  loading: () => <div className="h-[280px] animate-pulse rounded-xl bg-black/[0.03] dark:bg-white/[0.04]" />,
+})
 
 export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown }: EvolutionTabsProps) {
   const [view, setView] = useState<EvView>('overview')

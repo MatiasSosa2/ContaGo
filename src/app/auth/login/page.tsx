@@ -6,8 +6,8 @@ import LoginPanel from '@/components/auth/LoginPanel'
 export default function LoginPage() {
   return (
     <AuthShell
-      title="Inicia sesion"
-      subtitle="Accede con tu proveedor social o con email y contraseña para seguir junto a tu negocio."
+      title="Inicia sesión"
+      subtitle="Accedé con tu proveedor social o con email y contraseña para seguir junto a tu negocio."
     >
       <Suspense fallback={null}>
         <LoginPanel

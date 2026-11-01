@@ -113,13 +113,13 @@ function Selector({ label, value, opciones, onChange, placeholder, vacio }: {
               </button>
             )}
             {q.trim() && !exacta && (
-              <button type="button" onClick={() => elegir(q.trim())} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] font-medium text-[#007AFF] hover:bg-black/[0.05] dark:text-[#0A84FF] dark:hover:bg-white/[0.08]">
+              <button type="button" onClick={() => elegir(q.trim())} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] font-medium text-[var(--brand-700)] hover:bg-black/[0.05] dark:text-[var(--brand-300)] dark:hover:bg-white/[0.08]">
                 + Usar «{q.trim()}»
               </button>
             )}
             {filtradas.map((o) => (
               <button key={o} type="button" onClick={() => elegir(o)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[#1C1C1E] hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]">
-                <span className="w-4 text-[#007AFF]">{o === value ? '✓' : ''}</span>{o}
+                <span className="w-4 text-[var(--brand-700)]">{o === value ? '✓' : ''}</span>{o}
               </button>
             ))}
           </div>
@@ -188,7 +188,7 @@ function AtributoEditor({ def, sugeridos, nombresUsados, onChange, onQuitar }: {
           aria-label="Nombre del atributo"
           className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-[#1C1C1E] outline-none placeholder:font-normal placeholder:text-[#C7C7CC] dark:text-white"
         />
-        <button type="button" onClick={onQuitar} aria-label={`Quitar ${def.nombre || 'atributo'}`} className="text-[13px] text-[#FF3B30] transition-opacity active:opacity-60 dark:text-[#FF453A]">Quitar</button>
+        <button type="button" onClick={onQuitar} aria-label={`Quitar ${def.nombre || 'atributo'}`} className="text-[13px] text-[var(--expense)] transition-opacity active:opacity-60 dark:text-[var(--expense)]">Quitar</button>
       </div>
       {/* Sin nombre todavía: atajos */}
       {!def.nombre.trim() && nombres.length > 0 && (
@@ -200,9 +200,9 @@ function AtributoEditor({ def, sugeridos, nombresUsados, onChange, onQuitar }: {
       )}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {def.valores.map((v) => (
-          <span key={v} className="inline-flex items-center gap-1 rounded-full bg-[#007AFF]/10 py-0.5 pl-2.5 pr-1 text-[13px] text-[#007AFF] dark:bg-[#0A84FF]/20 dark:text-[#64D2FF]">
+          <span key={v} className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-700)]/10 py-0.5 pl-2.5 pr-1 text-[13px] text-[var(--brand-700)] dark:bg-[var(--brand-300)]/20 dark:text-[var(--brand-300)]">
             {v}
-            <button type="button" onClick={() => quitar(v)} aria-label={`Quitar ${v}`} className="flex h-4 w-4 items-center justify-center rounded-full text-[#007AFF]/70 hover:bg-[#007AFF]/15 dark:text-[#64D2FF]/80">
+            <button type="button" onClick={() => quitar(v)} aria-label={`Quitar ${v}`} className="flex h-4 w-4 items-center justify-center rounded-full text-[var(--brand-700)]/70 hover:bg-[var(--brand-700)]/15 dark:text-[var(--brand-300)]/80">
               <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
             </button>
           </span>
@@ -329,9 +329,9 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
         </div>
         {/* Encabezado tipo iOS: Cancelar · título · Guardar */}
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
-          <button type="button" onClick={onClose} className="text-[15px] text-[#007AFF] dark:text-[#0A84FF]">Cancelar</button>
+          <button type="button" onClick={onClose} className="text-[15px] text-[var(--brand-700)] dark:text-[var(--brand-300)]">Cancelar</button>
           <h3 className="text-[16px] font-semibold text-[#1C1C1E] dark:text-white">{articulo ? 'Editar producto' : 'Nuevo producto'}</h3>
-          <button type="submit" disabled={pending || !nombre.trim()} className="text-[15px] font-semibold text-[#007AFF] disabled:opacity-40 dark:text-[#0A84FF]">
+          <button type="submit" disabled={pending || !nombre.trim()} className="text-[15px] font-semibold text-[var(--brand-700)] disabled:opacity-40 dark:text-[var(--brand-300)]">
             {pending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
@@ -351,7 +351,7 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
           <div className="mt-4 flex items-center gap-3 rounded-xl bg-white p-3 dark:bg-[#1C1C1E]">
             <button type="button" onClick={() => fileRef.current?.click()} aria-label={fotoVista ? 'Cambiar foto' : 'Agregar foto'} className="relative shrink-0 transition active:scale-95">
               <Foto src={fotoVista} alt={nombre || 'Foto'} className="h-16 w-16 rounded-xl" icono="h-6 w-6" />
-              {!fotoVista && <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#007AFF] text-[13px] leading-none text-white ring-2 ring-white dark:bg-[#0A84FF] dark:ring-[#1C1C1E]">+</span>}
+              {!fotoVista && <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-700)] text-[13px] leading-none text-white ring-2 ring-white dark:bg-[var(--brand-300)] dark:ring-[#1C1C1E]">+</span>}
             </button>
             <div className="min-w-0 flex-1">
               <input
@@ -360,10 +360,10 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
                 className="w-full bg-transparent text-[16px] font-medium text-[#1C1C1E] outline-none placeholder:font-normal placeholder:text-[#C7C7CC] dark:text-white"
               />
               <div className="mt-0.5 flex gap-3 text-[13px]">
-                <button type="button" onClick={() => fileRef.current?.click()} className="text-[#007AFF] dark:text-[#0A84FF]">{fotoVista ? 'Cambiar foto' : 'Agregar foto'}</button>
+                <button type="button" onClick={() => fileRef.current?.click()} className="text-[var(--brand-700)] dark:text-[var(--brand-300)]">{fotoVista ? 'Cambiar foto' : 'Agregar foto'}</button>
                 {fotoVista && <button type="button" onClick={() => setFoto(null)} className="text-[#8E8E93]">Quitar</button>}
               </div>
-              {fotoError && <p className="text-[12px] text-[#FF3B30]">{fotoError}</p>}
+              {fotoError && <p className="text-[12px] text-[var(--expense)]">{fotoError}</p>}
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void elegirFoto(e.target.files?.[0]); e.target.value = '' }} />
           </div>
@@ -403,7 +403,7 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
             {combos.length > 0
               ? 'Las variantes usan este precio; si alguna vale distinto, cargalo abajo.'
               : costo > 0 && precioNum > 0 ? (
-                <>Margen <span className={`tabular-nums ${margen < 0 ? 'text-[#B8664F] dark:text-[#E3A592]' : 'text-[#1C1C1E] dark:text-white'}`}>{margen < 0 ? '−' : ''}{fmt$(Math.abs(margen))}</span> · {margenPct.toLocaleString('es-AR', { maximumFractionDigits: 0 })}% por {unidad || 'unidad'}</>
+                <>Margen <span className={`tabular-nums ${margen < 0 ? 'text-[var(--expense)] dark:text-[var(--expense)]' : 'text-[#1C1C1E] dark:text-white'}`}>{margen < 0 ? '−' : ''}{fmt$(Math.abs(margen))}</span> · {margenPct.toLocaleString('es-AR', { maximumFractionDigits: 0 })}% por {unidad || 'unidad'}</>
               ) : costo > 0 ? 'Cargá el precio para ver el margen.' : 'El costo y el stock se calculan solos con cada compra.'}
           </p>
 
@@ -423,8 +423,8 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
                   />
                 ))}
                 {atributos.length < 3 && (
-                  <button type="button" onClick={() => setAtributos((prev) => [...prev, { nombre: '', valores: [] }])} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-[#007AFF] dark:text-[#0A84FF]">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#007AFF] text-[14px] leading-none text-white dark:bg-[#0A84FF]">+</span>
+                  <button type="button" onClick={() => setAtributos((prev) => [...prev, { nombre: '', valores: [] }])} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[15px] text-[var(--brand-700)] dark:text-[var(--brand-300)]">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-700)] text-[14px] leading-none text-white dark:bg-[var(--brand-300)]">+</span>
                     {atributos.length === 0 ? 'Agregar talle, color, tamaño…' : 'Agregar otro atributo'}
                   </button>
                 )}
@@ -449,14 +449,14 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
                           {i === 0 && stockSinVariante > 0 && <span className="ml-1.5 text-[12px] text-[#AEAEB2]">recibe {stockSinVariante.toLocaleString('es-AR')} u actuales</span>}
                         </span>
                         <div className="flex items-center gap-1">
-                          <span className={`text-[14px] ${propio ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-[#C7C7CC]'}`}>$</span>
+                          <span className={`text-[14px] ${propio ? 'text-[var(--brand-700)] dark:text-[var(--brand-300)]' : 'text-[#C7C7CC]'}`}>$</span>
                           <input
                             inputMode="decimal"
                             value={precios[k] ?? ''}
                             onChange={(e) => setPrecios((prev) => ({ ...prev, [k]: formatearMonto(e.target.value) }))}
                             placeholder={precio || '0'}
                             aria-label={`Precio de ${etiquetaVariante(c, defs)}`}
-                            className={`w-24 bg-transparent text-right text-[14px] tabular-nums outline-none placeholder:text-[#C7C7CC] ${propio ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-[#1C1C1E] dark:text-white'}`}
+                            className={`w-24 bg-transparent text-right text-[14px] tabular-nums outline-none placeholder:text-[#C7C7CC] ${propio ? 'text-[var(--brand-700)] dark:text-[var(--brand-300)]' : 'text-[#1C1C1E] dark:text-white'}`}
                           />
                         </div>
                       </div>
@@ -467,10 +467,10 @@ export default function ProductoForm({ articulo, categorias, subcategorias, marc
             </>
           )}
 
-          {error && <p className="mt-3 px-4 text-[13px] text-[#FF3B30]">{error}</p>}
+          {error && <p className="mt-3 px-4 text-[13px] text-[var(--expense)]">{error}</p>}
 
           {onEliminar && (
-            <button type="button" onClick={onEliminar} className="mt-6 w-full rounded-xl bg-white py-3 text-[15px] text-[#FF3B30] transition active:opacity-70 dark:bg-[#1C1C1E] dark:text-[#FF453A]">
+            <button type="button" onClick={onEliminar} className="mt-6 w-full rounded-xl bg-white py-3 text-[15px] text-[var(--expense)] transition active:opacity-70 dark:bg-[#1C1C1E] dark:text-[var(--expense)]">
               Eliminar producto
             </button>
           )}

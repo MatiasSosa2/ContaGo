@@ -2,17 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts'
 import { ResponsiveChartContainer } from '@/components/ResponsiveChartContainer'
 import type { DashboardChartTx } from '@/app/actions.database'
+import { preservePeriodHref } from '@/lib/period-navigation'
 
 type Bucket = { label: string; income: number; expense: number; txIdx: number[] }
 type Kind = 'INCOME' | 'EXPENSE'
 
 // Colores y tipografía estilo iOS
 // Paleta sobria (salvia + terracota): menos saturada que el verde/rojo de iOS
-const GREEN = '#5B9A78'
-const RED = '#F97066'
+const GREEN = 'var(--income)'
+const RED = 'var(--expense)'
 const SF = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif'
 
 const fmt = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(Math.round(v)).toLocaleString('es-AR')}`
@@ -93,7 +95,7 @@ function GlassTooltip({ active, payload, label, both, detalle }: {
       {both && (
         <p className="mt-1 flex justify-between gap-4 border-t border-black/5 pt-1 text-[12px] leading-5 dark:border-white/10">
           <span className="text-[#8E8E93]">Resultado</span>
-          <span className={`font-semibold tabular-nums ${(p.income ?? 0) - (p.expense ?? 0) >= 0 ? 'text-[#3E7F5F] dark:text-[#8FC0A4]' : 'text-[#B42318] dark:text-[#F97066]'}`}>
+          <span className={`font-semibold tabular-nums ${(p.income ?? 0) - (p.expense ?? 0) >= 0 ? 'text-[var(--income)]' : 'text-[var(--expense)]'}`}>
             {(p.income ?? 0) - (p.expense ?? 0) >= 0 ? '+' : ''}{fmtM((p.income ?? 0) - (p.expense ?? 0))}
           </span>
         </p>
@@ -103,7 +105,7 @@ function GlassTooltip({ active, payload, label, both, detalle }: {
 }
 
 // ── Ventanita del día/mes: resumen, categorías desplegables y resultado de caja ──
-function CategoryGroup({ name, txs }: { name: string; txs: DashboardChartTx[] }) {
+function CategoryGroup({ name, txs, search }: { name: string; txs: DashboardChartTx[]; search: string }) {
   const [open, setOpen] = useState(false)
   const total = txs.reduce((s, t) => s + t.amount, 0)
   return (
@@ -121,7 +123,7 @@ function CategoryGroup({ name, txs }: { name: string; txs: DashboardChartTx[] })
           {txs.map((t) => (
             <Link
               key={t.id}
-              href={`/cajas?mov=${t.id}`}
+              href={preservePeriodHref(`/cajas?mov=${t.id}`, search)}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
             >
               <span className="min-w-0 flex-1">
@@ -140,7 +142,7 @@ function CategoryGroup({ name, txs }: { name: string; txs: DashboardChartTx[] })
   )
 }
 
-function KindSection({ title, txs, color }: { title: string; txs: DashboardChartTx[]; color: string }) {
+function KindSection({ title, txs, color, search }: { title: string; txs: DashboardChartTx[]; color: string; search: string }) {
   const byCat = new Map<string, DashboardChartTx[]>()
   for (const t of txs) byCat.set(t.category, [...(byCat.get(t.category) ?? []), t])
   const groups = [...byCat.entries()].sort((a, b) => b[1].reduce((s, t) => s + t.amount, 0) - a[1].reduce((s, t) => s + t.amount, 0))
@@ -151,7 +153,7 @@ function KindSection({ title, txs, color }: { title: string; txs: DashboardChart
       <div className="rounded-xl bg-white px-3 dark:bg-[#2C2C2E]">
         {groups.length === 0
           ? <p className="py-3 text-[13px] text-[#8E8E93]">Sin movimientos</p>
-          : groups.map(([name, list]) => <CategoryGroup key={name} name={name} txs={list} />)}
+          : groups.map(([name, list]) => <CategoryGroup key={name} name={name} txs={list} search={search} />)}
       </div>
       <p className="mt-1.5 flex justify-between px-1 text-[13px]">
         <span className="text-[#8E8E93]">Total {title.toLowerCase()}</span>
@@ -162,6 +164,7 @@ function KindSection({ title, txs, color }: { title: string; txs: DashboardChart
 }
 
 function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: DashboardChartTx[]; kinds: Kind[]; onClose: () => void }) {
+  const search = useSearchParams().toString()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -178,7 +181,7 @@ function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: Dashboar
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-6" style={{ fontFamily: SF }}>
       <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/30 backdrop-blur-[3px]" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[88vh] w-full max-w-[440px] flex-col overflow-hidden rounded-t-[20px] bg-[#F2F2F7] shadow-[0_24px_80px_rgba(0,0,0,0.25)] sm:rounded-[20px] dark:bg-[#1C1C1E]">
+      <div className="relative z-10 flex max-h-[88vh] w-full max-w-[440px] flex-col overflow-hidden rounded-t-[20px] bg-[#F2F2F7] shadow-[0_24px_80px_rgba(0,0,0,0.25)] sm:rounded-3xl dark:bg-[#1C1C1E]">
         <div className="flex items-start justify-between px-5 pb-2 pt-5">
           <h3 className="text-[20px] font-semibold tracking-tight text-[#1C1C1E] dark:text-white">{title}</h3>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="flex h-7 w-7 items-center justify-center rounded-full bg-black/[0.06] text-[#8E8E93] transition hover:bg-black/10 dark:bg-white/10">
@@ -194,13 +197,13 @@ function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: Dashboar
             {kinds.includes('INCOME') && (
               <div className="rounded-xl bg-white px-3 py-2.5 dark:bg-[#2C2C2E]">
                 <p className="text-[11px] text-[#8E8E93]">Ingresos</p>
-                <p className="text-[15px] font-semibold tabular-nums text-[#3E7F5F] dark:text-[#8FC0A4]">{fmtShort(totalInc)}</p>
+                <p className="text-[15px] font-semibold tabular-nums text-[var(--income)]">{fmtShort(totalInc)}</p>
               </div>
             )}
             {kinds.includes('EXPENSE') && (
               <div className="rounded-xl bg-white px-3 py-2.5 dark:bg-[#2C2C2E]">
                 <p className="text-[11px] text-[#8E8E93]">Egresos</p>
-                <p className="text-[15px] font-semibold tabular-nums text-[#B42318] dark:text-[#F97066]">{fmtShort(totalExp)}</p>
+                <p className="text-[15px] font-semibold tabular-nums text-[var(--expense)]">{fmtShort(totalExp)}</p>
               </div>
             )}
             {both && (
@@ -211,13 +214,13 @@ function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: Dashboar
             )}
           </div>
 
-          {kinds.includes('INCOME') && <KindSection title="Ingresos" txs={inc} color={GREEN} />}
-          {kinds.includes('EXPENSE') && <KindSection title="Egresos" txs={exp} color={RED} />}
+          {kinds.includes('INCOME') && <KindSection title="Ingresos" txs={inc} color={GREEN} search={search} />}
+          {kinds.includes('EXPENSE') && <KindSection title="Egresos" txs={exp} color={RED} search={search} />}
 
           {both && (
             <div className="mt-5 flex items-center justify-between rounded-xl bg-white px-4 py-3 dark:bg-[#2C2C2E]">
               <span className="text-[14px] font-medium text-[#1C1C1E] dark:text-white">Resultado de caja</span>
-              <span className={`text-[16px] font-semibold tabular-nums ${resultado >= 0 ? 'text-[#3E7F5F] dark:text-[#8FC0A4]' : 'text-[#B42318] dark:text-[#F97066]'}`}>
+              <span className={`text-[16px] font-semibold tabular-nums ${resultado >= 0 ? 'text-[var(--income)]' : 'text-[var(--expense)]'}`}>
                 {resultado >= 0 ? '+' : ''}{fmt(resultado)}
               </span>
             </div>
@@ -395,8 +398,8 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
       {/* Con un solo tipo: categorías como texto con separadores (sin elegir ninguna = todas) */}
       {single && catTotals.length > 0 && (() => {
         const onCls = single === 'INCOME'
-          ? 'text-[#3E7F5F] underline decoration-[#5B9A78]/60 underline-offset-[3px] dark:text-[#8FC0A4]'
-          : 'text-[#B42318] underline decoration-[#F97066]/60 underline-offset-[3px] dark:text-[#F97066]'
+          ? 'text-[var(--income)] underline decoration-[var(--income)]/60 underline-offset-[3px]'
+          : 'text-[var(--expense)] underline decoration-[var(--expense)]/60 underline-offset-[3px]'
         const offCls = 'text-[#8E8E93] hover:text-[#3C3C43] dark:hover:text-[#EBEBF5]'
         const fila = (items: [string, number][], elegidos: string[], onToggle: (n: string) => void, size: string) => (
           <div className={`flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 ${size}`}>

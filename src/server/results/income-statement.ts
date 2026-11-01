@@ -22,7 +22,7 @@
  */
 
 import prisma from '@/lib/prisma'
-import { DIF_INVENTARIO } from '@/lib/stock-costos'
+import { aplicarMovimiento, DIF_INVENTARIO, type EstadoStock } from '@/lib/stock-costos'
 
 export type IncomeStatementItem = { label: string; amount: number; sub: string | null }
 
@@ -47,6 +47,9 @@ export async function getIncomeStatementData(
   to: Date,
   currency: string,
 ): Promise<IncomeStatementData> {
+  // Los movimientos de stock están valorizados en pesos (los productos se operan en ARS):
+  // solo entran al estado cuando el reporte es en pesos; en USD no hay CMV que mostrar.
+  // Sin filtro por `activo`: un producto archivado hoy igual tuvo ventas y costo en el período.
   const [txs, salidas] = await Promise.all([
     prisma.transaction.findMany({
       where: { businessId, currency, date: { gte: from, lte: to } },
@@ -62,16 +65,16 @@ export async function getIncomeStatementData(
         subcategory: { select: { name: true } },
       },
     }),
-    // Mismo universo que Inventario: productos activos. Salidas (CMV y faltantes) y entradas
-    // con costo guardado (sobrantes y compras con costo fijo)
-    prisma.movimientoStock.findMany({
-      where: {
-        fecha: { gte: from, lte: to },
-        producto: { businessId, activo: true },
-        OR: [{ tipo: 'SALIDA' }, { tipo: 'ENTRADA', costoUnitario: { not: null } }],
-      },
-      select: { tipo: true, concepto: true, cantidad: true, precio: true, costoUnitario: true, producto: { select: { precioCosto: true, categoria: true } } },
-    }),
+    currency === 'ARS'
+      ? prisma.movimientoStock.findMany({
+          where: {
+            fecha: { gte: from, lte: to },
+            producto: { businessId },
+            OR: [{ tipo: 'SALIDA' }, { tipo: 'ENTRADA', costoUnitario: { not: null } }],
+          },
+          select: { id: true, tipo: true, concepto: true, cantidad: true, precio: true, costoUnitario: true, productoId: true, producto: { select: { precioCosto: true, categoria: true } } },
+        })
+      : Promise.resolve([]),
   ])
 
   let ventas = 0
@@ -153,14 +156,35 @@ export async function getIncomeStatementData(
     }
   }
 
-  // Salidas viejas sin costo guardado: se valorizan al CPP actual
+  // Salidas viejas sin costo guardado: se reconstruye el CPP cronológico hasta cada
+  // venta (mismo replay que el Estado patrimonial), no el promedio de hoy.
+  const productosSinCosto = [...new Set(salidas.filter((m) => m.tipo === 'SALIDA' && m.costoUnitario == null).map((m) => m.productoId))]
+  const cppEnLaVenta = new Map<string, number>()
+  if (productosSinCosto.length > 0) {
+    const historial = await prisma.movimientoStock.findMany({
+      where: { productoId: { in: productosSinCosto }, producto: { businessId }, fecha: { lte: to } },
+      orderBy: [{ fecha: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true, productoId: true, tipo: true, concepto: true, cantidad: true, precio: true, costoUnitario: true },
+    })
+    const costoReferencia = new Map(salidas.map((m) => [m.productoId, m.producto.precioCosto ?? 0]))
+    const estadoPorProducto = new Map<string, EstadoStock>()
+    for (const h of historial) {
+      const e = estadoPorProducto.get(h.productoId) ?? { stock: 0, valor: 0 }
+      if (h.tipo === 'SALIDA' && h.costoUnitario == null) {
+        cppEnLaVenta.set(h.id, e.stock > 0 ? e.valor / e.stock : costoReferencia.get(h.productoId) ?? 0)
+      }
+      aplicarMovimiento(e, h, costoReferencia.get(h.productoId) ?? 0)
+      estadoPorProducto.set(h.productoId, e)
+    }
+  }
+
   let cmv = 0
   const cmvPorCategoria: Record<string, number> = {}
   let sobrante = 0
   let faltante = 0
   let difCosto = 0
   for (const m of salidas) {
-    const costo = m.costoUnitario ?? m.producto.precioCosto ?? 0
+    const costo = m.costoUnitario ?? cppEnLaVenta.get(m.id) ?? m.producto.precioCosto ?? 0
     if (m.concepto === DIF_INVENTARIO) {
       if (m.tipo === 'ENTRADA') sobrante += m.cantidad * costo
       else faltante += m.cantidad * costo

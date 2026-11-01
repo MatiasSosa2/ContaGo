@@ -2,13 +2,22 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useTransition, useState } from 'react'
 import { signOut } from 'next-auth/react'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useStoredValue } from '@/lib/useStoredValue'
+import { preservePeriodHref } from '@/lib/period-navigation'
 
-const NAV_ITEMS = [
+type NavItem = {
+  href: string
+  label: string
+  subLabel?: string
+  adminOnly?: boolean
+  icon: React.ReactNode
+}
+
+const NAV_ITEMS: NavItem[] = [
   {
     href: '/',
     label: 'Balance General',
@@ -57,6 +66,37 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    href: '/agente',
+    label: 'Agente',
+    subLabel: 'Revisá lo que propone',
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/equipo',
+    label: 'Equipo',
+    subLabel: 'Miembros e invitaciones',
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/mercadopago',
+    label: 'Mercado Pago',
+    subLabel: 'Integración de cobros',
+    adminOnly: true,
+    icon: (
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+      </svg>
+    ),
+  },
 ]
 
 
@@ -85,11 +125,16 @@ function hoyCorto() {
   return { dia: dia.charAt(0).toUpperCase() + dia.slice(1), numero: d.getDate(), mes: MESES_CORTOS[d.getMonth()] }
 }
 
-// Paleta del panel: verde petróleo oscuro y el elegido en dorado suave
-const GOLD = '#E3CB8F'
+// Paleta del panel: verde petróleo oscuro y el elegido en verde claro de marca
+const ACCENT = 'var(--brand-300)'
+const ACCENT_BG = 'rgba(142,182,152,0.18)'
 
-export default function Sidebar({ businessName }: { businessName?: string }) {
+export default function Sidebar({ businessName, role }: { businessName?: string; role?: 'ADMIN' | 'COLLABORATOR' | 'VIEWER' }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const navHref = (href: string) => preservePeriodHref(href, searchParams.toString())
+  // Los módulos exclusivos de administradores (integraciones) no se muestran a otros roles
+  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || role === 'ADMIN')
   const [isSigningOut, startSignOut] = useTransition()
   const closeMoreRef = useRef<HTMLButtonElement>(null)
   const mobileMoreRef = useRef<HTMLElement>(null)
@@ -103,6 +148,9 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
   const [showMobileMore, setShowMobileMore] = useState(false)
   const mobileMoreIsActive = pathname.startsWith('/creditos') ||
     pathname.startsWith('/reports') ||
+    pathname.startsWith('/agente') ||
+    pathname.startsWith('/equipo') ||
+    pathname.startsWith('/mercadopago') ||
     pathname.startsWith('/auth/change-password')
 
   useEffect(() => {
@@ -156,12 +204,12 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
   return (
     <>
     <aside
-      className={`sticky top-0 z-20 hidden h-screen shrink-0 bg-[#F2F2F7] p-2 pr-0 transition-all dark:bg-black duration-300 lg:block ${collapsed ? 'w-[76px]' : 'w-[232px]'}`}
+      className={`sticky top-0 z-20 hidden h-screen shrink-0 bg-[var(--surface-muted)] p-2 pr-0 transition-all duration-300 lg:block ${collapsed ? 'w-[76px]' : 'w-[232px]'}`}
     >
       {/* Panel flotante con esquinas redondeadas y degradé verde oscuro */}
       <div
-        className="relative flex h-full flex-col overflow-hidden rounded-[18px] shadow-[0_8px_30px_rgba(0,0,0,0.18)]"
-        style={{ background: 'linear-gradient(180deg, #0E3B2E 0%, #0C2E24 55%, #0A251D 100%)', border: '1px solid rgba(255,255,255,0.06)' }}
+        className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--brand-950)] shadow-[0_2px_8px_rgba(5,31,32,0.12)]"
+        style={{ backgroundColor: 'var(--brand-950)' }}
       >
         {/* Logo cuadrado y nombre del negocio */}
         <div className={`flex items-center gap-3 pb-5 pt-6 ${collapsed ? 'justify-center px-0' : 'px-5'}`}>
@@ -174,23 +222,23 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
         </div>
 
         <nav className={`flex-1 space-y-1 overflow-y-auto py-2 ${collapsed ? 'px-2.5' : 'px-3'}`}>
-          {NAV_ITEMS.map(item => {
+          {visibleItems.map(item => {
             const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={navHref(item.href)}
                 title={collapsed ? item.label : undefined}
                 className={`group relative flex items-center gap-3 rounded-xl py-2.5 text-[14px] font-medium transition-colors duration-150 ${collapsed ? 'justify-center px-0' : 'px-3'} ${isActive ? '' : 'hover:bg-white/[0.06]'}`}
                 style={isActive
-                  ? { background: 'rgba(197,160,101,0.20)', color: GOLD }
+                  ? { background: ACCENT_BG, color: ACCENT }
                   : { color: 'rgba(255,255,255,0.72)' }}
               >
-                {/* Marca dorada en el borde izquierdo del panel (solo abierto) */}
+                {/* Marca de acento en el borde izquierdo del panel (solo abierto) */}
                 {isActive && !collapsed && (
-                  <span aria-hidden className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full" style={{ background: GOLD }} />
+                  <span aria-hidden className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full" style={{ background: ACCENT }} />
                 )}
-                <span className="shrink-0" style={{ color: isActive ? GOLD : 'rgba(255,255,255,0.55)' }}>
+                <span className="shrink-0" style={{ color: isActive ? ACCENT : 'rgba(255,255,255,0.55)' }}>
                   {item.icon}
                 </span>
                 {!collapsed && <span className="truncate leading-tight">{item.label}</span>}
@@ -232,7 +280,7 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
                 onClick={handleSignOut}
                 disabled={isSigningOut}
                 aria-label="Cerrar sesión"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-white/45 transition hover:bg-[#FF453A]/[0.16] hover:text-[#FF8A80] active:scale-95 disabled:opacity-50"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-white/45 transition hover:bg-[var(--expense)]/[0.16] hover:text-[#FF8A80] active:scale-95 disabled:opacity-50"
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15" />
@@ -252,16 +300,16 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
         style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif' }}
       >
         <button type="button" aria-label="Cancelar" className="absolute inset-0 bg-black/35" onClick={() => setConfirmSignOut(false)} />
-        <div role="alertdialog" aria-labelledby="signout-title" className="relative z-10 w-[270px] overflow-hidden rounded-[14px] bg-[#F2F2F2]/95 text-center shadow-[0_20px_60px_rgba(0,0,0,0.3)] backdrop-blur-xl dark:bg-[#2C2C2E]/95">
+        <div role="alertdialog" aria-labelledby="signout-title" className="relative z-10 w-[270px] overflow-hidden rounded-2xl bg-[#F2F2F2]/95 text-center shadow-[0_20px_60px_rgba(0,0,0,0.3)] backdrop-blur-xl dark:bg-[#2C2C2E]/95">
           <div className="px-4 pb-4 pt-5">
             <p id="signout-title" className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">¿Cerrar sesión?</p>
             <p className="mt-1 text-[13px] leading-snug text-[#3C3C43]/80 dark:text-[#EBEBF5]/70">Vas a tener que volver a ingresar para usar ContaGo.</p>
           </div>
           <div className="grid grid-cols-2 border-t border-black/10 dark:border-white/10">
-            <button type="button" autoFocus onClick={() => setConfirmSignOut(false)} className="border-r border-black/10 py-3 text-[17px] text-[#007AFF] transition hover:bg-black/[0.04] dark:border-white/10 dark:text-[#0A84FF] dark:hover:bg-white/[0.06]">
+            <button type="button" autoFocus onClick={() => setConfirmSignOut(false)} className="border-r border-black/10 py-3 text-[17px] text-[var(--brand-700)] transition hover:bg-black/[0.04] dark:border-white/10 dark:text-[var(--brand-300)] dark:hover:bg-white/[0.06]">
               Cancelar
             </button>
-            <button type="button" onClick={doSignOut} disabled={isSigningOut} className="py-3 text-[17px] font-semibold text-[#FF3B30] transition hover:bg-black/[0.04] disabled:opacity-50 dark:text-[#FF453A] dark:hover:bg-white/[0.06]">
+            <button type="button" onClick={doSignOut} disabled={isSigningOut} className="py-3 text-[17px] font-semibold text-[var(--expense)] transition hover:bg-black/[0.04] disabled:opacity-50 dark:text-[var(--expense)] dark:hover:bg-white/[0.06]">
               {isSigningOut ? 'Cerrando…' : 'Cerrar sesión'}
             </button>
           </div>
@@ -273,30 +321,30 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
     <nav
       aria-label="Navegación principal"
       className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 lg:hidden"
-      style={{ background: '#051F20', paddingBottom: 'env(safe-area-inset-bottom)', boxShadow: '0 -1px 16px rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+      style={{ background: '#000000', paddingBottom: 'env(safe-area-inset-bottom)', boxShadow: '0 -1px 16px rgba(0,0,0,0.25)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
     >
-      {NAV_ITEMS.filter((item) => ['/', '/cajas', '/stock'].includes(item.href)).map(item => {
+      {visibleItems.filter((item) => ['/', '/cajas', '/stock'].includes(item.href)).map(item => {
         const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={navHref(item.href)}
             aria-label={item.label}
             aria-current={isActive ? 'page' : undefined}
-            className="relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center transition-colors active:bg-white/[0.08] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#E3CB8F]"
+            className="relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center transition-colors active:bg-white/[0.08] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#8EB698]"
           >
             {isActive && (
               <span
                 className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5"
-                style={{ background: '#C5A065' }}
+                style={{ background: '#8EB698' }}
               />
             )}
-            <span className="flex h-5 w-5 items-center justify-center" style={{ color: isActive ? '#E3CB8F' : 'rgba(255,255,255,0.72)' }}>
+            <span className="flex h-5 w-5 items-center justify-center" style={{ color: isActive ? '#8EB698' : 'rgba(255,255,255,0.72)' }}>
               {item.icon}
             </span>
             <span
               className="max-w-full truncate text-[10px] font-medium leading-none"
-              style={{ color: isActive ? '#E3CB8F' : 'rgba(255,255,255,0.72)' }}
+              style={{ color: isActive ? '#8EB698' : 'rgba(255,255,255,0.72)' }}
             >
               {item.label === 'Balance General' ? 'Inicio' : item.label === 'Inventario' ? 'Stock' : item.label}
             </span>
@@ -309,10 +357,10 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
         aria-expanded={showMobileMore}
         aria-current={mobileMoreIsActive ? 'page' : undefined}
         onClick={() => setShowMobileMore(true)}
-        className={`relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center transition-colors active:bg-white/[0.08] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#E3CB8F] ${showMobileMore ? 'text-[#E3CB8F]' : 'text-white/75'}`}
+        className={`relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center transition-colors active:bg-white/[0.08] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#8EB698] ${showMobileMore ? 'text-[#8EB698]' : 'text-white/75'}`}
       >
-        {(pathname.startsWith('/creditos') || pathname.startsWith('/reports') || pathname.startsWith('/auth/change-password')) && (
-          <span aria-hidden className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 bg-[#C5A065]" />
+        {(pathname.startsWith('/creditos') || pathname.startsWith('/reports') || pathname.startsWith('/agente') || pathname.startsWith('/equipo') || pathname.startsWith('/mercadopago') || pathname.startsWith('/auth/change-password')) && (
+          <span aria-hidden className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 bg-[#8EB698]" />
         )}
         <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
           <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
@@ -338,20 +386,20 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
           <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-black/15 dark:bg-white/20" aria-hidden />
           <div className="mb-2 flex items-center justify-between">
             <h2 id="mobile-more-title" className="text-base font-semibold text-[var(--ds-gray-900)] dark:text-white">Más opciones</h2>
-            <button ref={closeMoreRef} type="button" onClick={() => setShowMobileMore(false)} aria-label="Cerrar menú" className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--ds-gray-600)] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C5A065] dark:text-white dark:hover:bg-white/10">
+            <button ref={closeMoreRef} type="button" onClick={() => setShowMobileMore(false)} aria-label="Cerrar menú" className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--ds-gray-600)] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8EB698] dark:text-white dark:hover:bg-white/10">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M18 6 6 18" /></svg>
             </button>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {NAV_ITEMS.filter((item) => ['/creditos', '/reports'].includes(item.href)).map((item) => {
+            {visibleItems.filter((item) => ['/creditos', '/reports', '/agente', '/equipo', '/mercadopago'].includes(item.href)).map((item) => {
               const isActive = pathname.startsWith(item.href)
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={navHref(item.href)}
                   aria-current={isActive ? 'page' : undefined}
                   onClick={() => setShowMobileMore(false)}
-                  className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C5A065] ${isActive ? 'border-[#C5A065]/50 bg-[#C5A065]/10 text-[#76552B] dark:text-[#E3CB8F]' : 'border-black/10 text-[var(--ds-gray-800)] dark:border-white/10 dark:text-white'}`}
+                  className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8EB698] ${isActive ? 'border-[#8EB698]/50 bg-[#8EB698]/10 text-[var(--brand-700)] dark:text-[#8EB698]' : 'border-black/10 text-[var(--ds-gray-800)] dark:border-white/10 dark:text-white'}`}
                 >
                   <span className="h-5 w-5 shrink-0">{item.icon}</span>
                   {item.label}
@@ -359,9 +407,9 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
               )
             })}
             <Link
-              href="/auth/change-password"
+              href={navHref('/auth/change-password')}
               onClick={() => setShowMobileMore(false)}
-              className="col-span-2 flex min-h-12 items-center rounded-xl border border-black/10 px-3 text-sm font-medium text-[var(--ds-gray-800)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C5A065] dark:border-white/10 dark:text-white"
+              className="col-span-2 flex min-h-12 items-center rounded-xl border border-black/10 px-3 text-sm font-medium text-[var(--ds-gray-800)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#8EB698] dark:border-white/10 dark:text-white"
             >
               Seguridad y contraseña
             </Link>

@@ -146,7 +146,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
           <span className="h-[5px] w-9 rounded-full bg-black/15 dark:bg-white/20" />
         </div>
         {!editor && (
-          <button type="button" onClick={onEdit} className="absolute right-14 top-4 z-10 h-7 text-[15px] text-[#007AFF] transition-opacity active:opacity-60 dark:text-[#0A84FF]">
+          <button type="button" onClick={onEdit} className="absolute right-14 top-4 z-10 h-7 text-[15px] text-[var(--brand-700)] transition-opacity active:opacity-60 dark:text-[var(--brand-300)]">
             Editar
           </button>
         )}
@@ -163,7 +163,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
         {editor && (
           <div key={editor} className="animate-[reg-push-in_280ms_cubic-bezier(0.32,0.72,0,1)] overflow-y-auto px-4 pb-6 pt-4 md:px-6">
             <div className="relative mb-4 flex h-7 items-center justify-center pr-8">
-              <button type="button" onClick={() => setEditor(null)} className="absolute left-0 flex max-w-[45%] items-center gap-0.5 text-[16px] text-[#007AFF] transition-opacity active:opacity-60 dark:text-[#0A84FF]">
+              <button type="button" onClick={() => setEditor(null)} className="absolute left-0 flex max-w-[45%] items-center gap-0.5 text-[16px] text-[var(--brand-700)] transition-opacity active:opacity-60 dark:text-[var(--brand-300)]">
                 <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 <span className="truncate">{articulo.nombre}</span>
               </button>
@@ -238,7 +238,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5V7.5A2.5 2.5 0 0 1 5.5 5h1.3l1.4-2h7.6l1.4 2h1.3A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5Z" />
                       <circle cx="12" cy="12" r="3.5" />
                     </svg>
-                    <span className="text-[13px] text-[#007AFF] dark:text-[#0A84FF]">Agregar foto</span>
+                    <span className="text-[13px] text-[var(--brand-700)] dark:text-[var(--brand-300)]">Agregar foto</span>
                   </span>
                 )}
                 {articulo.fotoSrc && (
@@ -268,7 +268,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
                               onClick={() => elegir(a.nombre, val)}
                               aria-pressed={on}
                               className={`rounded-full px-3 py-1 text-[13px] transition active:scale-95 ${on
-                                ? 'bg-[#007AFF] text-white dark:bg-[#0A84FF]'
+                                ? 'bg-[var(--brand-700)] text-white dark:bg-[var(--brand-300)]'
                                 : `bg-white ring-1 ring-black/[0.08] dark:bg-[#1C1C1E] dark:ring-white/10 ${hay ? 'text-[#1C1C1E] dark:text-white' : 'text-[#AEAEB2] dark:text-[#636366]'}`}`}
                             >
                               {val}
@@ -296,7 +296,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
                         aria-label="Precio nuevo"
                         className="w-28 rounded-md bg-black/[0.05] px-2 py-1 text-right text-[15px] tabular-nums text-[#1C1C1E] outline-none dark:bg-white/[0.08] dark:text-white"
                       />
-                      <button type="button" onClick={() => guardarPrecio(aNumero(editPrecio))} disabled={pending} className="text-[14px] font-semibold text-[#007AFF] disabled:opacity-50 dark:text-[#0A84FF]">OK</button>
+                      <button type="button" onClick={() => guardarPrecio(aNumero(editPrecio))} disabled={pending} className="text-[14px] font-semibold text-[var(--brand-700)] disabled:opacity-50 dark:text-[var(--brand-300)]">OK</button>
                     </span>
                   ) : una ? (
                     // Precio rápido: tocar para cambiarlo
@@ -304,7 +304,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
                       type="button"
                       onClick={() => setEditPrecio(formatearMonto(String(Math.round(una.precioVenta * 10) / 10).replace('.', ',')))}
                       aria-label="Cambiar precio"
-                      className={`flex items-center gap-2 text-[15px] font-semibold tabular-nums transition-opacity active:opacity-60 ${una.precioPropio && conVariantes ? 'text-[#007AFF] dark:text-[#0A84FF]' : 'text-[#1C1C1E] dark:text-white'}`}
+                      className={`flex items-center gap-2 text-[15px] font-semibold tabular-nums transition-opacity active:opacity-60 ${una.precioPropio && conVariantes ? 'text-[var(--brand-700)] dark:text-[var(--brand-300)]' : 'text-[#1C1C1E] dark:text-white'}`}
                     >
                       {fmt$(una.precioVenta)}
                       <svg className="h-3.5 w-3.5 shrink-0 text-[#C7C7CC] dark:text-[#48484A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
@@ -318,7 +318,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
                 {una && una.precioPropio && conVariantes && editPrecio === null && (
                   <div className="flex items-center justify-between px-4 py-1.5 text-[12px] text-[#8E8E93]">
                     <span>Precio propio de esta variante</span>
-                    <button type="button" onClick={() => guardarPrecio(null)} disabled={pending} className="text-[#007AFF] dark:text-[#0A84FF]">Usar precio base ({fmt$(articulo.precioBase)})</button>
+                    <button type="button" onClick={() => guardarPrecio(null)} disabled={pending} className="text-[var(--brand-700)] dark:text-[var(--brand-300)]">Usar precio base ({fmt$(articulo.precioBase)})</button>
                   </div>
                 )}
                 {/* Costo unitario: el fijo (si lo hay) o el promedio. El promedio del sistema se ve al editarlo */}
@@ -353,7 +353,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
                   <svg className="h-3 w-3 shrink-0 text-[#C7C7CC] dark:text-[#48484A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-              {error && <p className="mt-2 px-4 text-[12px] text-[#FF3B30]">{error}</p>}
+              {error && <p className="mt-2 px-4 text-[12px] text-[var(--expense)]">{error}</p>}
             </div>
           </div>
 
@@ -385,7 +385,7 @@ export default function ProductoSheet({ articulo, movimientos, varianteInicial, 
                         <p className="truncate text-[14px] text-[#1C1C1E] dark:text-white">{m.motivo || (entra ? 'Compra' : m.tipo === 'SALIDA' ? 'Venta' : 'Ajuste')}</p>
                         <p className="text-[12px] text-[#8E8E93]">{fechaCorta(m.fecha)}{etiqueta ? ` · ${etiqueta}` : ''}{esDif ? ` · ${fmt$(m.cantidad * m.precio)} ${entra ? 'de ganancia' : 'de pérdida'}` : ''}</p>
                       </div>
-                      <span className={`shrink-0 text-[14px] tabular-nums ${entra ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : m.tipo === 'SALIDA' ? 'text-[#B8664F] dark:text-[#E3A592]' : 'text-[#8E8E93]'}`}>
+                      <span className={`shrink-0 text-[14px] tabular-nums ${entra ? 'text-[var(--income)] dark:text-[var(--income)]' : m.tipo === 'SALIDA' ? 'text-[var(--expense)] dark:text-[var(--expense)]' : 'text-[#8E8E93]'}`}>
                         {entra ? '+' : m.tipo === 'SALIDA' ? '−' : ''}{fmtU(m.cantidad)}
                       </span>
                     </div>

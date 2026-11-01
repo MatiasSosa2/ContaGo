@@ -112,7 +112,7 @@ function CajaSelect({ accounts, selected }: { accounts: CashStatement['accounts'
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-1 rounded-full bg-[#007AFF]/[0.1] py-1 pl-3 pr-2 text-[13px] font-medium text-[#007AFF] transition hover:bg-[#007AFF]/[0.16] active:scale-[0.97] dark:bg-[#0A84FF]/[0.18] dark:text-[#0A84FF]"
+        className="flex items-center gap-1 rounded-lg bg-[var(--brand-100)] py-1 pl-3 pr-2 text-[13px] font-medium text-[var(--brand-700)] transition hover:opacity-80 active:scale-[0.97] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]"
       >
         <span className="max-w-[120px] truncate">{label}</span>
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -126,7 +126,7 @@ function CajaSelect({ accounts, selected }: { accounts: CashStatement['accounts'
           {/* Menú flotante estilo iOS: vidrio translúcido y tilde en la opción elegida */}
           <div
             role="menu"
-            className="absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-[14px] border border-black/[0.06] bg-white/80 py-1 shadow-[0_12px_40px_rgba(0,0,0,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#2C2C2E]/85"
+            className="absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-black/[0.06] bg-white/80 py-1 shadow-[0_12px_40px_rgba(0,0,0,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#2C2C2E]/85"
             style={{ fontFamily: SF_FONT }}
           >
             {options.map((o, i) => {
@@ -140,7 +140,7 @@ function CajaSelect({ accounts, selected }: { accounts: CashStatement['accounts'
                   onClick={() => choose(o.id)}
                   className={`flex w-full items-center gap-2.5 px-3.5 py-2 text-left transition hover:bg-black/[0.05] dark:hover:bg-white/[0.08] ${i === 0 ? 'border-b border-black/[0.06] dark:border-white/[0.08]' : ''}`}
                 >
-                  <span className="flex w-4 shrink-0 justify-center text-[#007AFF] dark:text-[#0A84FF]">
+                  <span className="flex w-4 shrink-0 justify-center text-[var(--brand-700)] dark:text-[var(--brand-300)]">
                     {activa && (
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -270,7 +270,7 @@ export default function FlujoDetail({ data, trends, previous }: { data: CashStat
             <p className="text-[12px] text-[#8E8E93]">{titulo}</p>
             <p className={`mt-0.5 text-[17px] font-semibold tracking-tight tabular-nums ${TONO_MONTO[tono]}`}>{fmtFull(monto, cur)}</p>
             {previous && (
-              <p className="mt-0.5 h-3 text-[9px] leading-3 opacity-60 [&>span:first-child]:w-auto [&>span:first-child]:text-left [&>span:first-child]:text-[9px]">
+              <p className="mt-0.5 h-3 text-[11px] leading-3 opacity-60 [&>span:first-child]:w-auto [&>span:first-child]:text-left [&>span:first-child]:text-[11px]">
                 <Variacion actual={monto} anterior={anterior} inverse={inverse} vs={vs} />
                 <span className="ml-1 text-[#C7C7CC] dark:text-[#5A5A5E]">vs {previous.label}</span>
               </p>
@@ -297,10 +297,10 @@ export default function FlujoDetail({ data, trends, previous }: { data: CashStat
                 href={cajaHref(activa ? null : a.id)}
                 scroll={false}
                 className={`grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-3 border-b border-black/[0.06] px-4 py-3 text-[14px] transition last:border-b-0 sm:gap-4 sm:px-5 dark:border-white/[0.08] ${
-                  activa ? 'bg-[#007AFF]/[0.08] dark:bg-[#0A84FF]/[0.15]' : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'
+                  activa ? 'bg-[var(--brand-100)] dark:bg-[var(--brand-800)]' : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'
                 }`}
               >
-                <span className={`truncate ${activa ? 'font-semibold text-[#007AFF] dark:text-[#0A84FF]' : 'text-[#1C1C1E] dark:text-white'}`}>{a.name}</span>
+                <span className={`truncate ${activa ? 'font-semibold text-[var(--brand-700)] dark:text-[var(--brand-300)]' : 'text-[var(--text)]'}`}>{a.name}</span>
                 <span className="hidden w-28 text-right tabular-nums text-[#8E8E93] sm:inline">{fmtFull(a.inicio, cur)}</span>
                 <span className="w-24 text-right font-medium tabular-nums text-[#1C1C1E] sm:w-28 dark:text-white">{fmtFull(a.cierre, cur)}</span>
                 <span className={`relative w-24 text-right tabular-nums sm:w-28 ${v > 0.5 ? TONO_MONTO.ingreso : v < -0.5 ? TONO_MONTO.egreso : 'text-[#8E8E93]'}`}>

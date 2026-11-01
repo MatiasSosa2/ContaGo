@@ -4,7 +4,7 @@ import RegisterPanel from '@/components/auth/RegisterPanel'
 export default function RegisterPage() {
   return (
     <AuthShell
-      title="Crea tu cuenta"
+      title="Creá tu cuenta"
       subtitle="Empieza con tus datos básicos. Confirmaremos tu email antes de iniciar."
     >
       <RegisterPanel

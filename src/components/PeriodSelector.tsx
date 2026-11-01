@@ -10,6 +10,7 @@ export type PeriodKey = typeof PERIOD_KEYS[number]
 
 const PERIOD_QUERY_KEYS = ['periodo', 'day', 'weekStart', 'year', 'month', 'from', 'to'] as const
 const PERIOD_STORAGE_KEY = 'contago:period'
+const CUSTOM_RETURN_PERIOD_KEY = 'contago:period-before-custom'
 
 const PERIOD_TYPES: Array<{ key: 'diario' | 'semanal' | 'mensual'; label: string }> = [
   { key: 'diario', label: 'Día' },
@@ -83,6 +84,11 @@ export default function PeriodSelector({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [pending, startTransition] = useTransition()
+  const latestParamsRef = useRef(searchParams.toString())
+
+  useEffect(() => {
+    if (!pending) latestParamsRef.current = searchParams.toString()
+  }, [pending, searchParams])
 
   // Diferimos el uso de `new Date()` hasta después de montar en cliente para
   // evitar mismatches de hidratación entre la zona horaria/fecha del servidor
@@ -110,9 +116,10 @@ export default function PeriodSelector({
   })
 
   function navigate(mutator: (params: URLSearchParams) => void) {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(latestParamsRef.current)
     mutator(params)
     const query = params.toString()
+    latestParamsRef.current = query
     try {
       const saved: Record<string, string> = {}
       for (const key of PERIOD_QUERY_KEYS) {
@@ -169,22 +176,17 @@ export default function PeriodSelector({
     params.delete('to')
   }
 
-  function selectTab(next: PeriodKey) {
-    if (next === active) return
-    navigate((params) => {
-      params.set('periodo', next)
-      if (next === 'anual') {
-        params.set('year', String(effectiveYear))
-        params.delete('from')
-        params.delete('to')
-      } else {
-        clearAllPeriodParams(params)
-      }
-    })
+  function forgetCustomReturnPeriod() {
+    try { sessionStorage.removeItem(CUSTOM_RETURN_PERIOD_KEY) } catch { /* sessionStorage unavailable */ }
+    setCustomDraft({ from: '', to: '' })
+  }
+
+  function isCustomPeriod() {
+    return active === 'custom' || new URLSearchParams(latestParamsRef.current).get('periodo') === 'custom'
   }
 
   function selectCoreType(next: 'diario' | 'semanal' | 'mensual') {
-    if (next === coreActive && active !== 'anual') return
+    if (next === coreActive && active !== 'anual' && !isCustomPeriod()) return
     const selectedDate = coreActive === 'diario'
       ? selectedDayDate
       : coreActive === 'semanal'
@@ -201,6 +203,7 @@ export default function PeriodSelector({
   }
 
   function selectDay(date: Date) {
+    if (isCustomPeriod()) forgetCustomReturnPeriod()
     navigate((params) => {
       params.set('periodo', 'diario')
       clearAllPeriodParams(params)
@@ -210,6 +213,7 @@ export default function PeriodSelector({
   }
 
   function selectWeek(monday: Date, year = monday.getFullYear()) {
+    if (isCustomPeriod()) forgetCustomReturnPeriod()
     navigate((params) => {
       params.set('periodo', 'semanal')
       clearAllPeriodParams(params)
@@ -219,6 +223,7 @@ export default function PeriodSelector({
   }
 
   function selectMonth(year: number, month: number) {
+    if (isCustomPeriod()) forgetCustomReturnPeriod()
     navigate((params) => {
       params.set('periodo', 'mensual')
       clearAllPeriodParams(params)
@@ -230,6 +235,25 @@ export default function PeriodSelector({
   function applyCustomIfReady(from: string, to: string) {
     if (!from || !to) return
     if (new Date(from) > new Date(to)) return
+    const source = new URLSearchParams(latestParamsRef.current)
+    const previousMode = source.get('periodo') ?? active
+    if (previousMode !== 'custom') {
+      const previous = new URLSearchParams()
+      previous.set('periodo', previousMode)
+      if (previousMode === 'anual') {
+        previous.set('year', source.get('year') ?? String(effectiveYear))
+      } else if (previousMode === 'diario') {
+        previous.set('day', source.get('day') ?? toISO(selectedDayDate))
+        previous.set('year', source.get('year') ?? String(selectedDayDate.getFullYear()))
+      } else if (previousMode === 'semanal') {
+        previous.set('weekStart', source.get('weekStart') ?? toISO(selectedWeekMonday))
+        previous.set('year', source.get('year') ?? String(effectiveYear))
+      } else {
+        previous.set('year', source.get('year') ?? String(effectiveYear))
+        previous.set('month', source.get('month') ?? String(effectiveMonth))
+      }
+      try { sessionStorage.setItem(CUSTOM_RETURN_PERIOD_KEY, previous.toString()) } catch { /* sessionStorage unavailable */ }
+    }
     navigate((params) => {
       params.set('periodo', 'custom')
       clearAllPeriodParams(params)
@@ -239,10 +263,22 @@ export default function PeriodSelector({
   }
 
   function clearCustom() {
+    let previous = ''
+    try {
+      previous = sessionStorage.getItem(CUSTOM_RETURN_PERIOD_KEY) ?? ''
+      sessionStorage.removeItem(CUSTOM_RETURN_PERIOD_KEY)
+    } catch { /* sessionStorage unavailable */ }
     setCustomDraft({ from: '', to: '' })
+    setRangoOpen(false)
     navigate((params) => {
-      params.set('periodo', 'mensual')
       clearAllPeriodParams(params)
+      if (previous) {
+        new URLSearchParams(previous).forEach((value, key) => params.set(key, value))
+      } else {
+        params.set('periodo', 'mensual')
+        params.set('year', String(currentYear))
+        params.set('month', String(currentMonth))
+      }
     })
   }
 
@@ -262,7 +298,7 @@ export default function PeriodSelector({
     }
   })()
 
-  const selectClass = 'min-h-10 min-w-0 rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium text-gray-800 outline-none transition focus:border-[#163832] focus:ring-2 focus:ring-[#163832]/15 disabled:opacity-50 dark:border-white/[0.08] dark:bg-[#0B2B26] dark:text-gray-100'
+  const selectClass = 'min-h-10 min-w-0 rounded-lg border border-gray-200 bg-white px-1.5 text-xs font-medium text-gray-800 outline-none transition focus:border-[#1E4B1C] focus:ring-2 focus:ring-[#1E4B1C]/15 disabled:opacity-50 sm:px-3 sm:text-sm dark:border-white/[0.08] dark:bg-black dark:text-gray-100'
   const yearOptions = Array.from({ length: 56 }, (_, index) => currentYear - 50 + index)
   if (Number.isInteger(effectiveYear) && !yearOptions.includes(effectiveYear)) {
     yearOptions.push(effectiveYear)
@@ -278,37 +314,6 @@ export default function PeriodSelector({
     return { value: toISO(date), label: date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) }
   })
   const weekOptions = getWeeksOfYear(effectiveYear)
-  const otherPeriodsActions = (
-    <div className="flex shrink-0 items-center gap-1.5">
-      <button
-        type="button"
-        aria-pressed={active === 'anual'}
-        disabled={pending}
-        onClick={() => selectTab('anual')}
-        className={`min-h-10 rounded-lg border px-2.5 text-xs font-medium transition disabled:opacity-50 ${
-          active === 'anual'
-            ? 'border-[#163832] bg-[#163832] text-white'
-            : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/[0.08] dark:bg-[#0d0e10] dark:text-gray-200 dark:hover:bg-white/[0.05]'
-        }`}
-      >
-        Año completo
-      </button>
-      <button
-        type="button"
-        aria-pressed={active === 'custom'}
-        disabled={pending}
-        onClick={() => selectTab('custom')}
-        className={`min-h-10 rounded-lg border px-2.5 text-xs font-medium transition disabled:opacity-50 ${
-          active === 'custom'
-            ? 'border-[#163832] bg-[#163832] text-white'
-            : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/[0.08] dark:bg-[#0d0e10] dark:text-gray-200 dark:hover:bg-white/[0.05]'
-        }`}
-      >
-        Personalizado
-      </button>
-    </div>
-  )
-
   const dateValue = coreActive === 'diario'
     ? toISO(selectedDayDate)
     : active === 'semanal'
@@ -368,17 +373,13 @@ export default function PeriodSelector({
   if (!mounted) return null
 
   return (
-    <div className="w-full print:hidden">
-      {/* Período y fecha seleccionables en todos los tamaños */}
-      {active !== 'custom' ? (
-        <div className="w-full overflow-x-auto">
-        <div className="flex w-max min-w-full flex-nowrap items-end gap-2">
-          <label className="flex w-[7.5rem] shrink-0 flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Tipo de período</span>
+    <div className="w-full min-w-0 print:hidden">
+      <div className="grid w-full min-w-0 grid-cols-[minmax(0,0.85fr)_minmax(0,1.2fr)_minmax(0,0.65fr)_minmax(0,1.3fr)] gap-1">
+          <label className="block min-w-0">
+            <span className="sr-only">Tipo de período</span>
             <select
               aria-label="Tipo de período"
               value={coreActive}
-              disabled={pending}
               onChange={(event) => {
                 const next = PERIOD_TYPES.find((type) => type.key === event.target.value)
                 if (next) selectCoreType(next.key)
@@ -389,14 +390,13 @@ export default function PeriodSelector({
             </select>
           </label>
 
-          <label className="flex w-[10rem] shrink-0 flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+          <label className="block min-w-0">
+            <span className="sr-only">
               {coreActive === 'diario' ? 'Día' : coreActive === 'semanal' ? 'Semana' : 'Mes'}
             </span>
             <select
               aria-label={coreActive === 'diario' ? 'Día' : coreActive === 'semanal' ? 'Semana' : 'Mes'}
               value={coreActive === 'diario' ? dateValue : coreActive === 'semanal' ? toISO(selectedWeekMonday) : monthValue}
-              disabled={pending}
               onChange={(event) => changeSelectedPeriod(event.target.value)}
               className={`${selectClass} w-full`}
             >
@@ -414,12 +414,11 @@ export default function PeriodSelector({
             </select>
           </label>
 
-          <label className="flex w-[6rem] shrink-0 flex-col gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Año</span>
+          <label className="block min-w-0">
+            <span className="sr-only">Año</span>
             <select
               aria-label="Año del período"
               value={effectiveYear}
-              disabled={pending}
               onChange={(event) => changeSelectedYear(Number(event.target.value))}
               className={`${selectClass} w-full`}
             >
@@ -427,46 +426,28 @@ export default function PeriodSelector({
             </select>
           </label>
 
-          {otherPeriodsActions}
-        </div>
-        </div>
-      ) : (
-        <div className="w-full overflow-x-auto">
-          <div className="flex w-max min-w-full flex-nowrap items-center gap-1.5">
-            {otherPeriodsActions}
-            <button
-              type="button"
-              onClick={clearCustom}
-              disabled={pending}
-              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/[0.06] dark:bg-[#0d0e10] dark:text-gray-200"
-            >
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a8 8 0 0114-3m2 9a8 8 0 01-14 3" />
-              </svg>
-              Limpiar
-            </button>
-          {active === 'custom' && (
-          <div className="relative shrink-0">
+          <div className="relative min-w-0">
             <button
               ref={rangoRef}
               type="button"
               onClick={() => setRangoOpen((v) => !v)}
-              disabled={pending}
               aria-expanded={rangoOpen}
-              className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-white px-3 py-2 text-[14px] text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition active:scale-[0.99] disabled:opacity-40 dark:bg-[var(--ds-gray-900)] dark:text-white"
+              aria-label={customSummary ? `Personalizado: ${customSummary.label}, ${customSummary.days} días` : 'Elegir período personalizado'}
+              aria-pressed={active === 'custom'}
+              className={`flex min-h-10 w-full min-w-0 items-center justify-center gap-1 rounded-lg border px-1 py-1.5 text-left text-[10px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-700)] sm:gap-2 sm:px-2.5 sm:text-xs ${active === 'custom' ? 'border-[var(--brand-700)] bg-[var(--brand-700)] text-white dark:border-[#A8C89C] dark:bg-black dark:text-[#A8C89C]' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/[0.08] dark:bg-[#0d0e10] dark:text-gray-200 dark:hover:bg-white/[0.05]'}`}
             >
-              <svg className="h-4 w-4 text-[var(--reg-accent,#235347)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+              <svg className="hidden h-4 w-4 shrink-0 sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
               </svg>
-              {customSummary ? (
-                <span>{customSummary.label} <span className="text-[var(--ds-gray-500)]">· {customSummary.days} días</span></span>
-              ) : (
-                <span className="text-[var(--ds-gray-500)]">Elegir desde – hasta</span>
-              )}
+              <span className="min-w-0 flex-1 truncate">Personalizado{customSummary ? <span className="ml-1 font-normal opacity-75">· {customSummary.label}</span> : null}</span>
+              <svg className={`hidden h-3.5 w-3.5 shrink-0 transition-transform sm:block ${rangoOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+              </svg>
             </button>
             <CalendarPopover anchorRef={rangoRef} open={rangoOpen} onClose={() => setRangoOpen(false)}>
               <RangeCalendar
                 value={rangoActual}
+                onClear={active === 'custom' ? clearCustom : undefined}
                 onChange={({ from, to }) => {
                   const next = { from: toISO(from), to: toISO(to) }
                   setCustomDraft(next)
@@ -476,10 +457,7 @@ export default function PeriodSelector({
               />
             </CalendarPopover>
           </div>
-          )}
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   )
 }

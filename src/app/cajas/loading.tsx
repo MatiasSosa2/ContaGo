@@ -1,5 +1,5 @@
 import PageSkeleton from '@/components/ui/PageSkeleton'
 
 export default function Loading() {
-  return <PageSkeleton cards={2} chart />
+  return <PageSkeleton variant="cajas" />
 }

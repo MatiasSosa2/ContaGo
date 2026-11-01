@@ -13,6 +13,7 @@ import { consumeVerifiedChallengeForLogin, createEmailChallenge } from '@/server
 import { sendAuthCodeEmail } from '@/server/auth/email'
 import { decideLoginChallenge, shouldRequirePeriodicRiskChallenge } from '@/server/auth/login-security'
 import { ensureOAuthUserBusiness } from '@/server/auth/provisioning'
+import { claimPendingInvitations } from '@/server/team/members'
 import {
   claimSingleUserSession,
   getSessionSlotFields,
@@ -470,6 +471,16 @@ export const authOptions: NextAuthOptions = {
             })
 
             return buildVerifyCodeRedirect(dbUser.email, challengePurpose)
+          }
+
+          // Invitaciones de equipo: con el email ya verificado, se activan las
+          // membresías pendientes. Best-effort: un fallo acá no bloquea el login.
+          if (dbUser?.emailVerified && dbUser.email) {
+            try {
+              await claimPendingInvitations(user.id, dbUser.email)
+            } catch (claimError) {
+              console.error('[auth] no se pudieron reclamar invitaciones de equipo', claimError)
+            }
           }
 
           if (!(await claimSingleSession(user))) {

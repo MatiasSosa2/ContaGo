@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { preservePeriodHref } from '@/lib/period-navigation'
 import { SF_FONT, fmtFull } from './modern'
 
 export type SheetMov = { id: string; date: Date | string; description: string; amount: number; account: string | null }
@@ -16,6 +18,7 @@ export default function MovementsSheet({ title, subtitle, movs, currency, sign, 
   sign: 1 | -1
   onClose: () => void
 }) {
+  const search = useSearchParams().toString()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -27,7 +30,7 @@ export default function MovementsSheet({ title, subtitle, movs, currency, sign, 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-6" style={{ fontFamily: SF_FONT }}>
       <button type="button" aria-label="Cerrar" className="absolute inset-0 bg-black/30 backdrop-blur-[3px]" onClick={onClose} />
-      <div role="dialog" aria-label={title} className="relative z-10 flex max-h-[85vh] w-full max-w-[440px] flex-col overflow-hidden rounded-t-[20px] bg-[var(--ds-gray-100)] shadow-[0_24px_80px_rgba(0,0,0,0.25)] sm:rounded-[20px] dark:bg-[var(--ds-gray-900)]">
+      <div role="dialog" aria-label={title} className="relative z-10 flex max-h-[85vh] w-full max-w-[440px] flex-col overflow-hidden rounded-t-[20px] bg-[var(--ds-gray-100)] shadow-[0_24px_80px_rgba(0,0,0,0.25)] sm:rounded-3xl dark:bg-[var(--ds-gray-900)]">
         <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-5">
           <div className="min-w-0">
             {subtitle && <p className="text-[13px] text-[var(--ds-gray-500)]">{subtitle}</p>}
@@ -49,7 +52,7 @@ export default function MovementsSheet({ title, subtitle, movs, currency, sign, 
             {movs.map((m, i) => (
               <Link
                 key={`${m.id}-${i}`}
-                href={`/cajas?mov=${m.id}`}
+                href={preservePeriodHref(`/cajas?mov=${m.id}`, search)}
                 className="flex items-center gap-3 border-b border-black/[0.06] px-3 py-2.5 transition last:border-b-0 hover:bg-black/[0.03] dark:border-white/[0.08] dark:hover:bg-white/[0.05]"
               >
                 <span className="w-12 shrink-0 text-[12px] tabular-nums text-[var(--ds-gray-500)]">

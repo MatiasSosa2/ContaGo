@@ -110,7 +110,7 @@ export default function VerifyCodePanel({
 
       <div className="flex items-center justify-between text-sm text-gray-500">
         <button type="button" onClick={handleResend} disabled={isPending} className="min-h-11 rounded-lg px-2 font-medium text-brand-military hover:text-brand-military-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-military disabled:cursor-not-allowed disabled:opacity-60">
-          Reenviar codigo
+          Reenviar código
         </button>
         <Link href="/auth/login" className="hover:text-gray-700">Ir al login</Link>
       </div>

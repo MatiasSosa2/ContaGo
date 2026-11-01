@@ -49,7 +49,7 @@ const EXPENSE_OPTIONS: OperationOption[] = [
 // Fila de la lista: fina, 13 px, separador apenas visible
 const ROW = 'flex w-full min-h-[36px] items-center gap-2 px-3 text-left text-[13px] transition-colors'
 const HOVER = 'hover:bg-black/[0.035] dark:hover:bg-white/[0.06]'
-const TICK = <span className="ml-auto shrink-0 text-[13px] text-[var(--reg-accent,#4F8A6B)]" aria-hidden>✓</span>
+const TICK = <span className="ml-auto shrink-0 text-[13px] text-[var(--reg-accent,var(--income))]" aria-hidden>✓</span>
 
 /** Campo de texto chico para nombre nuevo o renombrar (Enter guarda, Esc cancela) */
 function NameInput({ initial = '', placeholder, onSave, onCancel, indent = false }: {
@@ -86,11 +86,11 @@ function NameInput({ initial = '', placeholder, onSave, onCancel, indent = false
           placeholder={placeholder}
           className="ios-bare h-7 min-w-0 flex-1 rounded-md bg-black/[0.05] px-2 text-[13px] text-[#1C1C1E] outline-none placeholder:text-[#AEAEB2] dark:bg-white/[0.08] dark:text-white"
         />
-        <button type="button" onClick={() => void guardar()} disabled={!name.trim() || saving} className="text-[12px] font-medium text-[#007AFF] disabled:opacity-40 dark:text-[#0A84FF]">
+        <button type="button" onClick={() => void guardar()} disabled={!name.trim() || saving} className="text-[12px] font-medium text-[var(--brand-700)] disabled:opacity-40 dark:text-[var(--brand-300)]">
           {saving ? '…' : 'OK'}
         </button>
       </div>
-      {error && <p className="mt-1 text-[11px] text-[#B8664F]">{error}</p>}
+      {error && <p className="mt-1 text-[11px] text-[var(--expense)]">{error}</p>}
     </div>
   )
 }
@@ -98,11 +98,11 @@ function NameInput({ initial = '', placeholder, onSave, onCancel, indent = false
 /** Botón "−" rojo de iOS: el primer toque muestra "Eliminar", el segundo borra */
 function Quitar({ armed, onArm, onConfirm, label }: { armed: boolean; onArm: () => void; onConfirm: () => void; label: string }) {
   return armed ? (
-    <button type="button" onClick={onConfirm} className="shrink-0 rounded-md bg-[#FF3B30] px-2 py-0.5 text-[11px] font-medium text-white">
+    <button type="button" onClick={onConfirm} className="shrink-0 rounded-md bg-[var(--expense)] px-2 py-0.5 text-[11px] font-medium text-white">
       Eliminar
     </button>
   ) : (
-    <button type="button" onClick={onArm} aria-label={`Eliminar ${label}`} className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#FF3B30] text-white">
+    <button type="button" onClick={onArm} aria-label={`Eliminar ${label}`} className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[var(--expense)] text-white">
       <span className="block h-[2px] w-2 rounded bg-white" />
     </button>
   )
@@ -167,7 +167,7 @@ export default function OperationTypeSelect({
           ? 'flex min-h-[44px] w-full items-center justify-between rounded-xl bg-white px-4 text-[15px] text-[#1C1C1E] outline-none active:bg-black/[0.04] dark:bg-[#1C1C1E] dark:text-white'
           : 'flex w-full items-center justify-between rounded-xl border border-black/[0.08] bg-white py-2.5 px-3 text-sm font-medium text-gray-700 outline-none transition-all hover:border-gray-300 dark:border-white/10 dark:bg-zinc-900 dark:text-gray-200'}
       >
-        <span className={`truncate ${labelText ? (variant === 'ios' ? accent : '') : 'text-gray-400'}`}>{labelText ?? 'Seleccionar categoría'}</span>
+        <span className={`truncate ${labelText ? (variant === 'ios' ? accent : '') : 'text-[var(--text-tertiary)]'}`}>{labelText ?? 'Seleccionar categoría'}</span>
         <svg className={`h-3.5 w-3.5 shrink-0 text-[#C7C7CC] transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
@@ -181,7 +181,7 @@ export default function OperationTypeSelect({
               <button
                 type="button"
                 onClick={() => { setEditando((v) => !v); limpiarEdicion() }}
-                className="text-[12px] font-medium text-[#007AFF] dark:text-[#0A84FF]"
+                className="text-[12px] font-medium text-[var(--brand-700)] dark:text-[var(--brand-300)]"
               >
                 {editando ? 'Listo' : 'Editar'}
               </button>
@@ -244,7 +244,7 @@ export default function OperationTypeSelect({
                     {/* Cantidad de subcategorías y flechita (o "+ sub" al editar) */}
                     {editando ? (
                       onAddSubcategory && (
-                        <button type="button" onClick={() => { setExpandedId(c.id); setAgregando(c.id) }} className="shrink-0 text-[11px] text-[#007AFF] dark:text-[#0A84FF]">
+                        <button type="button" onClick={() => { setExpandedId(c.id); setAgregando(c.id) }} className="shrink-0 text-[11px] text-[var(--brand-700)] dark:text-[var(--brand-300)]">
                           + Sub
                         </button>
                       )
@@ -331,8 +331,8 @@ export default function OperationTypeSelect({
                   onSave={async (name) => { const err = await onAddCustom(name); if (!err) setAgregando(null); return err }}
                 />
               ) : (
-                <button type="button" onClick={() => setAgregando('categoria')} className={`${ROW} ${HOVER} text-[#007AFF] dark:text-[#0A84FF]`}>
-                  <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#34C759] text-[14px] leading-none text-white" aria-hidden>+</span>
+                <button type="button" onClick={() => setAgregando('categoria')} className={`${ROW} ${HOVER} text-[var(--brand-700)] dark:text-[var(--brand-300)]`}>
+                  <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[var(--income)] text-[14px] leading-none text-white" aria-hidden>+</span>
                   Nueva categoría
                 </button>
               )}

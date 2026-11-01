@@ -19,7 +19,7 @@ export default function AuthShell({
   return (
     <div className="min-h-screen bg-white lg:h-screen lg:overflow-hidden">
       <div className="grid min-h-screen w-full lg:h-screen lg:grid-cols-[1.04fr_0.96fr]">
-        <section className="relative flex min-h-[25vh] items-center justify-center overflow-hidden bg-[#163B14] px-4 py-5 text-white sm:min-h-[30vh] sm:px-10 sm:py-8 lg:h-screen lg:min-h-0 lg:justify-start lg:px-12 lg:py-8 xl:px-14 xl:py-10">
+        <section className="relative flex min-h-[25vh] items-center justify-center overflow-hidden bg-[var(--brand-950)] px-4 py-5 text-white sm:min-h-[30vh] sm:px-10 sm:py-8 lg:h-screen lg:min-h-0 lg:justify-start lg:px-12 lg:py-8 xl:px-14 xl:py-10">
           <div className="absolute inset-0 bg-[linear-gradient(180deg,_rgba(255,255,255,0.02),_rgba(0,0,0,0.12))]" />
           <div className="relative z-10 flex w-full max-w-3xl flex-col items-center text-center lg:-mt-6 lg:items-start lg:text-left">
             <div className="flex items-center justify-center gap-0 lg:justify-start lg:gap-1">
@@ -52,11 +52,11 @@ export default function AuthShell({
 
         <section className="flex items-start bg-white px-4 py-5 sm:px-8 sm:py-8 lg:min-h-screen lg:items-center lg:px-8 lg:py-10 xl:px-10">
           <div className="mx-auto w-full max-w-[34rem] py-2 sm:py-4 lg:py-8">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#235347]">Acceso</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--brand-700)]">Acceso</p>
             <h2 className="mt-3 text-[clamp(1.65rem,7vw,2rem)] font-semibold tracking-tight text-gray-900 sm:text-4xl lg:mt-2 lg:text-[1.95rem]">{title}</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-gray-500 lg:mt-2 lg:text-[13px] lg:leading-5">{subtitle}</p>
             <div className="mt-6 lg:mt-5">{children}</div>
-            <div className="mt-6 flex flex-col gap-3 text-xs text-gray-400 lg:mt-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="mt-6 flex flex-col gap-3 text-xs text-[var(--text-tertiary)] lg:mt-4 lg:flex-row lg:items-center lg:justify-between">
               <Link href="/" className="font-medium text-brand-military hover:text-brand-military-dark">
                 Volver al inicio
               </Link>

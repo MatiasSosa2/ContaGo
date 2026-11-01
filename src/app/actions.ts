@@ -147,6 +147,52 @@ export async function deleteTransaction(id: string): Promise<ActionResult> {
   return databaseActions.deleteTransaction(id);
 }
 
+// ---- Agente IA: bandeja de propuestas ----
+
+export async function getAgentProposals() {
+  if (USE_MOCK) return { pending: [], reviewed: [] };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getAgentProposals();
+}
+
+export async function approveAgentProposal(proposalId: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.approveAgentProposal(proposalId);
+}
+
+export async function rejectAgentProposal(proposalId: string, note?: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.rejectAgentProposal(proposalId, note);
+}
+
+// ---- Equipo: miembros e invitaciones ----
+
+export async function inviteTeamMember(formData: FormData): Promise<ActionResult<{ invitationId?: string; reused: boolean }>> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.inviteTeamMember(formData);
+}
+
+export async function changeTeamMemberRole(memberId: string, newRole: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.changeTeamMemberRole(memberId, newRole);
+}
+
+export async function removeTeamMember(memberId: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.removeTeamMember(memberId);
+}
+
+export async function revokeTeamInvitation(invitationId: string): Promise<ActionResult> {
+  if (USE_MOCK) return { success: true };
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.revokeTeamInvitation(invitationId);
+}
+
 export async function createAccount(formData: FormData): Promise<ActionResult> {
   if (USE_MOCK) return { success: true };
   const databaseActions = await getDatabaseActions();
@@ -403,7 +449,7 @@ export async function getDashboardStats(period: string, customFrom?: string, cus
 export async function getAssetSnapshotAsOf(period: string, customFrom?: string, customTo?: string, selectedYear?: number, selectedMonth?: number, selectedDay?: string, selectedWeekStart?: string) {
   if (USE_MOCK) {
     const empty = { cajaTotal: 0, totalACobrar: 0, totalAPagar: 0, stockTotal: 0, bienesTotal: 0, cmvPeriod: 0 };
-    return { ...empty, prev: empty };
+    return { ...empty, fxRate: null, fxSource: null, prev: empty };
   }
   const databaseActions = await getDatabaseActions();
   return databaseActions.getAssetSnapshotAsOf(period as CashPeriodKey, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart);
@@ -479,10 +525,16 @@ export async function createCashTransfer(formData: FormData): Promise<ActionResu
   return databaseActions.createCashTransfer(formData);
 }
 
-export async function createCashAdjustment(formData: FormData): Promise<ActionResult<{ difference: number; undo?: UndoRef }>> {
-  if (USE_MOCK) return { success: true, data: { difference: 0 } };
+export async function createCashAdjustment(formData: FormData): Promise<ActionResult<{ difference: number; closingId?: string; undo?: UndoRef }>> {
+  if (USE_MOCK) return { success: true, data: { difference: 0, closingId: crypto.randomUUID() } };
   const databaseActions = await getDatabaseActions();
   return databaseActions.createCashAdjustment(formData);
+}
+
+export async function getCashClosings(limit = 12) {
+  if (USE_MOCK) return [];
+  const databaseActions = await getDatabaseActions();
+  return databaseActions.getCashClosings(limit);
 }
 
 export async function getCashAccountBalance(accountId: string, dateStr?: string): Promise<ActionResult<{ balance: number }>> {

@@ -76,10 +76,10 @@ export default function ThemeToggle({ compact = false, circle = false, plain = f
       aria-checked={dark}
       title={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       className="print:hidden w-full flex items-center gap-3 px-4 py-2.5 rounded-sm text-xs font-medium uppercase tracking-wider transition-all
-        text-gray-400 hover:text-gray-200 hover:bg-[#fff]/[0.06] border border-transparent"
+        text-[var(--text-tertiary)] hover:text-gray-200 hover:bg-[#fff]/[0.06] border border-transparent"
     >
       {/* Ícono Sol / Luna */}
-      <span className="w-5 h-5 text-brand-gold flex items-center justify-center shrink-0">
+      <span className="w-5 h-5 text-[var(--brand-300)] flex items-center justify-center shrink-0">
         {dark ? (
           /* Sol — volver a claro */
           <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -100,7 +100,7 @@ export default function ThemeToggle({ compact = false, circle = false, plain = f
       <span className="ml-auto" aria-hidden>
         <span
           className={`relative block h-[18px] w-[32px] rounded-full transition-colors duration-200 ${
-            dark ? 'bg-[#34C759]' : 'bg-[#fff]/20'
+            dark ? 'bg-[var(--income)]' : 'bg-[#fff]/20'
           }`}
         >
           <span

@@ -82,10 +82,10 @@ export default function BienesDeUsoModal({
       <button
         type="button"
         onClick={abrir}
-        className="group flex flex-col rounded-2xl border-2 border-[#B42318]/20 bg-[var(--ds-white)] p-7 min-h-[180px] shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-1 hover:border-[#B42318]/50 hover:shadow-[0_10px_24px_rgba(15,23,42,0.10)] dark:border-[var(--ds-amber)]/40 dark:hover:border-[var(--ds-amber)]/80 dark:bg-[var(--ds-ink)] dark:shadow-none w-full text-left"
+        className="dashboard-summary-card group flex min-h-[150px] w-full min-w-0 flex-col rounded-xl border border-[var(--brand-700)]/20 bg-[var(--surface)] p-4 text-left shadow-[0_1px_2px_rgba(5,31,32,0.04)] transition duration-200 hover:border-[var(--brand-300)] hover:shadow-[0_8px_20px_rgba(5,31,32,0.08)]"
       >
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FEF3F2] text-[var(--ds-clay)] dark:bg-[#1F1514] dark:text-[var(--ds-amber)]">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--brand-100)] text-[var(--brand-700)] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
@@ -93,8 +93,8 @@ export default function BienesDeUsoModal({
           <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Bienes de Uso</span>
         </div>
         {/* Monto centrado en el espacio que queda debajo del título */}
-        <div className="flex flex-1 flex-col justify-center">
-          <p className="font-mono text-[2.025rem] font-bold leading-tight num-tabular text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
+        <div className="dashboard-summary-body flex flex-1 flex-col justify-center">
+          <p className="metric-value w-full text-[clamp(16px,1.9vw,28px)] font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
             {fmt(bienesTotal)}
           </p>
         </div>
@@ -108,7 +108,7 @@ export default function BienesDeUsoModal({
           onClick={() => setOpen(false)}
         >
           <div
-            className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-2xl dark:bg-[#1a1a1a] dark:border dark:border-white/10 overflow-hidden"
+            className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--border-token)] bg-[var(--surface)] shadow-xl"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -117,14 +117,14 @@ export default function BienesDeUsoModal({
                 <h2 className="text-sm font-bold tracking-tight text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
                   Bienes de Uso
                 </h2>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                <p className="text-[11px] text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">
                   {bienes.length} activo{bienes.length !== 1 ? 's' : ''} · {groups.length} categoría{groups.length !== 1 ? 's' : ''}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200 transition"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--text-tertiary)] hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200 transition"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -139,7 +139,7 @@ export default function BienesDeUsoModal({
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--ds-amber)] border-t-transparent" />
                 </div>
               ) : groups.length === 0 ? (
-                <p className="text-center text-sm text-gray-400 py-8">Sin bienes registrados</p>
+                <p className="text-center text-sm text-[var(--text-tertiary)] py-8">Sin bienes registrados</p>
               ) : (
                 groups.map(group => {
                   const pct = grandTotal > 0 ? ((group.total / grandTotal) * 100).toFixed(1) : '0'
@@ -151,7 +151,7 @@ export default function BienesDeUsoModal({
                           <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--ds-clay)] dark:text-[var(--ds-amber)]">
                             {group.nombre}
                           </span>
-                          <span className="rounded-full bg-[#FEF3F2] px-2 py-0.5 text-[10px] font-bold text-[var(--ds-clay)] dark:bg-[#1F1514] dark:text-[var(--ds-amber)]">
+                          <span className="rounded-full bg-[var(--brand-100)] px-2 py-0.5 text-[10px] font-bold text-[var(--brand-700)] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]">
                             {pct}%
                           </span>
                         </div>
@@ -192,7 +192,7 @@ export default function BienesDeUsoModal({
 
             {/* Footer — total general */}
             <div className="border-t border-gray-100 px-6 py-4 dark:border-white/10 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400 dark:text-gray-500">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">
                 Total valorizado
               </span>
               <span className="font-mono text-[18px] font-bold text-[var(--ds-clay)] dark:text-[var(--ds-amber)]">

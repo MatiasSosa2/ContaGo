@@ -45,8 +45,8 @@ function UserInfoCard({
   return (
     <div
       className="
-        hidden lg:flex items-center gap-2.5 shrink-0
-        rounded-2xl
+        hidden min-h-11 lg:flex items-center gap-2.5 shrink-0
+        rounded-xl
         border border-[var(--ui-border)]
         bg-[var(--ui-header)]
         shadow-[0_6px_22px_rgba(15,23,42,0.06)] dark:shadow-[0_10px_28px_rgba(0,0,0,0.32)]
@@ -83,43 +83,39 @@ export default function AppHeader({ title, icon, actions, sessionContext }: AppH
     <header
       aria-label={title}
       className="
-        executive-shell
+        executive-shell premium-masthead
         sticky top-0 z-30
         -mx-4 sm:-mx-6 lg:-mx-8
         -mt-4 sm:-mt-6 lg:-mt-8
         mb-5 md:mb-6
         rounded-t-none rounded-b-2xl
         overflow-visible
-        backdrop-blur-xl
+        bg-[var(--surface)]
       "
     >
-      <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4 lg:gap-4 lg:px-5 lg:py-3">
-
-        {/* ── Ícono opcional (indicador visual de sección) ─── */}
-        {icon && (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--ui-accent-soft)] text-[var(--ui-accent-text)] shadow-sm [&>svg]:h-[18px] [&>svg]:w-[18px]">
-            {icon}
-          </span>
-        )}
-
-        {/* ── Acciones (PeriodSelector, PrintButton, etc.) ─── */}
-        <div className="min-w-0 flex-1">
-          {title && <h1 className="mb-1 truncate text-[15px] font-semibold tracking-tight text-[var(--ui-label)] lg:hidden">{title}</h1>}
-          {actions}
+      <div className="app-header-layout flex flex-col gap-3 px-4 py-3 sm:px-5 lg:min-h-[86px] lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-7">
+        <div className="flex min-w-0 items-center gap-3 lg:max-w-[min(28vw,340px)]">
+          {icon && (
+            <span className="premium-masthead-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--ui-accent-soft)] text-[var(--ui-accent-text)] [&>svg]:h-[18px] [&>svg]:w-[18px]">
+              {icon}
+            </span>
+          )}
+          {title && <h1 className="truncate text-[19px] font-semibold tracking-[-0.035em] text-[var(--ui-label)] sm:text-[22px]">{title}</h1>}
         </div>
 
-        <Link
-          href="/auth/change-password"
-          className="hidden shrink-0 rounded-xl px-2 py-2 text-xs font-medium text-[var(--ui-accent-text)] transition hover:bg-[var(--ui-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-accent-text)] lg:inline-flex lg:px-3"
-        >
-          Seguridad
-        </Link>
-
-        {/* ── Info del usuario (card del mismo estilo que las demás) ─── */}
-        <UserInfoCard
-          user={sessionContext.user}
-          business={sessionContext.activeBusiness}
-        />
+        <div className="app-header-controls flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:flex-1 lg:flex-nowrap lg:gap-3">
+          {actions && <div className="app-header-actions w-full min-w-0 sm:flex-1 lg:w-auto lg:max-w-[min(52vw,680px)]">{actions}</div>}
+          <Link
+            href="/auth/change-password"
+            className="hidden min-h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[var(--ui-border)] px-3 text-xs font-medium text-[var(--ui-accent-text)] transition hover:bg-[var(--ui-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ui-accent-text)] lg:inline-flex"
+          >
+            Seguridad
+          </Link>
+          <UserInfoCard
+            user={sessionContext.user}
+            business={sessionContext.activeBusiness}
+          />
+        </div>
         {/* El modo oscuro está en el pie del panel izquierdo */}
       </div>
     </header>

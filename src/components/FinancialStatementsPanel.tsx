@@ -38,7 +38,7 @@ type Props = {
   insights: ReportInsights
 }
 
-const CYAN = '#32ADE6'
+const CYAN = 'var(--brand-700)'
 
 function Sparkline({ values, color, id }: { values: number[]; color: string; id: string }) {
   if (values.length < 2) return <div className="h-20" />
@@ -80,17 +80,17 @@ function StatementCard({ href, title, metric, value, negative, delta, trend, tre
   /** Resultado del estado, abajo de todo y separado (ganancia neta, variación, patrimonio) */
   footer: { label: string; value: string; color: 'cyan' | 'green' | 'red' }
 }) {
-  const footerColor = footer.color === 'cyan' ? 'text-[#0071A4] dark:text-[#64D2FF]' : footer.color === 'green' ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#D70015] dark:text-[#FF453A]'
+  const footerColor = footer.color === 'cyan' ? 'text-[var(--brand-700)] dark:text-[var(--brand-300)]' : footer.color === 'green' ? 'text-[var(--income)]' : 'text-[var(--expense)]'
   return (
     <Link
       href={href}
-      className="group flex min-w-0 flex-col rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] transition hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgba(0,0,0,0.05),0_10px_28px_rgba(0,0,0,0.07)] active:scale-[0.99] sm:p-5 dark:bg-[#1C1C1E] dark:shadow-none"
+      className="group flex min-w-0 flex-col rounded-2xl border border-[var(--border-token)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(5,31,32,0.04)] transition hover:border-[var(--brand-300)] active:scale-[0.99] sm:p-5"
     >
-      <p className="text-center text-[13px] text-[#8E8E93]">{title}</p>
+      <p className="text-[13px] font-semibold text-[var(--text)]">{title}</p>
 
-      <p className="mt-3 text-[12px] text-[#8E8E93]">{metric}</p>
+      <p className="mt-3 text-[12px] text-[var(--text-tertiary)]">{metric}</p>
       <div className="flex min-w-0 items-baseline justify-between gap-2">
-        <p className={`min-w-0 break-all text-[clamp(20px,6vw,24px)] font-semibold tracking-tight tabular-nums ${negative ? 'text-[#D70015] dark:text-[#FF453A]' : 'text-[#1C1C1E] dark:text-white'}`}>{value}</p>
+        <p className={`min-w-0 break-all font-mono text-[clamp(20px,6vw,24px)] font-semibold tracking-tight tabular-nums ${negative ? 'text-[var(--expense)]' : 'text-[var(--text)]'}`}>{value}</p>
         {delta !== null && <SubtleDelta value={delta} />}
       </div>
 
@@ -99,14 +99,14 @@ function StatementCard({ href, title, metric, value, negative, delta, trend, tre
       <div className="mb-4 mt-3 space-y-1.5 border-t border-black/[0.06] pt-3 dark:border-white/[0.08]">
         {rows.map((r) => (
           <div key={r.label} className="flex items-baseline justify-between gap-3 text-[13px]">
-            <span className="text-[#8E8E93]">{r.label}</span>
-            <span className="tabular-nums text-[#1C1C1E] dark:text-white">{r.value}</span>
+            <span className="text-[var(--text-secondary)]">{r.label}</span>
+            <span className="tabular-nums text-[var(--text)]">{r.value}</span>
           </div>
         ))}
       </div>
 
       <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-black/10 pt-3 dark:border-white/15">
-        <span className="text-[14px] font-semibold text-[#1C1C1E] dark:text-white">{footer.label}</span>
+        <span className="text-[14px] font-semibold text-[var(--text)]">{footer.label}</span>
         <span className={`text-[16px] font-semibold tabular-nums ${footerColor}`}>{footer.value}</span>
       </div>
     </Link>
@@ -121,7 +121,7 @@ function RankList({ items, color, currency, empty, numbered = true }: {
   empty: string
   numbered?: boolean
 }) {
-  if (items.length === 0) return <p className="text-[13px] text-[#8E8E93]">{empty}</p>
+  if (items.length === 0) return <p className="text-[13px] text-[var(--text-tertiary)]">{empty}</p>
   const max = Math.max(1, ...items.map((it) => it.value))
   return (
     <ul className="space-y-3">
@@ -129,11 +129,11 @@ function RankList({ items, color, currency, empty, numbered = true }: {
         <li key={it.name}>
           <div className="flex items-baseline justify-between gap-3 text-[13px]">
             <span className="flex min-w-0 items-baseline gap-2">
-              {numbered && <span className="w-3 shrink-0 text-[12px] tabular-nums text-[#AEAEB2]">{i + 1}</span>}
-              <span className="truncate text-[#1C1C1E] dark:text-white">{it.name}</span>
-              {it.note && <span className="shrink-0 text-[11px] tabular-nums text-[#AEAEB2]">{it.note}</span>}
+              {numbered && <span className="w-3 shrink-0 text-[12px] tabular-nums text-[var(--text-tertiary)]">{i + 1}</span>}
+              <span className="truncate text-[var(--text)]">{it.name}</span>
+              {it.note && <span className="shrink-0 text-[11px] tabular-nums text-[var(--text-tertiary)]">{it.note}</span>}
             </span>
-            <span className="shrink-0 tabular-nums text-[#3C3C43] dark:text-[#EBEBF5]/80">{fmtM(it.value, currency)}</span>
+            <span className="shrink-0 tabular-nums text-[var(--text-secondary)]">{fmtM(it.value, currency)}</span>
           </div>
           <div className={`${numbered ? 'ml-5 ' : ''}mt-1 h-[5px] rounded-full bg-black/[0.05] dark:bg-white/[0.08]`}>
             <div className="h-full rounded-full" style={{ width: `${Math.max(2, (it.value / max) * 100)}%`, backgroundColor: color }} />
@@ -146,8 +146,8 @@ function RankList({ items, color, currency, empty, numbered = true }: {
 
 function ListCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.03)] sm:p-5 dark:bg-[#1C1C1E] dark:shadow-none">
-      <p className="mb-3 text-[15px] font-semibold text-[#1C1C1E] dark:text-white">{title}</p>
+    <div className="rounded-2xl border border-[var(--border-token)] bg-[var(--surface)] p-4 sm:p-5">
+      <p className="mb-3 text-[15px] font-semibold text-[var(--text)]">{title}</p>
       {children}
     </div>
   )
@@ -213,7 +213,7 @@ export default function FinancialStatementsPanel({ queryString, results, cashFlo
         <ListCard title="Top 5 clientes">
           <RankList
             empty="Sin ventas a clientes registrados en el período"
-            color="#0A84FF"
+            color="var(--brand-700)"
             items={insights.clientes.map((c) => ({
               name: c.name,
               value: c.ventas,
@@ -236,7 +236,7 @@ export default function FinancialStatementsPanel({ queryString, results, cashFlo
         <ListCard title="Top 5 productos más vendidos">
           <RankList
             empty="Sin ventas de productos en el período"
-            color="#34C759"
+            color="var(--income)"
             items={insights.productos.map((p) => ({
               name: p.name,
               value: p.ventas,

@@ -3,7 +3,8 @@ import FinancialStatementsPanel, { type ReportsPrevious, type ReportsTrends } fr
 import PeriodSelector from '@/components/PeriodSelector'
 import AppHeader from '@/components/AppHeader'
 import { Suspense } from 'react'
-import { getBalanceSheet, getCashFlowByCurrency, getIncomeStatement, getReportInsights, getYearlySeries } from '@/app/actions'
+import { getBalanceSheet, getCashClosings, getCashFlowByCurrency, getIncomeStatement, getReportInsights, getYearlySeries } from '@/app/actions'
+import CashClosingsReport from '@/components/CashClosingsReport'
 import { getReportsViewData, previousPeriodArgs, type ReportsSearchParams } from './reportsData'
 
 export const dynamic = 'force-dynamic'
@@ -33,12 +34,13 @@ export default async function ReportsPage({
   const periodArgs = [periodo, params?.from, params?.to, selectedYear, selectedMonth, selectedDay, selectedWeekStart] as const
   const prev = previousPeriodArgs(periodo, selectedYear, selectedMonth)
 
-  const [series, insights, balance, prevER, prevFlow] = await Promise.all([
+  const [series, insights, balance, prevER, prevFlow, cashClosings] = await Promise.all([
     getYearlySeries(seriesYear, 'ARS'),
     getReportInsights(...periodArgs),
     getBalanceSheet(...periodArgs),
     prev ? getIncomeStatement(prev.period, prev.from, prev.to, prev.year, prev.month, undefined, undefined, 'ARS') : null,
     prev ? getCashFlowByCurrency(prev.period, prev.from, prev.to, prev.year, prev.month) : null,
+    getCashClosings(50),
   ])
 
   // Tendencias reales del año (hasta el mes elegido)
@@ -56,7 +58,7 @@ export default async function ReportsPage({
     : null
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[var(--ds-neutral-800)] dark:text-gray-100 min-h-screen bg-[var(--ds-gray-100)] dark:bg-black">
+    <div className="premium-page section-polish mx-auto min-h-screen max-w-[1920px] bg-[var(--surface-muted)] p-4 font-sans text-[var(--text)] sm:p-6 lg:p-8">
       <AppHeader
         title="Informes"
         showRoleBadge={false}
@@ -107,6 +109,7 @@ export default async function ReportsPage({
         previous={previous}
         insights={insights}
       />
+      <CashClosingsReport closings={cashClosings} />
     </div>
   )
 }

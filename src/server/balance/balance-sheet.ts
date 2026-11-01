@@ -16,6 +16,7 @@ import prisma from '@/lib/prisma'
 import { aplicarMovimiento, costoEfectivo } from '@/lib/stock-costos'
 import { CASH_ACCOUNT_TYPES, getCashBalancesAt } from '@/server/cash/cash-flow'
 import { getCreditAccountsData } from '@/server/credits/credit-balances'
+import { fetchDolarOficial } from '@/server/fx/dolar'
 
 export type BalanceItem = { label: string; amount: number; note?: string }
 export type BalanceRubro = { key: 'caja' | 'creditos' | 'mercaderia' | 'bienes' | 'deudas'; label: string; amount: number; items: BalanceItem[] }
@@ -36,9 +37,11 @@ const byAmount = (a: BalanceItem, b: BalanceItem) => b.amount - a.amount
 
 /** Valor de la mercadería de cada producto a la fecha (reproduciendo compras y ventas) */
 async function mercaderiaAt(businessId: string, asOf: Date): Promise<BalanceItem[]> {
-  const productos = await prisma.producto.findMany({ where: { businessId, activo: true }, select: { id: true, nombre: true, precioCosto: true, costoFijo: true } })
+  // Sin filtro por activo: el archivo es un estado actual; al corte histórico el producto
+  // existía y su stock vale en el balance de esa fecha.
+  const productos = await prisma.producto.findMany({ where: { businessId }, select: { id: true, nombre: true, precioCosto: true, costoFijo: true } })
   const movs = await prisma.movimientoStock.findMany({
-    where: { producto: { businessId, activo: true }, fecha: { lte: asOf } },
+    where: { producto: { businessId }, fecha: { lte: asOf } },
     orderBy: [{ fecha: 'asc' }, { createdAt: 'asc' }],
     select: { productoId: true, tipo: true, concepto: true, cantidad: true, precio: true, costoUnitario: true },
   })
@@ -78,14 +81,18 @@ async function bienesAt(businessId: string, asOf: Date): Promise<BalanceItem[]> 
     .sort(byAmount)
 }
 
-/** Última cotización (pesos por dólar) registrada en un cambio de caja hasta la fecha */
+/**
+ * Pesos por dólar a la fecha: la última cotización registrada por el negocio hasta esa
+ * fecha; si nunca registró una, el dólar oficial actual (DolarAPI).
+ */
 async function rateAt(businessId: string, asOf: Date): Promise<number | null> {
   const t = await prisma.cashTransfer.findFirst({
     where: { businessId, exchangeRate: { not: null }, date: { lte: asOf } },
     orderBy: { date: 'desc' },
     select: { exchangeRate: true },
   })
-  return t?.exchangeRate ?? null
+  if (t?.exchangeRate && t.exchangeRate > 0) return t.exchangeRate
+  return fetchDolarOficial()
 }
 
 export async function getBalanceSheetData(businessId: string, asOf: Date): Promise<BalanceSheet> {

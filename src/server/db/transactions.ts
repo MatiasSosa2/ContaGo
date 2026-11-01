@@ -7,10 +7,22 @@ import prisma from '@/lib/prisma'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import type { ActionResult } from '@/lib/validations'
 import { generateJournalLines } from '@/server/accounting/journal-engine'
-import { getBusinessId, parseMovementDate, getScopedAccount, getOrCreateDefaultCategory, type DashboardPeriodKey, computePeriodRange } from './shared'
+import { getBusinessId, parseMovementDate, getScopedAccount, getOrCreateDefaultCategory, dueDateEndOfDay, type DashboardPeriodKey, computePeriodRange } from './shared'
 import { costoEfectivo } from '@/lib/stock-costos'
 
-export async function createTransaction(formData: FormData): Promise<ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string; transactionId?: string }>> {
+type CashClosingContext = {
+  date: Date
+  day: string
+  systemBalance: number
+  countedBalance: number
+  difference: number
+  note: string | null
+  closedBy: string
+  userId: string
+  accountName: string
+}
+
+export async function createTransaction(formData: FormData, closing?: CashClosingContext): Promise<ActionResult<{ clienteSaldado?: boolean; clienteNombre?: string; proveedorSaldado?: boolean; proveedorNombre?: string; transactionId?: string; closingId?: string }>> {
   const esCreditoRaw = formData.get('esCredito') as string
   const cantidadRaw = parseFloat(formData.get('cantidad') as string)
   const precioUnitarioRaw = parseFloat(formData.get('precioUnitario') as string)
@@ -57,6 +69,15 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
     cantidad, precioUnitario,
     date: dateStr, currency, esCredito, estado, fechaVencimiento,
   } = parsed.data
+  if (closing) {
+    const expectedDifference = Math.round((closing.countedBalance - closing.systemBalance) * 100) / 100
+    if (
+      subType !== 'DIFERENCIA_CAJA' || esCredito ||
+      Math.abs(expectedDifference - closing.difference) >= 0.01 ||
+      Math.abs(Math.abs(closing.difference) - amount) >= 0.01 ||
+      (closing.difference > 0 ? type !== 'INCOME' : type !== 'EXPENSE')
+    ) return { success: false, error: 'Los datos del cierre no coinciden con el ajuste de caja' }
+  }
   if (esCredito && !['PENDIENTE', 'VENCIDO'].includes(estado)) {
     return { success: false, error: 'Un crédito nuevo debe quedar pendiente; el estado pagado se registra mediante un cobro.' }
   }
@@ -128,13 +149,15 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
   }
 
   const date = parseMovementDate(dateStr)
-  const fVenc = fechaVencimiento ? new Date(fechaVencimiento) : null
+  // Vencimiento cargado como fecha sin hora: vale hasta el fin de ese día en Argentina
+  const fVenc = fechaVencimiento ? dueDateEndOfDay(fechaVencimiento) : null
 
   let clienteSaldado = false
   let clienteNombre: string | undefined
   let proveedorSaldado = false
   let proveedorNombre: string | undefined
   let createdTransactionId: string | undefined
+  let createdCashClosingId: string | undefined
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -213,7 +236,9 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         }
 
         if (credito.contactId) {
-          const totalContacto = await tx.transaction.aggregate({
+          // Saldado = la suma de los restos de los créditos ABIERTOS es cero. Los cobros
+          // de créditos ya cerrados no se descuentan dos veces.
+          const abiertos = await tx.transaction.findMany({
             where: {
               businessId,
               contactId: credito.contactId,
@@ -221,14 +246,13 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
               type: 'INCOME',
               estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] },
             },
-            _sum: { amount: true },
+            select: { amount: true, cobrosAplicados: { select: { amount: true } } },
           })
-          const cobradoContacto = await tx.transaction.aggregate({
-            where: { businessId, linkedCredito: { contactId: credito.contactId } },
-            _sum: { amount: true },
-          })
-          const deudaTotal = (totalContacto._sum.amount ?? 0) - (cobradoContacto._sum.amount ?? 0)
-          if (deudaTotal <= 0.001) {
+          const pendienteTotal = abiertos.reduce(
+            (s, c) => s + Math.max(0, c.amount - c.cobrosAplicados.reduce((x, p) => x + p.amount, 0)),
+            0,
+          )
+          if (pendienteTotal <= 0.001) {
             clienteSaldado = true
             clienteNombre = credito.contact?.name
           }
@@ -311,7 +335,8 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
         }
 
         if (deuda.contactId) {
-          const totalContacto = await tx.transaction.aggregate({
+          // Saldado = la suma de los restos de las deudas ABIERTAS es cero (mismo criterio que clientes)
+          const abiertas = await tx.transaction.findMany({
             where: {
               businessId,
               contactId: deuda.contactId,
@@ -319,14 +344,13 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
               type: 'EXPENSE',
               estado: { in: ['PENDIENTE', 'PARCIAL', 'VENCIDO'] },
             },
-            _sum: { amount: true },
+            select: { amount: true, cobrosAplicados: { select: { amount: true } } },
           })
-          const pagadoContacto = await tx.transaction.aggregate({
-            where: { businessId, linkedCredito: { contactId: deuda.contactId } },
-            _sum: { amount: true },
-          })
-          const deudaTotal = (totalContacto._sum.amount ?? 0) - (pagadoContacto._sum.amount ?? 0)
-          if (deudaTotal <= 0.001) {
+          const pendienteTotal = abiertas.reduce(
+            (s, d) => s + Math.max(0, d.amount - d.cobrosAplicados.reduce((x, p) => x + p.amount, 0)),
+            0,
+          )
+          if (pendienteTotal <= 0.001) {
             proveedorSaldado = true
             proveedorNombre = deuda.contact?.name
           }
@@ -496,6 +520,36 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
       })
       createdTransactionId = newTx.id
 
+      if (closing) {
+        const cashClosing = await tx.cashClosing.create({
+          data: {
+            date: closing.date,
+            systemBalance: closing.systemBalance,
+            countedBalance: closing.countedBalance,
+            difference: closing.difference,
+            note: closing.note,
+            closedBy: closing.closedBy,
+            accountId,
+            businessId,
+            adjustmentTransactionId: newTx.id,
+          },
+          select: { id: true },
+        })
+        createdCashClosingId = cashClosing.id
+        await tx.auditLog.create({
+          data: {
+            actor: 'USER',
+            action: 'cash_closing.created',
+            entityType: 'CashClosing',
+            entityId: cashClosing.id,
+            summary: `Cierre de ${closing.accountName} con ${closing.difference > 0 ? 'sobrante' : 'faltante'}`,
+            metadata: JSON.stringify({ accountId, date: closing.day, systemBalance: closing.systemBalance, countedBalance: closing.countedBalance, difference: closing.difference }),
+            userId: closing.userId,
+            businessId,
+          },
+        })
+      }
+
       if (!esCredito) {
         const balanceChange = type === 'INCOME' ? amount : -amount
         await tx.account.update({
@@ -597,10 +651,11 @@ export async function createTransaction(formData: FormData): Promise<ActionResul
 
   revalidateTag(`dashboard:${businessId}`, 'max')
   revalidatePath('/')
+  if (closing) revalidatePath('/cajas')
   revalidatePath('/stock')
   revalidatePath('/creditos')
   revalidatePath('/bienes-de-uso')
-  return { success: true, data: { clienteSaldado, clienteNombre, proveedorSaldado, proveedorNombre, transactionId: createdTransactionId } }
+  return { success: true, data: { clienteSaldado, clienteNombre, proveedorSaldado, proveedorNombre, transactionId: createdTransactionId, closingId: createdCashClosingId } }
 }
 
 export async function getAllTransactions(

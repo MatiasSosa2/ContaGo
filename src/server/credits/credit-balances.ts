@@ -94,7 +94,9 @@ export async function getCreditAccountsData(businessId: string, asOf: Date): Pro
   const aplicadoPor = new Map<string, number>()
   for (const p of pagos) aplicadoPor.set(p.linkedCreditoId!, (aplicadoPor.get(p.linkedCreditoId!) ?? 0) + p.amount)
 
-  const now = new Date()
+  // "Vencido" se evalúa contra la fecha de corte del reporte, no contra hoy:
+  // un informe de enero no puede marcar vencida una cuota que vencía en febrero.
+  const now = asOf
   const cuentas = new Map<string, CreditAccount>()
   const creditoCuenta = new Map<string, CreditAccount>()
   // Movimientos de una misma operación (cuotas, o un cobro que salda varias) van en una sola línea

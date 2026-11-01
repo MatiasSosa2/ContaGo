@@ -89,7 +89,7 @@ export function Segmented<T extends string>({ options, value, onChange, size = '
           role="radio"
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`flex-1 rounded-[7px] transition-all ${size === 'sm' ? 'py-1 text-[12px]' : 'py-1.5 text-[13px]'} ${
+          className={`flex-1 rounded-lg transition-all ${size === 'sm' ? 'py-1 text-[12px]' : 'py-1.5 text-[13px]'} ${
             value === o.value
               ? 'bg-[#fff] font-medium text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white'
               : size === 'sm' ? 'text-[#3C3C43]/80 dark:text-[#EBEBF5]/70' : 'text-[#1C1C1E] dark:text-white'
@@ -122,7 +122,7 @@ export function PrimaryButton({ children, onClick, disabled, color = 'green', sl
   slot?: HTMLElement | null
 }) {
   // Color del tipo de registro (verde ingreso, rojo egreso, azul cajas); el prop queda de respaldo
-  const bg = color === 'green' ? 'bg-[var(--reg-accent,#4F8A6B)]' : color === 'red' ? 'bg-[var(--reg-accent,#B8664F)]' : 'bg-[var(--reg-accent,#4A6F8A)]'
+  const bg = color === 'green' ? 'bg-[var(--reg-accent,var(--income))]' : color === 'red' ? 'bg-[var(--reg-accent,var(--expense))]' : 'bg-[var(--reg-accent,var(--brand-700))]'
   const button = (
     <button
       type="button"
@@ -145,7 +145,7 @@ export function PrimaryButton({ children, onClick, disabled, color = 'green', sl
 
 /** Texto-botón discreto en el color de acento */
 export function LinkButton({ children, onClick, tone = 'accent' }: { children: ReactNode; onClick: () => void; tone?: 'accent' | 'muted' | 'danger' }) {
-  const color = tone === 'accent' ? 'text-[var(--reg-accent,#4F8A6B)]' : tone === 'danger' ? 'text-[#FF3B30]' : 'text-[#8E8E93]'
+  const color = tone === 'accent' ? 'text-[var(--reg-accent,var(--income))]' : tone === 'danger' ? 'text-[var(--expense)]' : 'text-[#8E8E93]'
   return (
     <button type="button" onClick={onClick} className={`text-[15px] ${color} transition-opacity active:opacity-60`}>
       {children}
@@ -211,7 +211,7 @@ export function MenuSelect<T extends string>({ value, options, onChange, align =
               onClick={() => { onChange(o.value); setOpen(false) }}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[#1C1C1E] transition-colors hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]"
             >
-              <span className="w-4 text-[var(--reg-accent,#4F8A6B)]">{o.value === value ? '✓' : ''}</span>
+              <span className="w-4 text-[var(--reg-accent,var(--income))]">{o.value === value ? '✓' : ''}</span>
               <span className="truncate">{o.label}</span>
             </button>
           ))}
@@ -264,15 +264,15 @@ export function DateChip({ value, onChange, label, align = 'left' }: {
               months: 'relative',
               month_caption: 'flex h-8 items-center px-1 text-[14px] font-semibold capitalize',
               nav: 'absolute right-0 top-0 flex h-8 items-center gap-1',
-              button_previous: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#4F8A6B)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
-              button_next: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,#4F8A6B)] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
+              button_previous: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,var(--income))] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
+              button_next: 'flex h-7 w-7 items-center justify-center rounded-full text-[var(--reg-accent,var(--income))] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-current',
               weekdays: 'flex',
               weekday: 'w-8 pb-1 text-center text-[11px] font-medium uppercase text-[#8E8E93]',
               week: 'flex',
               day: 'h-8 w-8 p-0 text-center',
               day_button: 'h-8 w-8 rounded-full text-[13px] transition-colors hover:bg-black/[0.05] dark:hover:bg-white/[0.08]',
-              selected: '[&>button]:bg-[var(--reg-accent,#4F8A6B)] [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-[var(--reg-accent,#4F8A6B)]',
-              today: 'font-semibold text-[var(--reg-accent,#4F8A6B)]',
+              selected: '[&>button]:bg-[var(--reg-accent,var(--income))] [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-[var(--reg-accent,var(--income))]',
+              today: 'font-semibold text-[var(--reg-accent,var(--income))]',
               outside: 'text-[#C7C7CC] dark:text-[#48484A]',
             }}
           />

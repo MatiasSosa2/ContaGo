@@ -16,7 +16,7 @@ export function ejesDeGrilla(atributos: AtributoDef[]): [AtributoDef, AtributoDe
 export function tonoStock(v: VarianteVista | undefined) {
   if (!v || v.stockActual <= 0) return 'bg-black/[0.035] text-[var(--ds-gray-400)] dark:bg-white/[0.05] dark:text-[var(--ds-gray-600)]'
   const umbral = v.alertaStock ?? 2
-  if (v.stockActual <= umbral) return 'bg-[var(--ds-orange-dark)]/[0.14] text-[#B42318] dark:bg-[var(--ds-orange-dark)]/20 dark:text-[#F97066]'
+  if (v.stockActual <= umbral) return 'bg-[var(--warning-soft)] text-[var(--warning)]'
   return 'bg-[var(--ds-green)]/[0.12] text-[var(--ds-green-strong)] dark:bg-[var(--ds-green-dark)]/[0.16] dark:text-[var(--ds-green-dark)]'
 }
 

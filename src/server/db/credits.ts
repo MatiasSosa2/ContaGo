@@ -31,6 +31,8 @@ export type ClienteConCredito = {
   contactId: string
   nombre: string
   taxId: string | null
+  /** Moneda del grupo: un cliente puede tener una entrada por moneda */
+  currency: string
   deudaTotal: number
   creditos: {
     id: string
@@ -59,6 +61,7 @@ export async function getClientesConCreditoPendiente(): Promise<ClienteConCredit
       id: true,
       description: true,
       amount: true,
+      currency: true,
       date: true,
       fechaVencimiento: true,
       estado: true,
@@ -69,13 +72,15 @@ export async function getClientesConCreditoPendiente(): Promise<ClienteConCredit
     orderBy: { date: 'desc' },
   })
 
+  // Se agrupa por cliente Y moneda: nunca se suman pesos con dólares
   const map = new Map<string, ClienteConCredito>()
   for (const c of creditos) {
     if (!c.contactId || !c.contact) continue
     const cobrado = c.cobrosAplicados.reduce((s, x) => s + x.amount, 0)
     const saldo = c.amount - cobrado
     if (saldo <= 0.001) continue
-    const existing = map.get(c.contactId)
+    const key = `${c.contactId}:${c.currency}`
+    const existing = map.get(key)
     const credito = {
       id: c.id,
       description: c.description,
@@ -89,10 +94,11 @@ export async function getClientesConCreditoPendiente(): Promise<ClienteConCredit
       existing.deudaTotal += saldo
       existing.creditos.push(credito)
     } else {
-      map.set(c.contactId, {
+      map.set(key, {
         contactId: c.contactId,
         nombre: c.contact.name,
         taxId: c.contact.taxId,
+        currency: c.currency,
         deudaTotal: saldo,
         creditos: [credito],
       })
@@ -110,6 +116,8 @@ export type ProveedorConDeuda = {
   contactId: string
   nombre: string
   taxId: string | null
+  /** Moneda del grupo: un proveedor puede tener una entrada por moneda */
+  currency: string
   deudaTotal: number
   deudas: {
     id: string
@@ -137,6 +145,7 @@ export async function getProveedoresConDeudaPendiente(): Promise<ProveedorConDeu
       id: true,
       description: true,
       amount: true,
+      currency: true,
       date: true,
       fechaVencimiento: true,
       estado: true,
@@ -147,13 +156,15 @@ export async function getProveedoresConDeudaPendiente(): Promise<ProveedorConDeu
     orderBy: { date: 'desc' },
   })
 
+  // Se agrupa por proveedor Y moneda: nunca se suman pesos con dólares
   const map = new Map<string, ProveedorConDeuda>()
   for (const d of deudas) {
     if (!d.contactId || !d.contact) continue
     const pagado = d.cobrosAplicados.reduce((s, x) => s + x.amount, 0)
     const saldo = d.amount - pagado
     if (saldo <= 0.001) continue
-    const existing = map.get(d.contactId)
+    const key = `${d.contactId}:${d.currency}`
+    const existing = map.get(key)
     const item = {
       id: d.id,
       description: d.description,
@@ -167,10 +178,11 @@ export async function getProveedoresConDeudaPendiente(): Promise<ProveedorConDeu
       existing.deudaTotal += saldo
       existing.deudas.push(item)
     } else {
-      map.set(d.contactId, {
+      map.set(key, {
         contactId: d.contactId,
         nombre: d.contact.name,
         taxId: d.contact.taxId,
+        currency: d.currency,
         deudaTotal: saldo,
         deudas: [item],
       })

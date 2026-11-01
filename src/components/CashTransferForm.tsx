@@ -85,7 +85,7 @@ export default function CashTransferForm({ accounts, date, onDone, footerSlot }:
   return (
     <div className={`flex flex-col ${IOS_FONT}`}>
       {error && (
-        <div className="mb-3 flex items-center justify-between rounded-xl bg-[#FF3B30]/10 px-4 py-2.5 text-[13px] text-[#D70015] dark:text-[#FF6961]">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-[var(--expense)]/10 px-4 py-2.5 text-[13px] text-[var(--expense)] dark:text-[var(--expense)]">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar aviso" className="ml-3 opacity-60">×</button>
         </div>

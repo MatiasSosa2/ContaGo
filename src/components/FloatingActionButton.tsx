@@ -28,7 +28,7 @@ const MODE_TITLE: Record<Mode, string> = {
   INCOME: 'Ingreso',
   EXPENSE: 'Egreso',
   TRANSFER: 'Cambio de caja',
-  ADJUST: 'Diferencia de caja',
+  ADJUST: 'Cierre de caja',
 }
 
 // Color de todo el registro según el tipo: verde ingreso, rojo egreso, azul movimientos de caja
@@ -56,7 +56,7 @@ const FAN_ITEMS = [
 // Opciones secundarias: fila de chips grises debajo del "+" (el "+" sube para hacerles lugar)
 const SECONDARY_ITEMS = [
   { type: 'TRANSFER' as const, label: 'Cambio caja' },
-  { type: 'ADJUST' as const, label: 'Diferencia de caja' },
+  { type: 'ADJUST' as const, label: 'Cierre de caja' },
 ]
 const FAB_LIFT = 'translateY(-48px)'
 const SPRING = 'cubic-bezier(.3,1.35,.5,1)'

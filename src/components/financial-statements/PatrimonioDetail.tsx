@@ -1,6 +1,7 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { preservePeriodHref } from '@/lib/period-navigation'
 import type { BalanceRubro, BalanceSheet } from '@/server/balance/balance-sheet'
 import { Card, IOS, KpiCard, SF_FONT, TONO_MONTO, TableRow, TableSection, TableSubRow, fmtFull, type TonoMonto } from './modern'
 import { EncabezadoVariacion, ModoVariacion, Variacion } from './VariacionCol'
@@ -79,8 +80,9 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
   const pasivoPrev = conv(previous.totalPasivo, previous.rate)
   const patrimonioPrev = conv(previous.patrimonio, previous.rate)
   const router = useRouter()
+  const searchParams = useSearchParams()
   // Ficha del cliente o proveedor en Créditos
-  const abrirCredito = (nombre: string) => router.push(`/creditos?abrir=${encodeURIComponent(nombre)}`)
+  const abrirCredito = (nombre: string) => router.push(preservePeriodHref(`/creditos?abrir=${encodeURIComponent(nombre)}`, searchParams.toString()))
 
   if (sinCotizacion) {
     return (
@@ -94,24 +96,32 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
   return (
     <ModoVariacion>
     <div className="space-y-4" style={{ fontFamily: SF_FONT }}>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="balance-sheet-kpis grid grid-cols-1 gap-3 md:grid-cols-3">
         <KpiCard
           label="Activo"
           value={<AnimatedNumber value={activo} format={(v) => fmtFull(v, currency)} />}
           trend={trends.activo}
-          color={IOS.blue}
+          color={IOS.green}
           delta={{ pct: variacionPct(activo, activoPrev), vs: prevLabel }}
         />
         <KpiCard
           label="Pasivo"
           value={<AnimatedNumber value={pasivo} format={(v) => fmtFull(v, currency)} />}
           trend={trends.pasivo}
-          color={IOS.orange}
+          color={IOS.red}
           delta={{ pct: variacionPct(pasivo, pasivoPrev), vs: prevLabel, inverse: true }}
+        />
+        <KpiCard
+          label="Patrimonio neto"
+          value={<AnimatedNumber value={patrimonio} format={(v) => fmtFull(v, currency)} />}
+          note="Activo − Pasivo"
+          trend={trends.activo.map((value, index) => value - (trends.pasivo[index] ?? 0))}
+          color={IOS.cyan}
+          delta={{ pct: variacionPct(patrimonio, patrimonioPrev), vs: prevLabel }}
         />
       </div>
 
-      <Card className="overflow-hidden py-2">
+      <Card className="balance-sheet-table overflow-hidden py-2">
         {/* Encabezado: solo la columna de variación lleva título */}
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 pb-0.5 pt-2 text-[11px] text-[#AEAEB2] sm:gap-4 sm:px-5 dark:text-[#636366]">
           <span />
@@ -129,7 +139,7 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
         ))}
 
         {/* Patrimonio neto: monto, debajo cómo se forma, y a la derecha la variación */}
-        <div className="mx-4 mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-black/10 pb-4 pt-4 sm:mx-5 sm:gap-4 dark:border-white/15">
+        <div className="balance-sheet-net-worth mx-4 mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-black/10 pb-4 pt-4 sm:mx-5 sm:gap-4 dark:border-white/15">
           <p className="text-[17px] font-semibold text-[#1C1C1E] dark:text-white">Patrimonio neto</p>
           <div className="relative text-right">
             <p className={`text-[22px] font-semibold tracking-tight tabular-nums ${TONO_MONTO.neta}`}>
@@ -140,24 +150,6 @@ export default function PatrimonioDetail({ data, previous, currency, trends, pre
           <Variacion actual={patrimonio} anterior={patrimonioPrev} vs={prevLabel} />
         </div>
       </Card>
-
-      {/* Resumen en 3 tarjetitas: monto y, muy sutil, la variación vs el cierre anterior */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-        {([
-          ['Activo', activo, activoPrev, 'ingreso', false],
-          ['Pasivo', pasivo, pasivoPrev, 'egreso', true],
-          ['Patrimonio neto', patrimonio, patrimonioPrev, 'neta', false],
-        ] as const).map(([titulo, monto, antes, tono, inverse]) => (
-          <Card key={titulo} className="px-4 py-3">
-            <p className="truncate text-[12px] text-[#8E8E93]">{titulo}</p>
-            <p className={`mt-0.5 break-words text-[15px] font-semibold tracking-tight tabular-nums sm:text-[17px] ${TONO_MONTO[tono]}`}>{fmtFull(monto, currency)}</p>
-            <p className="mt-0.5 flex h-3 items-center gap-1 text-[9px] leading-3 opacity-60">
-              <Variacion actual={monto} anterior={antes} inverse={inverse} vs={prevLabel} className="!w-auto !text-left !text-[9px]" />
-              <span className="text-[#C7C7CC] dark:text-[#5A5A5E]">vs {prevLabel}</span>
-            </p>
-          </Card>
-        ))}
-      </div>
 
       {currency === 'USD' && data.rate && (
         <p className="px-1 text-[12px] text-[#8E8E93]">Convertido a US$1 = ${data.rate.toLocaleString('es-AR')} (última cotización registrada)</p>

@@ -23,7 +23,7 @@ export default function BusinessSelectorPanel({
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-600">
-        Selecciona con que negocio quieres trabajar en esta sesion. Luego podras cambiarlo nuevamente cuando la experiencia multiempresa quede expuesta dentro del producto.
+        Seleccioná con qué negocio querés trabajar en esta sesión. Luego podrás cambiarlo nuevamente cuando la experiencia multiempresa quede expuesta dentro del producto.
       </div>
 
       {error && (
@@ -47,7 +47,7 @@ export default function BusinessSelectorPanel({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{business.name}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-gray-400">{ROLE_LABEL[business.role]}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.2em] text-[var(--text-tertiary)]">{ROLE_LABEL[business.role]}</p>
                 </div>
                 {currentBusinessId === business.id && (
                   <span className="rounded-full bg-brand-military px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white">

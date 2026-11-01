@@ -82,7 +82,7 @@ export default function ChangePasswordPanel({ hasPassword }: { hasPassword: bool
           disabled={isPending}
           className="min-h-11 w-full rounded-2xl bg-brand-military px-4 py-3 text-sm font-semibold text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-military hover:bg-brand-military-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isPending ? 'Actualizando...' : hasPassword ? 'Cambiar contraseña' : 'Crear contraseña'}
+          {isPending ? 'Actualizando…' : hasPassword ? 'Cambiar contraseña' : 'Crear contraseña'}
         </button>
       </form>
 

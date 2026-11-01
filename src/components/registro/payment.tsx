@@ -84,7 +84,7 @@ export function MoneyField({ value, onChange, onEnter, label, align = 'left', si
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => setEditing(false)}
         onKeyDown={(e) => { if (e.key === 'Enter') { setEditing(false); onEnter?.() } }}
-        className={`ios-bare w-full border-b border-[var(--reg-accent,#4F8A6B)] bg-transparent text-[#1C1C1E] outline-none dark:text-white tabular-nums ${cls}`}
+        className={`ios-bare w-full border-b border-[var(--reg-accent,var(--income))] bg-transparent text-[#1C1C1E] outline-none dark:text-white tabular-nums ${cls}`}
         aria-label={label}
       />
     )
@@ -295,7 +295,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
               ))}
             </div>
             {Math.abs(suma - monto) > 0.01 && (
-              <p className="py-1 text-[12px] text-[#FF3B30]">Suman {fmt(suma)} · deberían sumar {fmt(monto)}</p>
+              <p className="py-1 text-[12px] text-[var(--expense)]">Suman {fmt(suma)} · deberían sumar {fmt(monto)}</p>
             )}
           </div>
         )}
@@ -350,7 +350,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
                         type="button"
                         onClick={() => quitarPago(p.key)}
                         aria-label="Quitar medio de pago"
-                        className="text-[#C7C7CC] transition-colors hover:text-[#FF3B30]"
+                        className="text-[#C7C7CC] transition-colors hover:text-[var(--expense)]"
                       >
                         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
@@ -365,7 +365,7 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
             </div>
           </Group>
           <div className="mt-2 flex items-center justify-between px-4 text-[13px]">
-            <span className={Math.abs(falta) <= 0.01 ? 'text-[#4F8A6B] dark:text-[#8FC0A4]' : 'text-[#B8664F] dark:text-[#E3A592]'}>
+            <span className={Math.abs(falta) <= 0.01 ? 'text-[var(--income)] dark:text-[var(--income)]' : 'text-[var(--expense)] dark:text-[var(--expense)]'}>
               {Math.abs(falta) <= 0.01 ? 'Pago completo' : falta > 0 ? `Falta asignar ${fmt(falta)}` : `Te pasaste ${fmt(-falta)}`}
             </span>
             <button type="button" onClick={noCombinar} className="text-[12px] text-[#8E8E93] transition-opacity active:opacity-60">No combinar</button>

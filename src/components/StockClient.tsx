@@ -394,14 +394,14 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="premium-metrics inventory-overview grid grid-cols-2 gap-3 lg:grid-cols-4">
         {([
           ['Inventario inicial', enUnidades ? inicialUnidades : inventarioInicial, 'text-[var(--ds-gray-900)] dark:text-white', null],
-          ['Inventario vendido', enUnidades ? vendidoUnidades : inventarioVendido, 'text-[var(--ds-terracotta)] dark:text-[#F97066]', '↓'],
-          ['Inventario comprado', enUnidades ? compradoUnidades : inventarioComprado, 'text-[#3E7F5F] dark:text-[#8FC0A4]', '↑'],
+          ['Inventario vendido', enUnidades ? vendidoUnidades : inventarioVendido, 'text-[var(--ds-terracotta)] dark:text-[var(--expense)]', '↓'],
+          ['Inventario comprado', enUnidades ? compradoUnidades : inventarioComprado, 'text-[var(--income)] dark:text-[var(--income)]', '↑'],
           ['Stock final', enUnidades ? stockFinalUnidades : stockFinalPeriodo, 'text-[var(--ds-gray-900)] dark:text-white', null],
         ] as const).map(([titulo, valor, tono, flecha]) => (
-          <div key={titulo} className="ds-panel p-5 text-center sm:p-6">
+          <div key={titulo} className="ds-panel premium-metric p-5 text-center sm:p-6">
             <p className="text-[12px] text-[var(--ds-gray-500)]">
               {titulo}
               {/* Sale stock / entra stock */}
@@ -556,15 +556,15 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                     type="button"
                     aria-expanded={!cerrada}
                     onClick={() => togglePlegada(grupo.categoria)}
-                    className="flex min-h-12 w-full items-center justify-between gap-3 bg-black/[0.025] px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--ds-blue)] dark:bg-white/[0.045]"
+                    className="inventory-category-header flex min-h-12 w-full items-center justify-between gap-3 px-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-white"
                   >
-                    <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-[var(--ds-gray-800)] dark:text-white">
+                    <span className="inventory-category-title flex min-w-0 items-center gap-2 text-[13px] font-semibold">
                       <svg className={`h-3.5 w-3.5 shrink-0 transition-transform ${cerrada ? '' : 'rotate-90'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
                       <span className="truncate">{grupo.categoria}</span>
                     </span>
-                    <span className="shrink-0 text-[11px] text-[var(--ds-gray-500)]">{grupo.articulos.length} producto{grupo.articulos.length !== 1 ? 's' : ''}</span>
+                    <span className="inventory-category-count shrink-0 text-[11px]">{grupo.articulos.length} producto{grupo.articulos.length !== 1 ? 's' : ''}</span>
                   </button>
 
                   {!cerrada && (
@@ -591,7 +591,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                                 <span className="mt-0.5 block truncate text-[12px] text-[var(--ds-gray-500)]">
                                   {[articulo.marca, multi ? resumenAtributos(articulo.atributos) : articulo.subcategoria].filter(Boolean).join(' · ') || 'Sin detalle adicional'}
                                 </span>
-                                <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${sinExistencias ? 'bg-black/[0.06] text-[var(--ds-gray-600)] dark:bg-white/[0.1] dark:text-[var(--ds-gray-300)]' : stockBajo ? 'bg-[#B8664F]/[0.12] text-[#9A4937] dark:text-[#F0A18C]' : 'bg-[#3E7F5F]/[0.12] text-[#32684D] dark:text-[#8FC0A4]'}`}>
+                                <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${sinExistencias ? 'bg-black/[0.06] text-[var(--ds-gray-600)] dark:bg-white/[0.1] dark:text-[var(--ds-gray-300)]' : stockBajo ? 'bg-[var(--expense)]/[0.12] text-[var(--expense)] dark:text-[var(--expense)]' : 'bg-[var(--income)]/[0.12] text-[var(--income)] dark:text-[var(--income)]'}`}>
                                   {sinExistencias ? 'Sin stock' : stockBajo ? 'Stock bajo' : 'Disponible'}
                                 </span>
                               </span>
@@ -674,9 +674,9 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                   return (
                     <React.Fragment key={grupo.categoria}>
                       {/* Categoría como título de sección (estilo Ajustes de iOS): se pliega al tocarla */}
-                      <tr className="group-header">
+                      <tr className="group-header inventory-category-row">
                         <td className="px-5 pb-1.5 pt-5 text-[12px] font-medium text-[var(--ds-gray-500)]">
-                          <button type="button" aria-expanded={!cerrada} onClick={() => togglePlegada(grupo.categoria)} className="inline-flex min-h-11 items-center gap-1.5 rounded-md pr-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ds-blue)]">
+                          <button type="button" aria-expanded={!cerrada} onClick={() => togglePlegada(grupo.categoria)} className="inventory-category-title inline-flex min-h-11 items-center gap-1.5 rounded-md pr-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
                             <svg className={`h-3 w-3 transition-transform ${cerrada ? '' : 'rotate-90'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                             </svg>
@@ -719,7 +719,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                             >
                               <td className="relative py-1.5 pl-5 pr-4">
                                 <div className="flex items-center gap-2.5">
-                                  <Foto src={art.fotoSrc} alt="" className="h-7 w-7 rounded-[7px]" />
+                                  <Foto src={art.fotoSrc} alt="" className="h-7 w-7 rounded-lg" />
                                   <div className="min-w-0">
                                     <div className="truncate text-[13px] text-[var(--ds-gray-900)] dark:text-white">
                                       {art.nombre}
@@ -772,7 +772,7 @@ export default function StockClient({ initialProductos, ventasPeriodo = 0 }: { i
                                     {v.etiqueta}
                                     {v.precioPropio && <span className="ml-1.5 text-[11px] tabular-nums text-[var(--ds-blue)] dark:text-[var(--ds-blue-dark)]">${fmtEntero(v.precioVenta)}</span>}
                                   </td>
-                                  <td className={`px-4 py-1 text-right text-[12px] tabular-nums ${v.stockActual <= 0 ? 'text-[var(--ds-gray-400)]' : v.stockActual <= (v.alertaStock ?? 2) ? 'text-[#B42318] dark:text-[#F97066]' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80'} ${bordeV}`}>{fmtUnits(v.stockActual)}</td>
+                                  <td className={`px-4 py-1 text-right text-[12px] tabular-nums ${v.stockActual <= 0 ? 'text-[var(--ds-gray-400)]' : v.stockActual <= (v.alertaStock ?? 2) ? 'text-[var(--expense)] dark:text-[var(--expense)]' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-200)]/80'} ${bordeV}`}>{fmtUnits(v.stockActual)}</td>
                                   <td className={`px-4 py-1 text-right text-[12px] tabular-nums text-[var(--ds-gray-500)] ${bordeV}`}>${fmtEntero(v.stockActual * v.precioCosto)}</td>
                                   <td className={`py-1 pl-4 pr-10 text-right text-[12px] tabular-nums text-[var(--ds-gray-400)] dark:text-[var(--ds-gray-600)] ${bordeV}`}>${fmtEntero(v.stockActual * v.precioVenta)}</td>
                                 </tr>

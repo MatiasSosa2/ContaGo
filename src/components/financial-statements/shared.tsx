@@ -112,7 +112,7 @@ function rowAmountClass(variant: StatementVariant) {
 
 function rowChipClass(variant: StatementVariant) {
   return variant === 'positive'
-    ? 'border-[#DAF1DE] bg-[#DAF1DE] text-[#235347] dark:border-[#163832] dark:bg-[#0B2B26] dark:text-[#8EB698]'
+    ? 'border-[#E8EFE5] bg-[#E8EFE5] text-[#1E4B1C] dark:border-[#303030] dark:bg-[#151515] dark:text-[#A8C89C]'
     : variant === 'negative'
     ? 'border-[#FEE4E2] bg-[#FEF3F2] text-[#B42318] dark:border-[#5A2A24] dark:bg-[#1F1514] dark:text-[#F97066]'
     : 'border-[var(--ds-neutral-200)] bg-[#FCFDFC] text-[var(--ds-neutral-500)] dark:border-white/10 dark:bg-[#171717] dark:text-[#A3A3A3]'
@@ -135,10 +135,10 @@ export function StatementRow({
   const chipClass = rowChipClass(variant)
 
   return (
-    <div className={`grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-[var(--ds-neutral-200)] py-3 last:border-b-0 dark:border-white/10 ${variant === 'highlight' ? 'bg-[#FCFDFC] px-3 dark:bg-[#171717]' : ''}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_7rem_3.25rem] items-center gap-2 border-b border-[var(--ds-neutral-200)] py-3 last:border-b-0 dark:border-white/10 ${variant === 'highlight' ? 'bg-[#FCFDFC] px-3 dark:bg-[#171717]' : ''}`}>
       <p className="min-w-0 text-sm font-medium text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{label}</p>
-      <p className={`text-right text-sm font-mono font-light num-tabular ${amountClass}`}>{fmtAmount(amount, currency, variant === 'positive' || variant === 'negative')}</p>
-      <span className={`border px-2.5 py-1 text-[10px] font-semibold ${chipClass}`}>{fmtPct(pct)}</span>
+      <p className={`whitespace-nowrap text-right text-sm font-mono font-light num-tabular ${amountClass}`}>{fmtAmount(amount, currency, variant === 'positive' || variant === 'negative')}</p>
+      <span className={`inline-flex w-[3.25rem] justify-center whitespace-nowrap border px-1 py-1 text-[10px] font-semibold ${chipClass}`}>{fmtPct(pct)}</span>
     </div>
   )
 }
@@ -159,7 +159,7 @@ export function StatementLineRow({
 
   return (
     <details className="group border-b border-[var(--ds-neutral-200)] last:border-b-0 dark:border-white/10">
-      <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
+      <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_7rem_3.25rem] items-center gap-2 py-3 [&::-webkit-details-marker]:hidden">
         <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
           <svg className="h-3 w-3 shrink-0 text-[var(--ds-neutral-400)] transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -170,7 +170,7 @@ export function StatementLineRow({
       </summary>
       <div className="pb-2 pl-5">
         {line.children.map((child) => (
-          <div key={child.label} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-1.5">
+          <div key={child.label} className="grid grid-cols-[minmax(0,1fr)_7rem_3.25rem] items-center gap-2 py-1.5">
             <p className="min-w-0 truncate text-[13px] text-[var(--ds-neutral-500)] dark:text-[#A3A3A3]">{child.label}</p>
             <StatementRowValues amount={child.amount} pct={child.pct} currency={currency} variant={variant} small />
           </div>
@@ -189,12 +189,12 @@ function StatementRowValues({ amount, pct, currency, variant, small }: {
 }) {
   return (
     <>
-      <p className={`text-right font-mono font-light num-tabular ${small ? 'text-[13px] opacity-80' : 'text-sm'} ${rowAmountClass(variant)}`}>
+      <p className={`whitespace-nowrap text-right font-mono font-light num-tabular ${small ? 'text-[12px] opacity-80' : 'text-sm'} ${rowAmountClass(variant)}`}>
         {fmtAmount(amount, currency, variant === 'positive' || variant === 'negative')}
       </p>
       {small
-        ? <span className="px-2.5 text-[10px] font-semibold text-[var(--ds-neutral-400)]">{fmtPct(pct)}</span>
-        : <span className={`border px-2.5 py-1 text-[10px] font-semibold ${rowChipClass(variant)}`}>{fmtPct(pct)}</span>}
+        ? <span className="w-[3.25rem] whitespace-nowrap text-center text-[10px] font-semibold text-[var(--ds-neutral-400)]">{fmtPct(pct)}</span>
+        : <span className={`inline-flex w-[3.25rem] justify-center whitespace-nowrap border px-1 py-1 text-[10px] font-semibold ${rowChipClass(variant)}`}>{fmtPct(pct)}</span>}
     </>
   )
 }

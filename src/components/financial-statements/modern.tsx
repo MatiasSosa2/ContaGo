@@ -4,17 +4,17 @@
  */
 import type { ReactNode } from 'react'
 
-export const SF_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", system-ui, sans-serif'
+export const SF_FONT = 'var(--font-sans)'
 
 export const IOS = {
-  green: '#34C759',
-  red: '#FF3B30',
-  orange: '#FF9F0A',
-  blue: '#0A84FF',
+  green: 'var(--income)',
+  red: 'var(--expense)',
+  orange: 'var(--warning)',
+  blue: 'var(--brand-700)',
   /** Celeste: color de la ganancia neta */
-  cyan: '#32ADE6',
+  cyan: 'var(--brand-700)',
   /** Celeste oscuro de la ganancia neta en el Estado de resultados (cuadro y gráfico) */
-  neta: '#0E7C9E',
+  neta: 'var(--brand-700)',
 } as const
 
 const SYMBOL: Record<string, string> = { ARS: '$', USD: 'US$' }
@@ -74,7 +74,7 @@ export function KpiCard({ label, value, note, trend, color, delta }: {
         <p className="text-[13px] text-[#8E8E93]">{label}</p>
         {delta && delta.pct !== null && (
           <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${(delta.inverse ? delta.pct <= 0 : delta.pct >= 0) ? 'bg-[#34C759]/[0.12] text-[#248A3D] dark:text-[#30D158]' : 'bg-[#FF3B30]/[0.12] text-[#D70015] dark:text-[#FF453A]'}`}
+            className={`rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${(delta.inverse ? delta.pct <= 0 : delta.pct >= 0) ? 'bg-[var(--income-soft)] text-[var(--income)]' : 'bg-[var(--expense-soft)] text-[var(--expense)]'}`}
             title={`Contra ${delta.vs}`}
           >
             {delta.pct >= 0 ? '▲' : '▼'} {Math.abs(delta.pct).toLocaleString('es-AR', { maximumFractionDigits: 0 })}% <span className="font-normal opacity-70">vs {delta.vs}</span>
@@ -97,7 +97,7 @@ export const TONO_MONTO: Record<TonoMonto, string> = {
   ingreso: 'text-[#3E7D5A] dark:text-[#8FC0A4]',
   egreso: 'text-[#A3483F] dark:text-[#E89A92]',
   ganancia: 'text-[#1E5E8A] dark:text-[#7CBBE0]',
-  neta: 'text-[#0E7C9E] dark:text-[#5FCBEA]',
+  neta: 'text-[var(--brand-700)] dark:text-[#5FCBEA]',
   perdida: 'text-[#A3483F] dark:text-[#E89A92]',
   /** Saldos de caja: gris oscuro neutro */
   saldo: 'text-[#3C3C43] dark:text-[#EBEBF5]',
@@ -141,7 +141,7 @@ export function TableRow({ label, amount, pct, currency, level = 0, strong = fal
     ? TONO_MONTO[tono]
     : tone === 'negative'
       ? 'text-[#8E8E93]'
-      : tone === 'positive' && strong ? 'text-[#248A3D] dark:text-[#30D158]' : 'text-[#1C1C1E] dark:text-white'
+      : tone === 'positive' && strong ? 'text-[var(--income)]' : 'text-[var(--text)]'
   const content = (
     <>
       <span className={`flex min-w-0 items-center gap-1.5 ${tono ? '' : level === 1 ? 'pl-4' : level === 2 ? 'pl-8' : ''}`}>
@@ -235,7 +235,7 @@ export function StatementHeader({ title, period, backHref, actions }: { title: s
   return (
     <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between" style={{ fontFamily: SF_FONT }}>
       <div className="min-w-0">
-        <a href={backHref} className="inline-flex items-center gap-0.5 text-[15px] text-[#007AFF] transition hover:opacity-70 dark:text-[#0A84FF]">
+        <a href={backHref} className="inline-flex items-center gap-0.5 text-[15px] text-[var(--brand-700)] transition hover:opacity-70 dark:text-[var(--brand-300)]">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
@@ -263,7 +263,7 @@ export function SubtleDelta({ value, inverse = false, className = '' }: { value:
   const mejoro = inverse ? value < 0 : value > 0
   return (
     <span className={`inline-flex items-baseline justify-end gap-1 text-[11px] tabular-nums text-[#AEAEB2] dark:text-[#636366] ${className}`}>
-      <span className={`text-[8px] ${mejoro ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>{value > 0 ? '▲' : '▼'}</span>
+      <span className={`text-[11px] ${mejoro ? 'text-[var(--income)]' : 'text-[var(--expense)]'}`}>{value > 0 ? '▲' : '▼'}</span>
       {fmtMillones(value)}
     </span>
   )

@@ -3,6 +3,7 @@ import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
+import { getArtCalendarParts } from '@/server/db/shared'
 import CreditosClient from '@/components/CreditosClient'
 import { Suspense } from 'react'
 
@@ -23,9 +24,9 @@ export default async function CreditosPage({
   const periodo = (sp?.periodo ?? 'mensual') as PeriodKey
   const customFrom = sp?.from
   const customTo = sp?.to
-  const today = new Date()
-  const currentYear = today.getFullYear()
-  const currentMonth = today.getMonth() + 1
+  const today = getArtCalendarParts()
+  const currentYear = today.year
+  const currentMonth = today.monthIndex + 1
   const selectedYear = sp?.year ? Number.parseInt(sp.year, 10) : (periodo === 'mensual' || periodo === 'anual' ? currentYear : undefined)
   const selectedMonth = sp?.month ? Number.parseInt(sp.month, 10) : (periodo === 'mensual' ? currentMonth : undefined)
   const selectedDay = sp?.day
@@ -35,7 +36,7 @@ export default async function CreditosPage({
   const accounts = await getCreditAccounts(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[var(--ds-neutral-800)] dark:text-gray-100 min-h-screen bg-[var(--ds-gray-100)] dark:bg-black">
+    <div className="premium-page section-polish mx-auto min-h-screen max-w-[1920px] bg-[var(--surface-muted)] p-4 font-sans text-[var(--text)] sm:p-6 lg:p-8">
 
       {/* ══ HEADER ═══════════════════════════════════════════════════════════ */}
       <AppHeader

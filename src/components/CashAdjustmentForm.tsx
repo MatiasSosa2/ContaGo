@@ -53,8 +53,6 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
     setError(null)
     if (!accountId) { setError('Elegí la caja'); return }
     if (counted === '' || num(counted) < 0) { setError('Ingresá lo que contaste'); return }
-    if (difference !== null && Math.abs(difference) < 0.01) { setError('No hay diferencia: lo contado coincide con el sistema'); return }
-
     const fd = new FormData()
     fd.set('accountId', accountId)
     fd.set('counted', String(num(counted)))
@@ -66,7 +64,7 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
     if (!result.success) { setError(result.error || 'No se pudo registrar la diferencia'); return }
     const dif = result.data?.difference ?? difference ?? 0
     onDone({
-      titulo: dif >= 0 ? 'Sobrante registrado' : 'Faltante registrado',
+      titulo: Math.abs(dif) < 0.01 ? 'Cierre registrado' : dif > 0 ? 'Sobrante registrado' : 'Faltante registrado',
       monto: Math.abs(dif),
       currency: accounts.find((x) => x.id === accountId)?.currency,
       undo: result.data?.undo,
@@ -80,13 +78,13 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
   return (
     <div className={`flex flex-col ${IOS_FONT}`}>
       {error && (
-        <div className="mb-3 flex items-center justify-between rounded-xl bg-[#FF3B30]/10 px-4 py-2.5 text-[13px] text-[#D70015] dark:text-[#FF6961]">
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-[var(--expense)]/10 px-4 py-2.5 text-[13px] text-[var(--expense)] dark:text-[var(--expense)]">
           <span>{error}</span>
           <button type="button" onClick={() => setError(null)} aria-label="Cerrar aviso" className="ml-3 opacity-60">×</button>
         </div>
       )}
 
-      <Caption>Arqueo</Caption>
+      <Caption>Cierre y arqueo</Caption>
       <Group>
         <Row size="sm" label="Caja" value={
           <MenuSelect
@@ -108,7 +106,7 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
         {difference !== null && (
           <div className="flex min-h-[36px] items-center justify-between px-3 text-[12px]">
             <span className="text-[#8E8E93]">Diferencia</span>
-            <span className={difference > 0 ? 'font-medium text-[#4F8A6B] dark:text-[#8FC0A4]' : difference < 0 ? 'font-medium text-[#B8664F] dark:text-[#E3A592]' : 'text-[#8E8E93]'}>
+            <span className={difference > 0 ? 'font-medium text-[var(--income)] dark:text-[var(--income)]' : difference < 0 ? 'font-medium text-[var(--expense)] dark:text-[var(--expense)]' : 'text-[#8E8E93]'}>
               {difference > 0 ? '+' : difference < 0 ? '−' : ''}{fmtCur(difference, currency)}
               <span className="ml-1.5 text-[10px] font-normal text-[#8E8E93]">{difference > 0 ? 'sobrante' : difference < 0 ? 'faltante' : 'sin diferencia'}</span>
             </span>
@@ -116,8 +114,12 @@ export default function CashAdjustmentForm({ accounts, date, onDone, footerSlot 
         )}
       </Group>
 
-      <PrimaryButton onClick={handleSubmit} disabled={submitting} color="gray" slot={footerSlot}>
-        {submitting ? 'Guardando…' : 'Registrar diferencia'}
+      <p className="mb-3 mt-2 px-1 text-[11px] leading-relaxed text-[#8E8E93]">
+        Si hay una diferencia, se registrará como movimiento. Si coincide, se guardará el cierre sin generar un movimiento.
+      </p>
+
+      <PrimaryButton onClick={handleSubmit} disabled={submitting || loadingBalance || systemBalance === null || counted === ''} color="gray" slot={footerSlot}>
+        {submitting ? 'Guardando…' : 'Cerrar caja'}
       </PrimaryButton>
     </div>
   )

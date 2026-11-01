@@ -56,7 +56,7 @@ export default async function PatrimonioPage({
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-[1920px] mx-auto font-sans text-[var(--ds-neutral-800)] dark:text-gray-100 min-h-screen bg-[var(--ds-gray-100)] dark:bg-black">
+    <div className="premium-page section-polish balance-sheet-page mx-auto min-h-screen max-w-[1920px] bg-[var(--surface-muted)] p-4 font-sans text-[var(--text)] sm:p-6 lg:p-8">
       <AppHeader
         title="Estado Patrimonial"
         showRoleBadge={false}
@@ -81,6 +81,7 @@ export default async function PatrimonioPage({
         }
       />
 
+      <div className="balance-sheet-intro">
       <StatementHeader
         title="Estado patrimonial"
         period={`Al cierre de ${periodLabel}`}
@@ -94,7 +95,7 @@ export default async function PatrimonioPage({
                   key={m}
                   href={monedaHref(m)}
                   aria-current={moneda === m ? 'true' : undefined}
-                  className={`rounded-[7px] px-3 py-1 text-[13px] font-medium transition ${
+                  className={`rounded-lg px-3 py-1 text-[13px] font-medium transition ${
                     moneda === m
                       ? 'bg-white text-[var(--ds-gray-900)] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[var(--ds-gray-600)] dark:text-white'
                       : 'text-[var(--ds-gray-700)] hover:opacity-70 dark:text-[var(--ds-gray-200)]/80'
@@ -108,9 +109,10 @@ export default async function PatrimonioPage({
           </div>
         }
       />
+      </div>
 
       {/* Cuadro con números a la izquierda (60%); los dos gráficos a la derecha (40%) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+      <div className="balance-sheet-layout grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <div className="min-w-0">
           <PatrimonioDetail data={current} previous={previous} currency={moneda} trends={trends} prevLabel={prevLabel} />
         </div>

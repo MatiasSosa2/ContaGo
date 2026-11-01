@@ -71,11 +71,87 @@ export type GenerateJournalLinesParams = {
   fixedAssetAccountId?: string | null
   /** Para SALE_BIEN_USO: valor neto en libros (HABER a Bienes de Uso) */
   bienValorNetoEnLibros?: number
+  /** Para PURCHASE_PRODUCT con costo fijo: valor al que entra el inventario (DEBE Inventario) */
+  inventoryValue?: number
+  /** Para PURCHASE_PRODUCT con costo fijo: pagado − inventoryValue (va al resultado) */
+  costVariance?: number
+  /** Para PURCHASE_PRODUCT con costo fijo: cuenta sistema Diferencia de costo */
+  costVarianceAccountId?: string | null
 }
 
 export type GenerateJournalLinesResult =
   | { ok: true; lines: JournalLineInput[] }
   | { ok: false; reason: string }
+
+const round2 = (v: number) => Math.round(v * 100) / 100
+
+/**
+ * Reparte `total` entre partes en proporción a sus pesos, redondeando a centavos y
+ * asignando el residual al último peso positivo. La suma SIEMPRE da `total` exacto.
+ */
+export function allocateProportionally(total: number, weights: number[]): number[] {
+  if (weights.length === 0) return []
+  const weightSum = weights.reduce((s, w) => s + Math.max(0, w), 0)
+  if (weightSum <= 0) {
+    const result = weights.map(() => 0)
+    result[weights.length - 1] = round2(total)
+    return result
+  }
+  const result = weights.map((w) => round2((total * Math.max(0, w)) / weightSum))
+  const residual = round2(total - result.reduce((s, v) => s + v, 0))
+  if (Math.abs(residual) >= 0.001) {
+    for (let i = weights.length - 1; i >= 0; i--) {
+      if (weights[i] > 0) { result[i] = round2(result[i] + residual); break }
+    }
+  }
+  return result
+}
+
+/**
+ * Asiento de un cambio de caja, SIEMPRE denominado en pesos: el lado en dólares se
+ * expresa al tipo de cambio del cambio y el residual de redondeo va a Diferencia de
+ * cambio. Así el libro nunca mezcla unidades y débitos = créditos.
+ */
+export function buildTransferJournalLines(params: {
+  amountFrom: number
+  amountTo: number
+  fromCurrency: string
+  toCurrency: string
+  exchangeRate: number | null
+  fromAccountId: string
+  toAccountId: string
+  fxDiffAccountId: string | null
+  description?: string
+}): GenerateJournalLinesResult {
+  const { amountFrom, amountTo, fromCurrency, toCurrency, exchangeRate, fromAccountId, toAccountId, fxDiffAccountId, description } = params
+
+  if (fromCurrency === toCurrency) {
+    const lines = [
+      { accountId: toAccountId, debit: amountTo, credit: 0, description },
+      { accountId: fromAccountId, debit: 0, credit: amountFrom, description },
+    ]
+    return balanced(lines) ? { ok: true, lines } : { ok: false, reason: 'desequilibrio_contable' }
+  }
+
+  if (!exchangeRate || exchangeRate <= 0) return { ok: false, reason: 'sin_cotizacion' }
+
+  const fromArs = round2(fromCurrency === 'ARS' ? amountFrom : amountFrom * exchangeRate)
+  const toArs = round2(toCurrency === 'ARS' ? amountTo : amountTo * exchangeRate)
+  const lines: JournalLineInput[] = [
+    { accountId: toAccountId, debit: toArs, credit: 0, description },
+    { accountId: fromAccountId, debit: 0, credit: fromArs, description },
+  ]
+
+  // Residual de redondeo de la conversión
+  const diff = round2(fromArs - toArs)
+  if (Math.abs(diff) >= 0.01) {
+    if (!fxDiffAccountId) return { ok: false, reason: 'sin_cuenta_dif_cambio' }
+    if (diff > 0) lines.push({ accountId: fxDiffAccountId, debit: diff, credit: 0, description: 'Diferencia de cambio' })
+    else lines.push({ accountId: fxDiffAccountId, debit: 0, credit: -diff, description: 'Diferencia de cambio' })
+  }
+
+  return balanced(lines) ? { ok: true, lines } : { ok: false, reason: 'desequilibrio_contable' }
+}
 
 function balanced(lines: JournalLineInput[]): boolean {
   const totalDebit = lines.reduce((s, l) => s + l.debit, 0)
@@ -101,6 +177,9 @@ export function generateJournalLines(
     cogsAccountId,
     fixedAssetAccountId,
     bienValorNetoEnLibros,
+    inventoryValue,
+    costVariance,
+    costVarianceAccountId,
   } = params
 
   const lines: JournalLineInput[] = []
@@ -128,7 +207,16 @@ export function generateJournalLines(
     const creditTarget = esCredito ? cxpAccountId : physicalAccountId
     if (esCredito && !cxpAccountId) return { ok: false, reason: 'sin_cuenta_cxp' }
     if (!creditTarget) return { ok: false, reason: 'sin_cuenta_destino' }
-    lines.push({ accountId: inventoryAccountId, debit: amount, credit: 0, description })
+    // Con costo fijo el inventario entra valorizado al fijo y la diferencia contra lo
+    // pagado va al resultado (Diferencia de costo); sin costo fijo entra a lo pagado.
+    const valorInventario = inventoryValue ?? amount
+    const variance = costVariance ?? 0
+    lines.push({ accountId: inventoryAccountId, debit: valorInventario, credit: 0, description })
+    if (Math.abs(variance) >= 0.01) {
+      if (!costVarianceAccountId) return { ok: false, reason: 'sin_cuenta_dif_costo' }
+      if (variance > 0) lines.push({ accountId: costVarianceAccountId, debit: variance, credit: 0, description: 'Diferencia de costo' })
+      else lines.push({ accountId: costVarianceAccountId, debit: 0, credit: -variance, description: 'Diferencia de costo' })
+    }
     lines.push({ accountId: creditTarget, debit: 0, credit: amount, description })
     if (!balanced(lines)) return { ok: false, reason: 'desequilibrio_contable' }
     return { ok: true, lines }
