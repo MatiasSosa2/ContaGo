@@ -1,20 +1,9 @@
 import { redirect } from 'next/navigation'
 
-import { buildAuthChallengeRedirectPath } from './challenge-routing'
-import { getSessionContext } from './get-session-context'
+import { requireAuth } from './require-auth'
 
 export async function requirePageSession() {
-  const sessionContext = await getSessionContext()
-
-  if (!sessionContext) {
-    redirect('/auth/login')
-  }
-
-  const challengeRedirectPath = buildAuthChallengeRedirectPath(sessionContext)
-
-  if (challengeRedirectPath) {
-    redirect(challengeRedirectPath)
-  }
+  const sessionContext = await requireAuth()
 
   if (sessionContext.businesses.length === 0) {
     redirect('/auth/error?error=NoBusinessAccess')

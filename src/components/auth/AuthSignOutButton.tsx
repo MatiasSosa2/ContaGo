@@ -9,7 +9,12 @@ export default function AuthSignOutButton() {
 
   function handleSignOut() {
     startSignOutTransition(async () => {
-      await signOut({ callbackUrl: '/auth/login' })
+      try {
+        await signOut({ callbackUrl: '/auth/login' })
+      } catch (error) {
+        console.error('[auth] sign-out failed', error)
+        window.location.assign('/auth/error?error=AuthenticationUnavailable')
+      }
     })
   }
 

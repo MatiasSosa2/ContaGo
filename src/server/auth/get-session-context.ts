@@ -1,8 +1,11 @@
 import { cache } from 'react'
 import { getServerSession } from 'next-auth'
+import type { Session } from 'next-auth'
+import { unstable_rethrow } from 'next/navigation'
 
 import { authOptions } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { AUTHENTICATION_UNAVAILABLE } from './auth-errors'
 
 import type { ActiveBusinessContext, AppRole } from './business-context'
 import { normalizeOperatingModel } from './business-context'
@@ -35,7 +38,14 @@ function normalizeRole(role: string | null | undefined): AppRole {
 export const getSessionContext = cache(_getSessionContextImpl)
 
 async function _getSessionContextImpl(): Promise<SessionContext | null> {
-  const session = await getServerSession(authOptions)
+  let session: Session | null
+  try {
+    session = await getServerSession(authOptions)
+  } catch (error) {
+    unstable_rethrow(error)
+    console.error('[auth] no se pudo leer la sesión actual', error)
+    throw new Error(AUTHENTICATION_UNAVAILABLE)
+  }
 
   if (!session?.user?.id || !session.user.email) {
     return null
@@ -43,21 +53,35 @@ async function _getSessionContextImpl(): Promise<SessionContext | null> {
 
   // Una sola query que trae el usuario + todas sus memberships activas.
   // A partir de ahí derivamos `businesses` y `activeBusiness` sin round-trips extra.
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      defaultBusinessId: true,
-      memberships: {
-        where: { status: 'ACTIVE' },
-        orderBy: { createdAt: 'asc' },
-        select: {
-          role: true,
-          businessId: true,
-          business: { select: { id: true, name: true, operatingModel: true } },
+  let user: {
+    defaultBusinessId: string | null
+    memberships: {
+      role: string
+      businessId: string
+      business: { id: string; name: string; operatingModel: string }
+    }[]
+  } | null
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        defaultBusinessId: true,
+        memberships: {
+          where: { status: 'ACTIVE' },
+          orderBy: { createdAt: 'asc' },
+          select: {
+            role: true,
+            businessId: true,
+            business: { select: { id: true, name: true, operatingModel: true } },
+          },
         },
       },
-    },
-  })
+    })
+  } catch (error) {
+    unstable_rethrow(error)
+    console.error('[auth] no se pudo cargar el acceso a los negocios', error)
+    throw new Error(AUTHENTICATION_UNAVAILABLE)
+  }
 
   const memberships = user?.memberships ?? []
   const businesses: ActiveBusinessContext[] = memberships.map((m) => ({

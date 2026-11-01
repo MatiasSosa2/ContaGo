@@ -7,6 +7,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
 import prismaClient from '@/lib/prisma'
+import { AUTHENTICATION_UNAVAILABLE } from '@/server/auth/auth-errors'
 import type { EmailChallengePurpose } from '@/server/auth/challenges'
 import { consumeVerifiedChallengeForLogin, createEmailChallenge } from '@/server/auth/challenges'
 import { sendAuthCodeEmail } from '@/server/auth/email'
@@ -54,7 +55,13 @@ type SingleSessionAuthUser = {
 async function claimSingleSession(user: { id: string } & SingleSessionAuthUser) {
   if (!prisma) return false
 
-  const sessionId = await claimSingleUserSession(prisma, user.id)
+  let sessionId: Awaited<ReturnType<typeof claimSingleUserSession>>
+  try {
+    sessionId = await claimSingleUserSession(prisma, user.id)
+  } catch (error) {
+    console.error('[auth] no se pudo reservar una sesión de dispositivo', error)
+    throw new Error(AUTHENTICATION_UNAVAILABLE)
+  }
   if (!sessionId) return false
   user.authSessionId = sessionId.sessionId
   user.authSessionSlot = sessionId.slot
@@ -127,26 +134,40 @@ function getConfiguredProviders() {
         // Post-verificación: permite iniciar sesión con un challengeId recién consumido
         // (sin reingresar password) en la ventana de 2 minutos después del verify-code.
         if (postVerifyChallengeId && normalizedEmail && prisma) {
-          const verified = await consumeVerifiedChallengeForLogin({
-            email: normalizedEmail,
-            challengeId: postVerifyChallengeId,
-          })
-          if (!verified) {
-            console.warn('[auth] postVerifyChallengeId no valido o expirado')
-            return null
-          }
+          let verified: Awaited<ReturnType<typeof consumeVerifiedChallengeForLogin>>
+          let user: {
+            id: string
+            name: string | null
+            email: string
+            image: string | null
+            emailVerified: Date | null
+            lastSecurityChallengeAt: Date | null
+          } | null
+          try {
+            verified = await consumeVerifiedChallengeForLogin({
+              email: normalizedEmail,
+              challengeId: postVerifyChallengeId,
+            })
+            if (!verified) {
+              console.warn('[auth] postVerifyChallengeId no valido o expirado')
+              return null
+            }
 
-          const user = await prisma.user.findUnique({
-            where: { email: normalizedEmail },
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-              emailVerified: true,
-              lastSecurityChallengeAt: true,
-            },
-          })
+            user = await prisma.user.findUnique({
+              where: { email: normalizedEmail },
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+                emailVerified: true,
+                lastSecurityChallengeAt: true,
+              },
+            })
+          } catch (error) {
+            console.error('[auth] fallo la validación del código de acceso', error)
+            throw new Error(AUTHENTICATION_UNAVAILABLE)
+          }
           if (!user) return null
 
           return {
@@ -163,9 +184,9 @@ function getConfiguredProviders() {
           throw new Error("Credenciales inválidas")
         }
 
-        try {
-          if (!prisma) return null;
+        if (!prisma) return null
 
+        try {
           const user = await prisma.user.findUnique({
             where: { email: normalizedEmail },
             select: {
@@ -194,8 +215,9 @@ function getConfiguredProviders() {
             emailVerified: user.emailVerified,
             lastSecurityChallengeAt: user.lastSecurityChallengeAt,
           } as CredentialsAuthUser;
-        } catch {
-          return null;
+        } catch (error) {
+          console.error('[auth] fallo la validación de credenciales', error)
+          throw new Error(AUTHENTICATION_UNAVAILABLE)
         }
       },
     }),
@@ -282,7 +304,7 @@ function buildVerifyCodeRedirect(
 
 function buildSessionInUseRedirect() {
   const origin = (process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '')
-  return `${origin}/auth/login?error=SessionLimitReached`
+  return `${origin}/auth/error?error=SessionLimitReached`
 }
 
 function buildNoBusinessAccessRedirect() {
@@ -398,69 +420,74 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async signIn({ user, account }) {
-      if (!useMockAuth && prisma && user.id && account?.provider) {
-        const provider = toAuthProvider(account.provider)
+      try {
+        if (!useMockAuth && prisma && user.id && account?.provider) {
+          const provider = toAuthProvider(account.provider)
 
-        const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
+          const credentialsUser = user as typeof user & Partial<CredentialsAuthUser>
 
-        if (provider === 'google' || provider === 'azure-ad') {
-          const businessId = await ensureOAuthUserBusiness(user.id)
-          if (!businessId) {
-            return buildNoBusinessAccessRedirect()
-          }
-        }
-
-        const dbUser = provider === 'credentials'
-          ? {
-              email: credentialsUser.email ?? null,
-              emailVerified: credentialsUser.emailVerified ?? null,
-              lastSecurityChallengeAt: credentialsUser.lastSecurityChallengeAt ?? null,
+          if (provider === 'google' || provider === 'azure-ad') {
+            const businessId = await ensureOAuthUserBusiness(user.id)
+            if (!businessId) {
+              return buildNoBusinessAccessRedirect()
             }
-          : await prisma.user.findUnique({
-              where: { id: user.id },
-              select: {
-                email: true,
-                emailVerified: true,
-                lastSecurityChallengeAt: true,
-              },
+          }
+
+          const dbUser = provider === 'credentials'
+            ? {
+                email: credentialsUser.email ?? null,
+                emailVerified: credentialsUser.emailVerified ?? null,
+                lastSecurityChallengeAt: credentialsUser.lastSecurityChallengeAt ?? null,
+              }
+            : await prisma.user.findUnique({
+                where: { id: user.id },
+                select: {
+                  email: true,
+                  emailVerified: true,
+                  lastSecurityChallengeAt: true,
+                },
+              })
+
+          const challengePurpose: Exclude<EmailChallengePurpose, 'PASSWORD_RESET'> | null = dbUser
+            ? decideLoginChallenge({
+                provider,
+                emailVerified: dbUser.emailVerified,
+                lastSecurityChallengeAt: dbUser.lastSecurityChallengeAt,
+              }) as Exclude<EmailChallengePurpose, 'PASSWORD_RESET'> | null
+            : null
+
+          if (dbUser?.email && challengePurpose) {
+            const { code } = await createEmailChallenge({
+              userId: user.id,
+              email: dbUser.email,
+              purpose: challengePurpose,
             })
 
-        const challengePurpose: Exclude<EmailChallengePurpose, 'PASSWORD_RESET'> | null = dbUser
-          ? decideLoginChallenge({
-              provider,
-              emailVerified: dbUser.emailVerified,
-              lastSecurityChallengeAt: dbUser.lastSecurityChallengeAt,
-            }) as Exclude<EmailChallengePurpose, 'PASSWORD_RESET'> | null
-          : null
+            await sendAuthCodeEmail({
+              email: dbUser.email,
+              code,
+              purpose: challengePurpose,
+            })
 
-        if (dbUser?.email && challengePurpose) {
-          const { code } = await createEmailChallenge({
-            userId: user.id,
-            email: dbUser.email,
-            purpose: challengePurpose,
-          })
+            return buildVerifyCodeRedirect(dbUser.email, challengePurpose)
+          }
 
-          await sendAuthCodeEmail({
-            email: dbUser.email,
-            code,
-            purpose: challengePurpose,
-          })
+          if (!(await claimSingleSession(user))) {
+            return buildSessionInUseRedirect()
+          }
 
-          return buildVerifyCodeRedirect(dbUser.email, challengePurpose)
+          // Fire-and-forget: no bloqueamos el login esperando un update cosmético.
+          void prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          }).catch(() => null)
         }
 
-        if (!(await claimSingleSession(user))) {
-          return buildSessionInUseRedirect()
-        }
-
-        // Fire-and-forget: no bloqueamos el login esperando un update cosmético.
-        void prisma.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() },
-        }).catch(() => null)
+        return true
+      } catch (error) {
+        console.error('[auth] fallo el callback de inicio de sesión', error)
+        throw new Error(AUTHENTICATION_UNAVAILABLE)
       }
-
-      return true
     },
   },
   events: {

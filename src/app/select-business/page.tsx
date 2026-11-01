@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import AuthShell from '@/components/auth/AuthShell'
 import BusinessSelectorPanel from '@/components/auth/BusinessSelectorPanel'
 import { buildAuthChallengeRedirectPath } from '@/server/auth/challenge-routing'
-import { getSessionContext } from '@/server/auth/get-session-context'
+import { requireAuth } from '@/server/auth/require-auth'
 
 export default async function SelectBusinessPage({
   searchParams,
@@ -11,13 +11,9 @@ export default async function SelectBusinessPage({
   searchParams: Promise<{ error?: string }>
 }) {
   const [sessionContext, params] = await Promise.all([
-    getSessionContext(),
+    requireAuth(),
     searchParams,
   ])
-
-  if (!sessionContext) {
-    redirect('/auth/login')
-  }
 
   const challengeRedirectPath = buildAuthChallengeRedirectPath(sessionContext)
 

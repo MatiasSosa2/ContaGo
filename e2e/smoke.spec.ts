@@ -34,6 +34,22 @@ test.describe('Smoke / salud del sistema', () => {
     await expect(page.getByRole('button', { name: 'Entrar sin contraseña' })).toHaveCount(0)
   })
 
+  test('el límite de dispositivos explica el motivo y cómo liberar una sesión', async ({ page }) => {
+    await page.goto('/auth/error?error=SessionLimitReached')
+
+    await expect(page.getByRole('heading', { name: 'Ya hay tres dispositivos conectados' })).toBeVisible()
+    await expect(page.getByText('Cierra sesión en uno de tus otros dispositivos')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Volver a iniciar sesión' })).toBeVisible()
+  })
+
+  test('los errores de autenticación desconocidos muestran ayuda sin exponer el valor recibido', async ({ page }) => {
+    await page.goto('/auth/error?error=private-database-detail')
+
+    await expect(page.getByRole('heading', { name: 'No pudimos completar el acceso' })).toBeVisible()
+    await expect(page.getByText('private-database-detail')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Recuperar contraseña' })).toBeVisible()
+  })
+
   test('CSRF y cierre de sesión de NextAuth se procesan correctamente', async ({ request }) => {
     const csrfResponse = await request.get('/api/auth/csrf')
     expect(csrfResponse.status()).toBe(200)

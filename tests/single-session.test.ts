@@ -80,10 +80,10 @@ function seedActiveSessions(count: number): Partial<StoredSession> {
   return values
 }
 
-test('allows at most three concurrent device sessions', async () => {
+test('allows at most three concurrent device sessions under a burst of login attempts', async () => {
   const { database, stored } = createDatabase({ id: 'user-1' })
   const claims = await Promise.all(
-    Array.from({ length: 4 }, () => claimSingleUserSession(database, 'user-1')),
+    Array.from({ length: 32 }, () => claimSingleUserSession(database, 'user-1')),
   )
 
   assert.equal(claims.filter(Boolean).length, 3)

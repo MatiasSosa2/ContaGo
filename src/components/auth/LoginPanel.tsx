@@ -93,7 +93,7 @@ export default function LoginPanel({
         await signIn(provider, { callbackUrl: '/select-business' })
       } catch (cause) {
         console.error(`[auth] ${provider} sign-in failed`, cause)
-        setError('No se pudo iniciar sesión con este proveedor. Inténtalo nuevamente.')
+        hardNavigate('/auth/error?error=OAuthSignin')
       }
     })
   }
@@ -115,9 +115,12 @@ export default function LoginPanel({
         })
 
         if (!signInResult || signInResult.error) {
-          setError(signInResult?.error === 'SessionLimitReached'
-            ? 'Esta cuenta ya tiene abiertas 3 sesiones en distintos dispositivos. Cierra una sesión antes de iniciar otra.'
-            : 'No se pudo iniciar sesión. Revisa tus credenciales o verifica tu email.')
+          const error = signInResult?.error === 'CredentialsSignin'
+            ? 'CredentialsSignin'
+            : signInResult?.error === 'SessionLimitReached'
+              ? 'SessionLimitReached'
+              : 'AuthenticationUnavailable'
+          hardNavigate(`/auth/error?error=${error}`)
           return
         }
 
@@ -125,7 +128,7 @@ export default function LoginPanel({
         hardNavigate(dest)
       } catch (cause) {
         console.error('[auth] credentials sign-in failed', cause)
-        setError('No se pudo conectar con el servicio de autenticación. Inténtalo nuevamente.')
+        hardNavigate('/auth/error?error=AuthenticationUnavailable')
       }
     })
   }

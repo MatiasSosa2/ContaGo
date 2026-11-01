@@ -3,6 +3,7 @@ import { Inter, Archivo, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import { getSessionContext } from "@/server/auth/get-session-context";
+import { isAuthenticationUnavailable } from "@/server/auth/auth-errors";
 import FloatingActionButton from "@/components/FloatingActionButton";
 import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
@@ -35,7 +36,13 @@ export const metadata: Metadata = {
 };
 
 async function AuthenticatedNavigation() {
-  const sessionContext = await getSessionContext();
+  let sessionContext: Awaited<ReturnType<typeof getSessionContext>>;
+  try {
+    sessionContext = await getSessionContext();
+  } catch (error) {
+    if (isAuthenticationUnavailable(error)) return null;
+    throw error;
+  }
   if (!sessionContext?.activeBusiness) return null;
 
   return (
