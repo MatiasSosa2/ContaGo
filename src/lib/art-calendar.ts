@@ -48,6 +48,73 @@ export function dueDateEndOfDay(dateStr: string): Date {
 
 export type DashboardPeriodKey = 'diario' | 'semanal' | 'mensual' | 'anual' | 'custom'
 
+const PERIOD_KEYS: readonly DashboardPeriodKey[] = ['diario', 'semanal', 'mensual', 'anual', 'custom']
+/** Años que se aceptan en la URL: evita rangos absurdos (consultas enormes) y fechas inválidas */
+const MIN_YEAR = 1970
+const MAX_YEARS_AHEAD = 10
+/** Un rango personalizado no puede pasar de 10 años */
+const MAX_CUSTOM_RANGE_MS = 10 * 366 * 24 * 60 * 60 * 1000
+
+export type PeriodParams = {
+  period: DashboardPeriodKey
+  customFrom?: string
+  customTo?: string
+  selectedYear?: number
+  selectedMonth?: number
+  selectedDay?: string
+  selectedWeekStart?: string
+}
+
+const validYear = (year: number) =>
+  Number.isInteger(year) && year >= MIN_YEAR && year <= getArtCalendarParts().year + MAX_YEARS_AHEAD
+
+/** "yyyy-mm-dd" que existe en el calendario (no 2026-02-31) y con un año razonable */
+function validDayString(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const { year, monthIndex, day } = parseArtDay(value)
+  if (!validYear(year) || monthIndex < 0 || monthIndex > 11) return false
+  return day >= 1 && day <= artDaysInMonth(year, monthIndex)
+}
+
+/**
+ * Limpia los parámetros de período que llegan de la URL (o de una acción del cliente).
+ * Lo válido queda igual; lo inválido se descarta y se usa el valor por defecto, así nunca
+ * se consulta la base con fechas "NaN" o rangos gigantes.
+ */
+export function sanitizePeriodParams(input: {
+  period?: unknown
+  customFrom?: unknown
+  customTo?: unknown
+  selectedYear?: unknown
+  selectedMonth?: unknown
+  selectedDay?: unknown
+  selectedWeekStart?: unknown
+}): PeriodParams {
+  const period = PERIOD_KEYS.includes(input.period as DashboardPeriodKey) ? input.period as DashboardPeriodKey : 'mensual'
+  const year = typeof input.selectedYear === 'string' ? Number(input.selectedYear) : input.selectedYear
+  const month = typeof input.selectedMonth === 'string' ? Number(input.selectedMonth) : input.selectedMonth
+  let customFrom = validDayString(input.customFrom) ? input.customFrom : undefined
+  let customTo = validDayString(input.customTo) ? input.customTo : undefined
+  // Desde y hasta al revés: se dan vuelta en vez de devolver un rango vacío
+  if (customFrom && customTo && customFrom > customTo) [customFrom, customTo] = [customTo, customFrom]
+  if (customFrom && customTo) {
+    const a = parseArtDay(customFrom), b = parseArtDay(customTo)
+    if (Date.UTC(b.year, b.monthIndex, b.day) - Date.UTC(a.year, a.monthIndex, a.day) > MAX_CUSTOM_RANGE_MS) {
+      customFrom = undefined
+      customTo = undefined
+    }
+  }
+  return {
+    period,
+    customFrom,
+    customTo,
+    selectedYear: typeof year === 'number' && validYear(year) ? year : undefined,
+    selectedMonth: typeof month === 'number' && Number.isInteger(month) && month >= 1 && month <= 12 ? month : undefined,
+    selectedDay: validDayString(input.selectedDay) ? input.selectedDay : undefined,
+    selectedWeekStart: validDayString(input.selectedWeekStart) ? input.selectedWeekStart : undefined,
+  }
+}
+
 /** Rango [from, to] y período anterior [prevFrom, prevTo], siempre en calendario argentino. */
 export function computePeriodRange(
   period: DashboardPeriodKey,
@@ -58,6 +125,9 @@ export function computePeriodRange(
   selectedDay?: string,
   selectedWeekStart?: string,
 ): { from: Date; to: Date; prevFrom: Date; prevTo: Date; label: string } {
+  // Única puerta de entrada de todas las pestañas: los parámetros inválidos se descartan acá
+  ;({ period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart } =
+    sanitizePeriodParams({ period, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart }))
   const today = getArtCalendarParts()
   const fmtDay = (d: Date) => d.toLocaleDateString('es-AR', { timeZone: BUSINESS_TZ, day: '2-digit', month: 'short' })
   let from: Date, to: Date, prevFrom: Date, prevTo: Date, label: string

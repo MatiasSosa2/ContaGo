@@ -33,12 +33,16 @@ export const IOS_CALENDAR_CLASSES = {
 }
 
 /** Ventanita flotante anclada a un botón; se cierra al tocar afuera o con Esc */
-export function CalendarPopover({ anchorRef, open, onClose, children, align = 'left' }: {
+export function CalendarPopover({ anchorRef, open, onClose, children, align = 'left', width = 300, bare = false }: {
   anchorRef: RefObject<HTMLElement | null>
   open: boolean
   onClose: () => void
   children: ReactNode
   align?: 'left' | 'right'
+  /** Ancho de la ventanita (px) */
+  width?: number
+  /** Sin relleno interno (listas que llegan al borde) */
+  bare?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<CSSProperties | null>(null)
@@ -47,7 +51,7 @@ export function CalendarPopover({ anchorRef, open, onClose, children, align = 'l
     if (!open) return
     const r = anchorRef.current?.getBoundingClientRect()
     if (!r) return
-    const ancho = 300
+    const ancho = width
     const abajo = window.innerHeight - r.bottom
     const left = align === 'right'
       ? Math.max(8, Math.min(r.right - ancho, window.innerWidth - ancho - 8))
@@ -57,7 +61,7 @@ export function CalendarPopover({ anchorRef, open, onClose, children, align = 'l
     setPos(abajo >= 380 || abajo >= r.top
       ? { ...color, top: r.bottom + 6, left }
       : { ...color, bottom: window.innerHeight - r.top + 6, left })
-  }, [open, anchorRef, align])
+  }, [open, anchorRef, align, width])
 
   useEffect(() => {
     if (!open) return
@@ -80,8 +84,8 @@ export function CalendarPopover({ anchorRef, open, onClose, children, align = 'l
   return createPortal(
     <div
       ref={ref}
-      style={pos}
-      className="fixed z-[80] w-[300px] rounded-2xl bg-[var(--ds-white)]/95 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] backdrop-blur-xl animate-[reg-pop-in_160ms_ease-out] dark:bg-[var(--ds-gray-800)]/95 dark:ring-white/10"
+      style={{ ...pos, width }}
+      className={`fixed z-[80] rounded-2xl bg-[var(--ds-white)]/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)] ring-1 ring-black/[0.06] backdrop-blur-xl animate-[reg-pop-in_160ms_ease-out] dark:bg-[var(--ds-gray-800)]/95 dark:ring-white/10 ${bare ? 'overflow-hidden' : 'p-3'}`}
     >
       {children}
     </div>,

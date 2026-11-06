@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import type { EChartsOption } from 'echarts'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import CashEvolutionChart from '@/components/dashboard/CashEvolutionChart'
 import type { DashboardChartTx } from '@/app/actions.database'
 
@@ -19,22 +19,6 @@ function useDarkMode() {
   return isDark
 }
 
-// ── Paleta del sistema ─────────────────────────────────────────────────────────
-const C = {
-  income:     '#235347',
-  incomeFill: 'rgba(45,106,79,0.15)',
-  expense:    '#6b7280',
-  expenseFill:'rgba(107,114,128,0.10)',
-  net:        '#235347',
-  netFill:    'rgba(197,160,101,0.12)',
-  red:        '#EF4444',
-  amber:      'var(--warning)',
-  green:      '#3E7F5F',
-  axis:       '#d1d5db',
-  label:      '#9ca3af',
-  tooltip:    '#1A1A1A',
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function fmtARS(v: number) {
   return '$' + v.toLocaleString('es-AR', { maximumFractionDigits: 0 })
@@ -49,209 +33,109 @@ interface DonutSlice {
   itemStyle: { color: string }
 }
 
-export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; height?: number }) {
-  const isDark = useDarkMode()
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState(600)
+// Hasta 5 categorías con nombre; el resto se suma en "Otras"
+const MAX_SLICES = 5
 
+/**
+ * Dona fina en SVG con el total en el centro y, al lado, la lista de categorías con barrita y %.
+ * Al pasar el mouse por una porción o una fila se resalta y el centro muestra esa categoría.
+ */
+export function DonutWithLegend({ data, height = 280 }: { data: DonutSlice[]; height?: number }) {
+  const [hover, setHover] = useState<number | null>(null)
+  // Las porciones se dibujan al montar (animación de llenado)
+  const [drawn, setDrawn] = useState(false)
   useEffect(() => {
-    if (!containerRef.current) return
-    const measure = () => {
-      if (containerRef.current)
-        setContainerWidth(containerRef.current.getBoundingClientRect().width)
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(containerRef.current)
-    return () => ro.disconnect()
+    const id = requestAnimationFrame(() => setDrawn(true))
+    return () => cancelAnimationFrame(id)
   }, [])
 
-  const total = data.reduce((s, d) => s + d.value, 0)
-  const sorted = [...data].sort((a, b) => b.value - a.value)
-  const n = sorted.length
-
-  // ── Layout ────────────────────────────────────────────────────────────────
-  const DONUT_RATIO = 0.42
-  const donutW = containerWidth * DONUT_RATIO
-  const outerR = 0.66 * Math.min(donutW, height) / 2
-  const cx = donutW / 2
-  const cy = height / 2
-  const ELBOW_X = donutW + 14   // X donde el trazo dobla horizontal
-  const LABEL_X = donutW + 48   // X donde empieza el texto (todos alineados)
-
-  // Labels: distribuidos uniformemente de arriba a abajo (valor-ordenados)
-  const V_PAD = height * 0.10
-  const labelSpacing = n > 1 ? (height - V_PAD * 2) / (n - 1) : 0
-  const labelY = (i: number) => (n === 1 ? cy : V_PAD + i * labelSpacing)
-
-  // Puntos distribuidos en el arco DERECHO (90° → −90° clockwise).
-  // Ambas secuencias son monótonas en Y → líneas nunca se cruzan.
-  const arcPoint = (i: number) => {
-    const angle = n === 1 ? 0 : Math.PI / 2 - (i * Math.PI) / (n - 1)
-    return { x: cx + outerR * Math.cos(angle), y: cy - outerR * Math.sin(angle) }
-  }
-
-  const centerTextColor = isDark ? '#f3f4f6' : '#1f2937'
-
-  const option: EChartsOption = {
-    animation: true,
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: C.tooltip,
-      borderColor: '#374151',
-      textStyle: { color: '#fff', fontSize: 11 },
-      formatter: (params: unknown) => {
-        const p = params as { name: string; value: number; percent?: number }
-        const pct = p.percent?.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? '0'
-        return `<div style="font-weight:600;margin-bottom:4px;">${p.name}</div>
-          <div style="font-family:monospace;">${fmtARS(p.value)}<span style="color:#9ca3af;margin-left:8px;">${pct}%</span></div>`
-      },
-    },
-    legend: { show: false },
-    graphic: [
-      {
-        type: 'text',
-        left: 'center',
-        top: '46%',
-        style: {
-          text: fmtARS(total),
-          fill: centerTextColor,
-          fontSize: 13,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          fontWeight: 700,
-          align: 'center',
+  const sorted = [...data].sort((x, y) => y.value - x.value)
+  const slices = sorted.length > MAX_SLICES + 1
+    ? [
+        ...sorted.slice(0, MAX_SLICES),
+        {
+          name: 'Otras',
+          value: sorted.slice(MAX_SLICES).reduce((acc, d) => acc + d.value, 0),
+          itemStyle: { color: sorted[sorted.length - 1].itemStyle.color },
         },
-      },
-    ],
-    series: [{
-      type: 'pie',
-      radius: ['44%', '68%'],
-      center: ['50%', '50%'],
-      padAngle: 2,
-      itemStyle: { borderRadius: 4 },
-      label: { show: false },
-      labelLine: { show: false },
-      data: sorted,
-      emphasis: {
-        scale: true,
-        scaleSize: 4,
-        itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.15)' },
-      },
-    }],
-  }
+      ]
+    : sorted
+  const total = slices.reduce((acc, d) => acc + d.value, 0)
+  const max = Math.max(...slices.map((d) => d.value), 1)
 
-  const mutedText = isDark ? '#9ca3af' : '#6b7280'
+  const SIZE = Math.min(200, height - 40)
+  const STROKE = 14
+  const R = (SIZE - STROKE) / 2
+  const CIRC = 2 * Math.PI * R
+  const GAP = slices.length > 1 ? 3 : 0
+  // Largo de cada porción y dónde empieza (suma de las anteriores)
+  const largos = slices.map((d) => (total > 0 ? (d.value / total) * CIRC : 0))
+  const arcos = largos.map((largo, i) => ({
+    largo: Math.max(0, largo - GAP),
+    offset: largos.slice(0, i).reduce((acc, l) => acc + l, 0),
+  }))
+
+  const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0).toLocaleString('es-AR', { maximumFractionDigits: 1 })
+  const centro = hover !== null ? slices[hover] : null
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', height, width: '100%' }}>
-      {/* Donut — zona izquierda */}
-      <div style={{ position: 'absolute', left: 0, top: 0, width: `${DONUT_RATIO * 100}%`, height }}>
-        <ReactECharts option={option} style={{ height, width: '100%' }} opts={{ renderer: 'svg' }} />
+    <div className="flex flex-col items-center gap-6 py-2 sm:flex-row sm:items-center sm:gap-10 sm:px-4" style={{ minHeight: height }}>
+      {/* Dona */}
+      <div className="relative shrink-0" style={{ width: SIZE, height: SIZE }}>
+        <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="-rotate-90">
+          <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" strokeWidth={STROKE} className="stroke-black/[0.04] dark:stroke-white/[0.06]" />
+          {slices.map((d, i) => (
+            <circle
+              key={d.name}
+              cx={SIZE / 2}
+              cy={SIZE / 2}
+              r={R}
+              fill="none"
+              stroke={d.itemStyle.color}
+              strokeWidth={hover === i ? STROKE + 4 : STROKE}
+              strokeLinecap="butt"
+              strokeDasharray={`${drawn ? arcos[i].largo : 0} ${CIRC}`}
+              strokeDashoffset={-arcos[i].offset}
+              opacity={hover === null || hover === i ? 1 : 0.35}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+              style={{ transition: 'stroke-dasharray 700ms cubic-bezier(0.32,0.72,0,1), opacity 150ms, stroke-width 150ms', cursor: 'default' }}
+            />
+          ))}
+        </svg>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <p className="max-w-[120px] truncate text-[11px] font-medium text-[#8E8E93]">{centro ? centro.name : 'Total'}</p>
+          <p className="text-[19px] font-semibold tracking-[-0.03em] tabular-nums text-[#1C1C1E] dark:text-white">
+            {fmtARS(centro ? centro.value : total)}
+          </p>
+          {centro && <p className="text-[11px] tabular-nums text-[#8E8E93]">{pct(centro.value)}%</p>}
+        </div>
       </div>
 
-      {/* SVG: líneas rectas con punta de flecha */}
-      {containerWidth > 0 && (
-        <svg
-          style={{
-            position: 'absolute', left: 0, top: 0,
-            width: containerWidth, height,
-            pointerEvents: 'none', overflow: 'visible',
-          }}
-        >
-          <defs>
-            {sorted.map((item, i) => (
-              <marker
-                key={i}
-                id={`arr-${i}`}
-                markerWidth="5"
-                markerHeight="5"
-                refX="4"
-                refY="2.5"
-                orient="auto"
-              >
-                <polygon points="0,0 5,2.5 0,5" fill={item.itemStyle.color} opacity={0.65} />
-              </marker>
-            ))}
-          </defs>
-
-          {sorted.map((item, i) => {
-            const { x: ax, y: ay } = arcPoint(i)
-            const ly = labelY(i)
-            const color = item.itemStyle.color
-            return (
-              <path
-                key={item.name}
-                d={`M ${ax.toFixed(1)} ${ay.toFixed(1)} L ${ELBOW_X.toFixed(1)} ${ly.toFixed(1)} L ${(LABEL_X - 8).toFixed(1)} ${ly.toFixed(1)}`}
-                fill="none"
-                stroke={color}
-                strokeWidth={1.2}
-                strokeOpacity={0.6}
-                strokeLinejoin="round"
-                markerEnd={`url(#arr-${i})`}
-              />
-            )
-          })}
-        </svg>
-      )}
-
-      {/* Labels */}
-      {sorted.map((item, i) => {
-        const ly = labelY(i)
-        const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0'
-        const mainText = isDark ? '#e5e7eb' : '#374151'
-        return (
-          <div
-            key={item.name}
-            style={{
-              position: 'absolute',
-              left: LABEL_X,
-              top: ly,
-              right: 4,
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-            }}
+      {/* Lista de categorías con barrita y % */}
+      <ul className="w-full min-w-0 flex-1 space-y-2.5">
+        {slices.map((d, i) => (
+          <li
+            key={d.name}
+            onMouseEnter={() => setHover(i)}
+            onMouseLeave={() => setHover(null)}
+            className={`transition-opacity ${hover === null || hover === i ? 'opacity-100' : 'opacity-45'}`}
           >
-            {/* Fila 1: nombre + badge % */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden' }}>
-              <span style={{
-                color: mainText,
-                fontSize: 11,
-                fontWeight: 600,
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}>
-                {item.name}
-              </span>
-              <span style={{
-                flexShrink: 0,
-                background: item.itemStyle.color + '28',
-                color: item.itemStyle.color,
-                fontSize: 9,
-                fontWeight: 700,
-                padding: '1px 4px',
-                borderRadius: 4,
-                fontFamily: 'ui-monospace, monospace',
-                letterSpacing: '0.02em',
-              }}>
-                {pct}%
-              </span>
+            <div className="flex items-baseline gap-2 text-[13px]">
+              <span className="h-2 w-2 shrink-0 translate-y-[-1px] rounded-full" style={{ background: d.itemStyle.color }} aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-[#1C1C1E] dark:text-white">{d.name}</span>
+              <span className="shrink-0 text-[12px] tabular-nums text-[#8E8E93]">{pct(d.value)}%</span>
+              <span className="w-[104px] shrink-0 text-right font-medium tabular-nums text-[#1C1C1E] dark:text-white">{fmtARS(d.value)}</span>
             </div>
-            {/* Fila 2: importe */}
-            <span style={{
-              color: mutedText,
-              fontSize: 10,
-              fontFamily: 'ui-monospace, monospace',
-            }}>
-              {fmtARS(item.value)}
-            </span>
-          </div>
-        )
-      })}
+            <div className="ml-4 mt-1 h-1 overflow-hidden rounded-full bg-black/[0.04] dark:bg-white/[0.06]">
+              <div
+                className="h-full rounded-full"
+                style={{ width: drawn ? `${(d.value / max) * 100}%` : '0%', background: d.itemStyle.color, transition: 'width 700ms cubic-bezier(0.32,0.72,0,1)' }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -287,7 +171,7 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
   const isDark = useDarkMode()
 
   const TABS: { key: EvView; label: string }[] = [
-    { key: 'overview', label: 'Ingresos vs egresos' },
+    { key: 'overview', label: 'Resumen' },
     { key: 'income_cats', label: 'Ingresos' },
     { key: 'expense_cats', label: 'Egresos' },
   ]
@@ -357,8 +241,8 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
     }
   }, [chartData, isDark])
 
-  // Paleta de verdes para ingresos (de mayor a menor intensidad)
-  const GREEN_PALETTE = ['#14532D', '#166534', '#15803D', '#16A34A', '#22C55E', '#4ADE80', '#86EFAC']
+  // Tonos de salvia para ingresos (de mayor a menor)
+  const GREEN_PALETTE = ['#2F6B4F', '#4F8A6B', '#6FA287', '#93BBA4', '#B7D2C2', '#D2E3D8']
   const incomeSorted = [...incomeCategoryBreakdown].sort((a, b) => b.value - a.value)
   const incomeDonutData = incomeSorted.map((c, i) => ({
     name: c.name,
@@ -366,8 +250,8 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
     itemStyle: { color: GREEN_PALETTE[i % GREEN_PALETTE.length] },
   }))
 
-  // Paleta de rojos para egresos (de mayor a menor intensidad)
-  const RED_PALETTE = ['#B91C1C', '#DC2626', '#EF4444', '#F87171', '#FCA5A5', '#FECACA', '#FEE2E2']
+  // Tonos de terracota para egresos (de mayor a menor)
+  const RED_PALETTE = ['#8E4535', '#B8664F', '#CB8670', '#DBA693', '#E8C5B8', '#F1DCD3']
   const expenseSorted = [...categoryBreakdown].sort((a, b) => b.value - a.value)
   const expenseDonutData = expenseSorted.map((c, i) => ({
     name: c.name,
@@ -375,33 +259,39 @@ export function EvolutionTabs({ chartData, chartTx, categoryBreakdown, incomeCat
     itemStyle: { color: RED_PALETTE[i % RED_PALETTE.length] },
   }))
 
-  return (
-    <div>
-      {/* Segmentado iOS: ingresos vs egresos, o en qué se compone cada uno */}
-      <div className="px-5 pt-3">
-        <div className="inline-flex max-w-full overflow-x-auto rounded-lg bg-black/[0.06] p-0.5 dark:bg-white/[0.1]" role="tablist" aria-label="Ver gráfico">
-          {TABS.map(tab => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={view === tab.key}
-              onClick={() => setView(tab.key)}
-              className={`shrink-0 whitespace-nowrap rounded-md px-3.5 py-1 text-[13px] transition ${
-                view === tab.key
-                  ? 'bg-white font-medium text-[#1C1C1E] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:bg-[#636366] dark:text-white'
-                  : 'text-[#3C3C43] dark:text-[#EBEBF5]/70'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+  // Selector como texto con subrayado (Resumen · Ingresos · Egresos)
+  const selector = (
+    <div className="flex items-center gap-4" role="tablist" aria-label="Ver gráfico">
+      {TABS.map(tab => (
+        <button
+          key={tab.key}
+          type="button"
+          role="tab"
+          aria-selected={view === tab.key}
+          onClick={() => setView(tab.key)}
+          className={`relative pb-1.5 text-[13px] transition-colors ${
+            view === tab.key
+              ? 'font-semibold text-[#1C1C1E] dark:text-white'
+              : 'text-[#8E8E93] hover:text-[#3C3C43] dark:hover:text-[#EBEBF5]'
+          }`}
+        >
+          {tab.label}
+          {/* Subrayado propio (los estilos globales anulan los bordes de las pestañas) */}
+          <span
+            aria-hidden
+            className={`absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[#1C1C1E] transition-opacity dark:bg-white ${view === tab.key ? 'opacity-100' : 'opacity-0'}`}
+          />
+        </button>
+      ))}
+    </div>
+  )
 
-      {/* Contenido del gráfico */}
-      <div className="p-4">
-        {view === 'overview' && <CashEvolutionChart chartData={chartData} chartTx={chartTx} height={300} />}
+  return (
+    <div className="px-5 pb-4 pt-4">
+      {view === 'overview' && <CashEvolutionChart chartData={chartData} chartTx={chartTx} height={300} header={selector} />}
+      {view !== 'overview' && <div className="mb-3">{selector}</div>}
+      {/* Vistas por categoría */}
+      <div>
         {view === 'income_cats' && (
           incomeDonutData.length > 0
             ? <DonutWithLegend data={incomeDonutData} height={280} />

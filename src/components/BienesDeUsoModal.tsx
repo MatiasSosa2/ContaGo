@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getBienesDeUso } from '@/app/actions'
+import { CARD_LINK_CLS, CardHeader, SUMMARY_VALUE_CLS } from '@/components/dashboard/cards'
 
 export interface BienItem {
   id: string
@@ -78,25 +79,18 @@ export default function BienesDeUsoModal({
 
   return (
     <>
-      {/* Card — idéntica al Link original pero como botón */}
-      <button
-        type="button"
-        onClick={abrir}
-        className="dashboard-summary-card group flex min-h-[150px] w-full min-w-0 flex-col rounded-xl border border-[var(--brand-700)]/20 bg-[var(--surface)] p-4 text-left shadow-[0_1px_2px_rgba(5,31,32,0.04)] transition duration-200 hover:border-[var(--brand-300)] hover:shadow-[0_8px_20px_rgba(5,31,32,0.08)]"
-      >
-        <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--brand-100)] text-[var(--brand-700)] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      {/* Tarjeta del Inicio, igual a las demás del resumen pero como botón */}
+      <button type="button" onClick={abrir} className={CARD_LINK_CLS}>
+        <CardHeader
+          label="Bienes de uso"
+          icon={
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
-          </span>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Bienes de Uso</span>
-        </div>
-        {/* Monto centrado en el espacio que queda debajo del título */}
-        <div className="dashboard-summary-body flex flex-1 flex-col justify-center">
-          <p className="metric-value w-full text-[clamp(16px,1.9vw,28px)] font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
-            {fmt(bienesTotal)}
-          </p>
+          }
+        />
+        <div className="flex flex-1 flex-col justify-end">
+          <p className={SUMMARY_VALUE_CLS}>{fmt(bienesTotal)}</p>
         </div>
       </button>
 

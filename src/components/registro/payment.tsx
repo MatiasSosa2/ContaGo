@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from 'react'
 import type { Account } from '../TransactionForm'
-import { Chevron, DateChip, Group, INLINE_INPUT_CLS, IOS_FONT, MenuSelect, Row, Segmented } from '../ui/ios'
+import { Chevron, DateChip, Group, INLINE_INPUT_CLS, IOS_FONT, MenuSelect, POPOVER_CLS, Row, useDismiss } from '../ui/ios'
 
 export type Metodo = 'EFECTIVO' | 'VIRTUAL' | 'CREDITO'
 const METODOS_TODOS: { value: Metodo; label: string }[] = [
@@ -219,7 +219,94 @@ export function usePayments({ total, accounts, date, allowCredit = true }: {
 
 // ── Pantalla del pago ───────────────────────────────────────────────────────
 
-export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; title?: string }) {
+/**
+ * Fila "Efectivo · Caja principal ›": al tocarla abre una lista con los métodos y, si el
+ * método tiene varias cajas o cuentas, cada una como opción (así se elige todo de una vez).
+ */
+function MetodoMenu({ metodos, metodo, accountId, cajasPara, onPick }: {
+  metodos: { value: Metodo; label: string }[]
+  metodo: Metodo
+  accountId: string
+  cajasPara: (m: Metodo) => Account[]
+  onPick: (metodo: Metodo, accountId?: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  // Si abajo no hay lugar dentro de la ventana (fila al final), la lista se abre hacia arriba
+  const [haciaArriba, setHaciaArriba] = useState(false)
+  const ref = useDismiss(open, () => setOpen(false))
+  const actual = metodos.find((m) => m.value === metodo)
+  const toggle = () => {
+    const el = ref.current
+    if (!open && el) {
+      const limite = el.closest('.overflow-y-auto')?.getBoundingClientRect().bottom ?? window.innerHeight
+      setHaciaArriba(limite - el.getBoundingClientRect().bottom < 260)
+    }
+    setOpen((v) => !v)
+  }
+  const cajas = cajasPara(metodo)
+  const caja = cajas.length > 1 ? cajas.find((c) => c.id === accountId) : undefined
+  const pick = (m: Metodo, id?: string) => { onPick(m, id); setOpen(false) }
+  const check = (
+    <svg className="h-3.5 w-3.5 shrink-0 text-[var(--reg-accent,var(--income))]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.6} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+    </svg>
+  )
+  const itemCls = 'flex w-full items-center gap-2 px-3.5 py-2 text-left text-[14px] text-[#1C1C1E] transition-colors hover:bg-black/[0.05] dark:text-white dark:hover:bg-white/[0.08]'
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Método de pago"
+        className="flex min-h-[44px] w-full items-center gap-2 px-4 text-left text-[15px] transition-colors active:bg-black/[0.04] dark:active:bg-white/[0.06]"
+      >
+        <span className="min-w-0 flex-1 truncate text-[#1C1C1E] dark:text-white">
+          {actual?.label ?? '—'}
+          {caja && <span className="text-[#8E8E93]"> · {caja.name}</span>}
+        </span>
+        <Chevron />
+      </button>
+      {open && (
+        <div role="listbox" className={`${POPOVER_CLS} left-0 right-0 max-h-72 overflow-y-auto py-1 ${haciaArriba ? '!top-auto bottom-full !mt-0 mb-1' : ''}`}>
+          {metodos.map((m, i) => {
+            const subs = cajasPara(m.value)
+            const divider = i > 0 ? 'border-t border-black/[0.06] dark:border-white/[0.08]' : ''
+            if (subs.length <= 1) {
+              const sel = m.value === metodo
+              return (
+                <div key={m.value} className={divider}>
+                  <button type="button" role="option" aria-selected={sel} onClick={() => pick(m.value)} className={`${itemCls} ${sel ? 'font-medium' : ''}`}>
+                    <span className="flex-1 truncate">{m.label}</span>
+                    {sel && check}
+                  </button>
+                </div>
+              )
+            }
+            // Método con varias cajas: el nombre en gris y debajo cada caja
+            return (
+              <div key={m.value} className={divider}>
+                <p className="px-3.5 pb-0.5 pt-2 text-[11px] font-medium text-[#8E8E93]">{m.label}</p>
+                {subs.map((c) => {
+                  const sel = m.value === metodo && c.id === accountId
+                  return (
+                    <button key={c.id} type="button" role="option" aria-selected={sel} onClick={() => pick(m.value, c.id)} className={`${itemCls} ${sel ? 'font-medium' : ''}`}>
+                      <span className="flex-1 truncate">{c.name}</span>
+                      {sel && check}
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function PaymentSection({ pay, title = 'Método de pago' }: { pay: PaymentsApi; title?: string }) {
   const { metodos, pagos, combinado, autoIndex, falta, cuotasOpen, setCuotasOpen, cajasPara, montoDe, updatePago, setMetodo, combinar, agregarMedio, noCombinar, quitarPago } = pay
 
   const cajaRow = (p: Pago) => {
@@ -305,21 +392,25 @@ export function PaymentSection({ pay, title = 'Pago' }: { pay: PaymentsApi; titl
 
   return (
     <div className={IOS_FONT}>
-      <div className="mb-1.5 px-4 text-[13px] text-[#8E8E93]">{title}</div>
+      <div className="mb-1.5 flex items-baseline justify-between px-1">
+        <span className="text-[12px] font-medium text-[#8E8E93]">{title}</span>
+        {!combinado && (
+          <button type="button" onClick={combinar} className="text-[12px] text-[#8E8E93] transition-colors hover:text-[#636366] active:opacity-60 dark:hover:text-[#AEAEB2]">
+            + Combinar
+          </button>
+        )}
+      </div>
       {!combinado ? (
-        <>
-          <Group>
-            <div className="px-3 py-2.5">
-              <Segmented size="sm" options={metodos} value={pagos[0].metodo} onChange={(m) => setMetodo(pagos[0], m)} />
-            </div>
-            {pagos[0].metodo === 'CREDITO' ? cuotasRows(pagos[0]) : cajaRow(pagos[0])}
-          </Group>
-          <div className="mt-1.5 px-4">
-            <button type="button" onClick={combinar} className="text-[12px] text-[#8E8E93] transition-opacity active:opacity-60">
-              Combinar medios de pago
-            </button>
-          </div>
-        </>
+        <Group>
+          <MetodoMenu
+            metodos={metodos}
+            metodo={pagos[0].metodo}
+            accountId={pagos[0].accountId}
+            cajasPara={cajasPara}
+            onPick={(m, id) => updatePago(pagos[0].key, { metodo: m, accountId: id ?? cajasPara(m)[0]?.id ?? '', overrides: {} })}
+          />
+          {pagos[0].metodo === 'CREDITO' && cuotasRows(pagos[0])}
+        </Group>
       ) : (
         <>
           <Group>

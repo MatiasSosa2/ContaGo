@@ -54,6 +54,7 @@ async function _getSessionContextImpl(): Promise<SessionContext | null> {
   // Una sola query que trae el usuario + todas sus memberships activas.
   // A partir de ahí derivamos `businesses` y `activeBusiness` sin round-trips extra.
   let user: {
+    name: string | null
     defaultBusinessId: string | null
     memberships: {
       role: string
@@ -65,6 +66,8 @@ async function _getSessionContextImpl(): Promise<SessionContext | null> {
     user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
+        // El nombre sale de la base: así se ve al toque si se edita en "Mi cuenta"
+        name: true,
         defaultBusinessId: true,
         memberships: {
           where: { status: 'ACTIVE' },
@@ -115,7 +118,7 @@ async function _getSessionContextImpl(): Promise<SessionContext | null> {
     user: {
       id: session.user.id,
       email: session.user.email,
-      name: session.user.name,
+      name: user?.name ?? session.user.name,
       image: session.user.image,
       emailVerified: Boolean(session.user.emailVerified),
     },

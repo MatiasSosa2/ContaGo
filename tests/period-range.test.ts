@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { computePeriodRange, dueDateEndOfDay, getArtCalendarParts } from '../src/lib/art-calendar'
+import { computePeriodRange, dueDateEndOfDay, getArtCalendarParts, sanitizePeriodParams } from '../src/lib/art-calendar'
 
 // Argentina es UTC-3: el día 2026-10-31 empieza 03:00 UTC y termina 02:59:59.999 UTC del
 // día siguiente, sin importar la zona horaria del servidor (Vercel corre en UTC).
@@ -74,4 +74,33 @@ test('getArtCalendarParts: un instante UTC puede ser otro día calendario en Arg
     { year: parts.year, monthIndex: parts.monthIndex, day: parts.day },
     { year: 2026, monthIndex: 9, day: 31 },
   )
+})
+
+test('URL inválida: período desconocido, año y fechas que no existen vuelven al valor por defecto', () => {
+  const clean = sanitizePeriodParams({
+    period: 'xyz', selectedYear: 'abc', selectedMonth: '13', selectedDay: '2026-02-31', customFrom: '<script>',
+  })
+  assert.deepEqual(clean, {
+    period: 'mensual', customFrom: undefined, customTo: undefined, selectedYear: undefined,
+    selectedMonth: undefined, selectedDay: undefined, selectedWeekStart: undefined,
+  })
+  // computePeriodRange nunca devuelve fechas NaN, aunque reciba basura
+  const { from, to } = computePeriodRange('xyz' as never, 'nope', 'nope', Number.NaN, 99, 'ayer', '2026-99-01')
+  assert.ok(Number.isFinite(from.getTime()) && Number.isFinite(to.getTime()))
+})
+
+test('URL válida: los parámetros quedan igual', () => {
+  assert.deepEqual(
+    sanitizePeriodParams({ period: 'semanal', selectedYear: '2026', selectedMonth: '11', selectedWeekStart: '2026-11-02' }),
+    { period: 'semanal', customFrom: undefined, customTo: undefined, selectedYear: 2026, selectedMonth: 11, selectedDay: undefined, selectedWeekStart: '2026-11-02' },
+  )
+})
+
+test('personalizado: desde/hasta al revés se dan vuelta y un rango de más de 10 años se descarta', () => {
+  const vuelta = sanitizePeriodParams({ period: 'custom', customFrom: '2026-11-30', customTo: '2026-11-01' })
+  assert.equal(vuelta.customFrom, '2026-11-01')
+  assert.equal(vuelta.customTo, '2026-11-30')
+  const gigante = sanitizePeriodParams({ period: 'custom', customFrom: '1980-01-01', customTo: '2026-01-01' })
+  assert.equal(gigante.customFrom, undefined)
+  assert.equal(gigante.customTo, undefined)
 })

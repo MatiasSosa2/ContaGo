@@ -1,9 +1,9 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react'
 import { useHydrated } from '@/lib/useStoredValue'
-import { CalendarPopover, RangeCalendar } from './ui/IosCalendar'
+import { CalendarPopover, RangeCalendar, SingleCalendar } from './ui/IosCalendar'
 
 export const PERIOD_KEYS = ['diario', 'semanal', 'mensual', 'anual', 'custom'] as const
 export type PeriodKey = typeof PERIOD_KEYS[number]
@@ -17,6 +17,8 @@ const PERIOD_TYPES: Array<{ key: 'diario' | 'semanal' | 'mensual'; label: string
   { key: 'semanal', label: 'Semana' },
   { key: 'mensual', label: 'Mes' },
 ]
+// "Año" va aparte: no tiene parte del medio (mes/semana/día), solo el año
+const TIPOS_PERIODO = [...PERIOD_TYPES, { key: 'anual' as const, label: 'Año' }]
 
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
@@ -69,6 +71,81 @@ function getWeeksOfYear(year: number): Date[] {
 function diffDaysInclusive(from: Date, to: Date): number {
   const ms = startOfDay(to).getTime() - startOfDay(from).getTime()
   return Math.floor(ms / 86400000) + 1
+}
+
+type Opcion = { value: string; label: string; hint?: string }
+
+/** Lista iOS con ✓ en la opción elegida; al abrir queda centrada en ella */
+function OptionList({ options, value, onPick }: { options: Opcion[]; value: string; onPick: (value: string) => void }) {
+  const listRef = useRef<HTMLDivElement>(null)
+  const selRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    const list = listRef.current, sel = selRef.current
+    if (list && sel) list.scrollTop = sel.offsetTop - list.clientHeight / 2 + sel.clientHeight / 2
+  }, [])
+  return (
+    <div ref={listRef} role="listbox" className="relative max-h-[300px] overflow-y-auto py-1">
+      {options.map((o) => {
+        const sel = o.value === value
+        return (
+          <button
+            key={o.value}
+            ref={sel ? selRef : undefined}
+            type="button"
+            role="option"
+            aria-selected={sel}
+            onClick={() => onPick(o.value)}
+            className={`flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06] ${sel ? 'font-semibold text-[var(--ds-gray-900)] dark:text-white' : 'text-[var(--ds-gray-700)] dark:text-[var(--ds-gray-300)]'}`}
+          >
+            <span className="min-w-0 flex-1 truncate">
+              {o.label}
+              {o.hint && <span className="ml-1.5 text-[11px] font-normal text-[var(--ds-gray-500)]">{o.hint}</span>}
+            </span>
+            {sel && (
+              <svg className="h-3.5 w-3.5 shrink-0 text-[var(--brand-700)] dark:text-[#A8C89C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.6} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Una parte de la píldora del período: texto + flechita, abre su ventanita */
+function PillSegment({ label, ariaLabel, className = '', width = 220, bare = true, children }: {
+  label: string
+  ariaLabel: string
+  className?: string
+  width?: number
+  bare?: boolean
+  children: (close: () => void) => ReactNode
+}) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const [open, setOpen] = useState(false)
+  const close = () => setOpen(false)
+  return (
+    <>
+      <button
+        ref={ref}
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`flex min-w-0 items-center justify-between gap-1 px-2 text-xs font-medium text-[var(--ds-gray-900)] transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--brand-700)]/30 sm:px-3 sm:text-[13px] dark:text-gray-100 dark:hover:bg-white/[0.05] ${open ? 'bg-black/[0.03] dark:bg-white/[0.05]' : ''} ${className}`}
+      >
+        <span className="min-w-0 truncate">{label}</span>
+        <svg className={`h-3 w-3 shrink-0 text-[var(--ds-gray-500)] transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4} aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      <CalendarPopover anchorRef={ref} open={open} onClose={close} width={width} bare={bare}>
+        {children(close)}
+      </CalendarPopover>
+    </>
+  )
 }
 
 export default function PeriodSelector({
@@ -222,6 +299,15 @@ export default function PeriodSelector({
     })
   }
 
+  function selectYear(year: number) {
+    if (isCustomPeriod()) forgetCustomReturnPeriod()
+    navigate((params) => {
+      params.set('periodo', 'anual')
+      clearAllPeriodParams(params)
+      params.set('year', String(year))
+    })
+  }
+
   function selectMonth(year: number, month: number) {
     if (isCustomPeriod()) forgetCustomReturnPeriod()
     navigate((params) => {
@@ -298,7 +384,6 @@ export default function PeriodSelector({
     }
   })()
 
-  const selectClass = 'min-h-10 min-w-0 rounded-lg border border-gray-200 bg-white px-1.5 text-xs font-medium text-gray-800 outline-none transition focus:border-[#1E4B1C] focus:ring-2 focus:ring-[#1E4B1C]/15 disabled:opacity-50 sm:px-3 sm:text-sm dark:border-white/[0.08] dark:bg-black dark:text-gray-100'
   const yearOptions = Array.from({ length: 56 }, (_, index) => currentYear - 50 + index)
   if (Number.isInteger(effectiveYear) && !yearOptions.includes(effectiveYear)) {
     yearOptions.push(effectiveYear)
@@ -308,18 +393,17 @@ export default function PeriodSelector({
     active === 'diario' || active === 'semanal' || active === 'mensual'
       ? active
       : selectedDay ? 'diario' : selectedWeekStart ? 'semanal' : 'mensual'
-  const daysInYear = new Date(effectiveYear, 1, 29).getMonth() === 1 ? 366 : 365
-  const dayOptions = Array.from({ length: daysInYear }, (_, index) => {
-    const date = new Date(effectiveYear, 0, index + 1)
-    return { value: toISO(date), label: date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }) }
-  })
   const weekOptions = getWeeksOfYear(effectiveYear)
-  const dateValue = coreActive === 'diario'
-    ? toISO(selectedDayDate)
-    : active === 'semanal'
-      ? toISO(selectedWeekMonday)
-      : ''
   const monthValue = String(effectiveMonth)
+  const fmtCorto = (d: Date) => d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }).replace('.', '')
+  const esAnual = active === 'anual'
+  const tipoActivo = esAnual ? 'anual' : coreActive
+  const tipoLabel = TIPOS_PERIODO.find((t) => t.key === tipoActivo)?.label ?? 'Mes'
+  const periodoLabel = coreActive === 'diario'
+    ? fmtCorto(selectedDayDate)
+    : coreActive === 'semanal'
+      ? `${fmtCorto(selectedWeekMonday)} – ${fmtCorto(addDays(selectedWeekMonday, 6))}`
+      : MONTH_NAMES[effectiveMonth - 1]
 
   function changeSelectedYear(year: number) {
     if (active === 'anual') {
@@ -349,10 +433,7 @@ export default function PeriodSelector({
   }
 
   function changeSelectedPeriod(value: string) {
-    if (coreActive === 'diario') {
-      const day = dayOptions.find((option) => option.value === value)
-      if (day) selectDay(new Date(`${day.value}T12:00:00`))
-    } else if (coreActive === 'semanal') {
+    if (coreActive === 'semanal') {
       const monday = weekOptions.find((option) => toISO(option) === value)
       if (monday) selectWeek(monday, effectiveYear)
     } else {
@@ -374,57 +455,57 @@ export default function PeriodSelector({
 
   return (
     <div className="w-full min-w-0 print:hidden">
-      <div className="grid w-full min-w-0 grid-cols-[minmax(0,0.85fr)_minmax(0,1.2fr)_minmax(0,0.65fr)_minmax(0,1.3fr)] gap-1">
-          <label className="block min-w-0">
-            <span className="sr-only">Tipo de período</span>
-            <select
-              aria-label="Tipo de período"
-              value={coreActive}
-              onChange={(event) => {
-                const next = PERIOD_TYPES.find((type) => type.key === event.target.value)
-                if (next) selectCoreType(next.key)
-              }}
-              className={`${selectClass} w-full`}
-            >
-              {PERIOD_TYPES.map((type) => <option key={type.key} value={type.key}>{type.label}</option>)}
-            </select>
-          </label>
-
-          <label className="block min-w-0">
-            <span className="sr-only">
-              {coreActive === 'diario' ? 'Día' : coreActive === 'semanal' ? 'Semana' : 'Mes'}
-            </span>
-            <select
-              aria-label={coreActive === 'diario' ? 'Día' : coreActive === 'semanal' ? 'Semana' : 'Mes'}
-              value={coreActive === 'diario' ? dateValue : coreActive === 'semanal' ? toISO(selectedWeekMonday) : monthValue}
-              onChange={(event) => changeSelectedPeriod(event.target.value)}
-              className={`${selectClass} w-full`}
-            >
-              {coreActive === 'diario' && dayOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-              {coreActive === 'semanal' && weekOptions.map((monday, index) => (
-                <option key={toISO(monday)} value={toISO(monday)}>
-                  Semana {index + 1} · {monday.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' })}
-                </option>
-              ))}
-              {coreActive === 'mensual' && MONTH_NAMES.map((month, index) => (
-                <option key={month} value={index + 1}>{month}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block min-w-0">
-            <span className="sr-only">Año</span>
-            <select
-              aria-label="Año del período"
-              value={effectiveYear}
-              onChange={(event) => changeSelectedYear(Number(event.target.value))}
-              className={`${selectClass} w-full`}
-            >
-              {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
-            </select>
-          </label>
+      <div className="grid w-full min-w-0 grid-cols-[minmax(0,2.7fr)_minmax(0,1.3fr)] gap-1.5">
+          <div className="flex min-h-10 min-w-0 items-stretch divide-x divide-gray-200 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:divide-white/[0.08] dark:border-white/[0.08] dark:bg-black">
+            <PillSegment label={tipoLabel} ariaLabel="Tipo de período" className="flex-[0.8]" width={170}>
+              {(close) => (
+                <OptionList
+                  options={TIPOS_PERIODO.map((t) => ({ value: t.key, label: t.label }))}
+                  value={tipoActivo}
+                  onPick={(v) => {
+                    close()
+                    if (v === 'anual') { if (!esAnual) selectYear(effectiveYear); return }
+                    const next = PERIOD_TYPES.find((t) => t.key === v)
+                    if (next) selectCoreType(next.key)
+                  }}
+                />
+              )}
+            </PillSegment>
+            {esAnual ? null : coreActive === 'diario' ? (
+              <PillSegment label={periodoLabel} ariaLabel="Día" className="flex-[1.25]" width={300} bare={false}>
+                {(close) => (
+                  <SingleCalendar
+                    selected={selectedDayDate}
+                    onSelect={(d) => { close(); selectDay(d) }}
+                  />
+                )}
+              </PillSegment>
+            ) : (
+              <PillSegment label={periodoLabel} ariaLabel={coreActive === 'semanal' ? 'Semana' : 'Mes'} className="flex-[1.25]" width={coreActive === 'semanal' ? 240 : 190}>
+                {(close) => (
+                  <OptionList
+                    options={coreActive === 'semanal'
+                      ? weekOptions.map((monday) => ({
+                          value: toISO(monday),
+                          label: `${fmtCorto(monday)} – ${fmtCorto(addDays(monday, 6))}`,
+                        }))
+                      : MONTH_NAMES.map((month, index) => ({ value: String(index + 1), label: month }))}
+                    value={coreActive === 'semanal' ? toISO(selectedWeekMonday) : monthValue}
+                    onPick={(v) => { close(); changeSelectedPeriod(v) }}
+                  />
+                )}
+              </PillSegment>
+            )}
+            <PillSegment label={String(effectiveYear)} ariaLabel="Año del período" className={esAnual ? 'flex-[1.95]' : 'flex-[0.7]'} width={140}>
+              {(close) => (
+                <OptionList
+                  options={yearOptions.map((y) => ({ value: String(y), label: String(y) }))}
+                  value={String(effectiveYear)}
+                  onPick={(v) => { close(); changeSelectedYear(Number(v)) }}
+                />
+              )}
+            </PillSegment>
+          </div>
 
           <div className="relative min-w-0">
             <button

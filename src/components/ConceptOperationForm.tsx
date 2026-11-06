@@ -203,7 +203,7 @@ export default function ConceptOperationForm({
         const libros = (b: BienDeUso) => Math.max(0, b.valorAdquisicion - b.depreciacionAcumulada)
         const elegirBien = (id: string) => { setBienId(id); setBuscaBien(''); setBuscandoBien(false); setError(null) }
         return (
-          <div className="rounded-xl bg-[#fff] dark:bg-[#1C1C1E]">
+          <div className="reg-card rounded-xl bg-[#fff] dark:bg-[var(--reg-card,#1C1C1E)]">
             <div className={`${GRID} px-3 pb-1 pt-2.5 text-[10px] text-[#AEAEB2]`}>
               <span>Bien de uso</span>
               <span className="text-right">Valor libros</span>
@@ -249,7 +249,7 @@ export default function ConceptOperationForm({
                   />
                 </div>
                 {buscandoBien && (
-                  <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-xl bg-[#fff] py-1 shadow-[0_12px_40px_rgba(0,0,0,0.16)] ring-1 ring-black/[0.06] dark:bg-[#2C2C2E] dark:ring-white/10">
+                  <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-60 overflow-y-auto rounded-xl bg-[#fff] py-1 shadow-[0_12px_40px_rgba(0,0,0,0.16)] ring-1 ring-black/[0.06] dark:bg-[var(--reg-pop,#2C2C2E)] dark:ring-white/10">
                     {resultados.length === 0 ? (
                       <p className="px-3 py-2.5 text-[12px] text-[#8E8E93]">Sin coincidencias</p>
                     ) : resultados.map((b) => (
@@ -335,7 +335,7 @@ export default function ConceptOperationForm({
                           type="button"
                           onClick={() => { setSaldoContactId(on ? '' : c.contactId); setSeleccion([]); setMontoManual(false) }}
                           aria-pressed={on}
-                          className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl bg-[#fff] px-2 py-3 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition active:scale-[0.97] dark:bg-[#1C1C1E] ${on ? 'ring-2 ring-[var(--reg-accent,var(--income))]' : 'ring-1 ring-black/[0.04] dark:ring-white/[0.06]'}`}
+                          className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl bg-[#fff] px-2 py-3 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition active:scale-[0.97] dark:bg-[var(--reg-card,#1C1C1E)] ${on ? 'ring-2 ring-[var(--reg-accent,var(--income))]' : 'ring-1 ring-black/[0.04] dark:ring-white/[0.06]'}`}
                         >
                           <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-semibold ${on ? 'bg-[var(--reg-accent,var(--income))] text-white' : 'bg-black/[0.05] text-[#3C3C43] dark:bg-white/[0.08] dark:text-[#EBEBF5]'}`}>
                             {iniciales(c.nombre)}
@@ -411,7 +411,7 @@ export default function ConceptOperationForm({
       {/* ── Pago ── */}
       {(!esSaldo || contacto) && (
         <div className="mt-3">
-          <PaymentSection pay={pay} title={esSaldo ? (kind === 'COBRO' ? 'Cobro' : 'Pago') : 'Pago'} />
+          <PaymentSection pay={pay} title={esSaldo && kind === 'COBRO' ? 'Método de cobro' : 'Método de pago'} />
         </div>
       )}
 

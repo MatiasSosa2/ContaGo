@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts'
@@ -232,10 +232,12 @@ function DaySheet({ title, txs, kinds, onClose }: { title: string; txs: Dashboar
 }
 
 // ── Gráfico ──
-export default function CashEvolutionChart({ chartData, chartTx, height = 280 }: {
+export default function CashEvolutionChart({ chartData, chartTx, height = 280, header }: {
   chartData: Bucket[]
   chartTx: DashboardChartTx[]
   height?: number
+  /** Con header: arriba va ese contenido (el selector) y la leyenda a su derecha, en una fila */
+  header?: ReactNode
 }) {
   // Siempre arranca mostrando todo
   const [kinds, setKinds] = useState<Kind[]>(['INCOME', 'EXPENSE'])
@@ -329,7 +331,7 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
   }, [hover, cats, subs, chartData, chartTx])
 
   const hasData = chartTx.length > 0
-  const barSize = Math.max(4, Math.min(12, Math.floor(560 / Math.max(1, data.length) / (kinds.length === 2 ? 3 : 2))))
+  const barSize = Math.max(4, Math.min(10, Math.floor(520 / Math.max(1, data.length) / (kinds.length === 2 ? 3 : 2))))
   const opacity = (i: number) => (hover === null || hover === i ? 1 : 0.35)
 
   const openTxs = openIdx !== null ? (chartData[openIdx]?.txIdx ?? []).map((i) => chartTx[i]).filter((t) => t && visible(t)) : []
@@ -350,8 +352,21 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
     )
   }
 
+  const leyenda = (
+    <div className={`flex flex-wrap items-center gap-1 ${header ? 'justify-end' : 'mt-1.5 justify-center'}`}>
+      {legendPill('INCOME', 'Ingresos', GREEN, totals.income)}
+      {legendPill('EXPENSE', 'Egresos', RED, totals.expense)}
+    </div>
+  )
+
   return (
     <div style={{ fontFamily: SF }}>
+      {header && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          {header}
+          {hasData && leyenda}
+        </div>
+      )}
       {!hasData ? (
         <div className="flex items-center justify-center text-[13px] text-[#8E8E93]" style={{ height }}>Sin movimientos en el período</div>
       ) : (
@@ -370,17 +385,17 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
               }}
               style={{ cursor: 'pointer' }}
             >
-              <CartesianGrid vertical={false} stroke="rgba(120,120,128,0.14)" />
+              <CartesianGrid vertical={false} stroke="rgba(120,120,128,0.12)" strokeDasharray="3 5" />
               <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#8E8E93' }} interval="preserveStartEnd" minTickGap={10} height={16} />
               <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#8E8E93' }} width={38} tickCount={4} tickFormatter={(v) => fmtShort(Number(v))} />
               <Tooltip cursor={false} content={(p) => <GlassTooltip active={p.active} payload={p.payload as never} label={p.label} both={kinds.length === 2} detalle={detalleHover} />} />
               {kinds.includes('INCOME') && (
-                <Bar dataKey="income" fill={GREEN} barSize={barSize} radius={barSize / 2} animationDuration={350}>
+                <Bar dataKey="income" fill={GREEN} barSize={barSize} radius={barSize / 2} animationDuration={700} animationEasing="ease-out">
                   {data.map((_, i) => <Cell key={i} fillOpacity={opacity(i)} />)}
                 </Bar>
               )}
               {kinds.includes('EXPENSE') && (
-                <Bar dataKey="expense" fill={RED} barSize={barSize} radius={barSize / 2} animationDuration={350}>
+                <Bar dataKey="expense" fill={RED} barSize={barSize} radius={barSize / 2} animationDuration={700} animationBegin={80} animationEasing="ease-out">
                   {data.map((_, i) => <Cell key={i} fillOpacity={opacity(i)} />)}
                 </Bar>
               )}
@@ -389,11 +404,8 @@ export default function CashEvolutionChart({ chartData, chartTx, height = 280 }:
         </div>
       )}
 
-      {/* Leyenda que filtra, centrada */}
-      <div className="mt-1.5 flex flex-wrap items-center justify-center gap-2">
-        {legendPill('INCOME', 'Ingresos', GREEN, totals.income)}
-        {legendPill('EXPENSE', 'Egresos', RED, totals.expense)}
-      </div>
+      {/* Leyenda que filtra: abajo y centrada, salvo que vaya arriba junto al selector */}
+      {!header && leyenda}
 
       {/* Con un solo tipo: categorías como texto con separadores (sin elegir ninguna = todas) */}
       {single && catTotals.length > 0 && (() => {

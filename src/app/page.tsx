@@ -4,40 +4,29 @@ import AppHeader from '@/components/AppHeader'
 import PeriodSelector from '@/components/PeriodSelector'
 import type { PeriodKey } from '@/components/PeriodSelector'
 import { requireBusinessContext } from '@/server/auth/require-business-context'
-import { getArtCalendarParts } from '@/server/db/shared'
+import { getArtCalendarParts, sanitizePeriodParams } from '@/lib/art-calendar'
 import { Suspense } from 'react'
 import KpiNumber from '@/components/dashboard/KpiNumber'
 import Link from 'next/link'
 import BienesDeUsoModal from '@/components/BienesDeUsoModal'
 import { periodQueryFrom } from '@/lib/period-navigation'
+import { CARD_CLS, CARD_LINK_CLS, CardHeader, SUMMARY_VALUE_CLS } from '@/components/dashboard/cards'
 
 export const dynamic = 'force-dynamic'
 
 // -- Skeleton ------------------------------------------------------------------
 function DashboardSkeleton() {
+  const bloque = `${CARD_CLS} animate-pulse`
   return (
     <>
-      <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-4">
-        {[0, 1, 2, 3].map(i => (
-          <div key={i} className="h-[140px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
-        ))}
+      <div className={`mb-5 h-[148px] ${bloque}`} />
+      <div className={`mb-5 h-[380px] ${bloque}`} />
+      <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+        {[0, 1, 2, 3, 4].map(i => <div key={i} className={`h-[132px] ${bloque}`} />)}
       </section>
-      <div className="mb-5 h-[380px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
-      <section className="mb-5 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        {[0, 1, 2, 3, 4].map(i => (
-          <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
-        ))}
+      <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[0, 1, 2].map(i => <div key={i} className={`h-[140px] ${bloque}`} />)}
       </section>
-      <section className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {[0, 1, 2].map(i => (
-          <div key={i} className="h-[110px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
-        ))}
-      </section>
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[0, 1, 2].map(i => (
-          <div key={i} className="h-[62px] animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-[var(--ds-ink)]" />
-        ))}
-      </div>
     </>
   )
 }
@@ -57,7 +46,7 @@ function variationState(value: number | null, trend: 'direct' | 'inverse' = 'dir
   const positive = value >= 0
   const favorable = trend === 'inverse' ? !positive : positive
   return {
-    label: `${positive ? '? +' : '? '}${dec1(Math.abs(value))}%`,
+    label: `${positive ? '▲ +' : '▼ '}${dec1(Math.abs(value))}%`,
     positive,
     favorable,
   }
@@ -154,85 +143,67 @@ async function DashboardContent({
 
   return (
     <>
-      {/* -- SECCIÓN 1 — KPIs principales (3 columnas) ---------------- */}
-      <section className="premium-metrics dashboard-metrics mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-
-        {/* KPI Ingresos — verde */}
-        <div className="metric-card metric-card--income flex min-h-[148px] min-w-0 flex-col gap-3 p-4 sm:p-7">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--income)]">Ingresos</span>
-            <span title={incomeV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(incomeV)}`}>{incomeV.label}</span>
-          </div>
-          <p className="metric-value mt-3 w-full text-[clamp(20px,2.2vw,34px)] font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
+      {/* -- SECCIÓN 1 — KPIs principales: 3 tarjetas separadas ----------------- */}
+      <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className={`${CARD_CLS} flex min-h-[156px] min-w-0 flex-col p-5 sm:p-6`}>
+          <CardHeader label="Ingresos" tone={'income'} icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25" /></svg>} />
+          <p className={`mt-auto text-[clamp(26px,2.4vw,36px)] font-semibold leading-none tracking-[-0.04em] tabular-nums ${'text-[#1C1C1E] dark:text-white'}`}>
             <KpiNumber id="ingresos" value={kpis.income} />
           </p>
-        </div>
-
-        {/* KPI Egresos — rojo */}
-        <div className="metric-card metric-card--expense flex min-h-[148px] min-w-0 flex-col gap-3 p-4 sm:p-7">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--expense)]">Egresos</span>
-            <span title={expenseV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(expenseV)}`}>{expenseV.label}</span>
+          <div className="mt-3 flex items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold tabular-nums transition-colors ${variationClass(incomeV)}`}>{incomeV.label}</span>
+            {incomeV.positive !== null && <span className="text-[12px] text-[#8E8E93]">vs período anterior</span>}
           </div>
-          <p className="metric-value mt-3 w-full text-[clamp(20px,2.2vw,34px)] font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
+        </div>
+        <div className={`${CARD_CLS} flex min-h-[156px] min-w-0 flex-col p-5 sm:p-6`}>
+          <CardHeader label="Egresos" tone={'expense'} icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" /></svg>} />
+          <p className={`mt-auto text-[clamp(26px,2.4vw,36px)] font-semibold leading-none tracking-[-0.04em] tabular-nums ${'text-[#1C1C1E] dark:text-white'}`}>
             <KpiNumber id="egresos" value={kpis.expense} />
           </p>
-        </div>
-
-        {/* KPI Variación neta de caja (entró - salió ± cambio de moneda) — celeste */}
-        <div className={`metric-card flex min-h-[148px] min-w-0 flex-col gap-3 p-4 sm:p-7 ${gainIsPositive ? 'metric-card--income' : 'metric-card--expense'} ${
-          gainIsPositive ? 'border-[var(--income)]/30 bg-white dark:bg-[var(--ds-ink)]' : 'border-[var(--expense)]/30 bg-white dark:bg-[var(--ds-ink)]'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${gainIsPositive ? 'text-[var(--income)]' : 'text-[var(--expense)]'}`}>
-              Variación neta
-            </span>
-            <span title={gainV.positive === null ? undefined : 'vs el período anterior'} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums transition-colors ${variationClass(gainV)}`}>{gainV.label}</span>
+          <div className="mt-3 flex items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold tabular-nums transition-colors ${variationClass(expenseV)}`}>{expenseV.label}</span>
+            {expenseV.positive !== null && <span className="text-[12px] text-[#8E8E93]">vs período anterior</span>}
           </div>
-          <p className={`metric-value mt-3 w-full text-[clamp(20px,2.2vw,34px)] font-bold ${
-            gainIsPositive ? 'text-[var(--income)]' : 'text-[var(--expense)]'
-          }`}>
+        </div>
+        <div className={`${CARD_CLS} flex min-h-[156px] min-w-0 flex-col p-5 sm:p-6`}>
+          <CardHeader label="Variación neta" tone={gainIsPositive ? 'income' : 'expense'} icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" /></svg>} />
+          <p className={`mt-auto text-[clamp(26px,2.4vw,36px)] font-semibold leading-none tracking-[-0.04em] tabular-nums ${gainIsPositive ? 'text-[var(--income)]' : 'text-[var(--expense)]'}`}>
             <KpiNumber id="variacion" value={kpis.gain} conSigno />
           </p>
+          <div className="mt-3 flex items-center gap-2">
+            <span className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold tabular-nums transition-colors ${variationClass(gainV)}`}>{gainV.label}</span>
+            {gainV.positive !== null && <span className="text-[12px] text-[#8E8E93]">vs período anterior</span>}
+          </div>
           {/* Mismo número que la Variación neta de Informes: aclara el cambio de moneda si lo hubo */}
           {kpis.cambioMoneda !== 0 && (
-            <p className="mt-3 text-[11px] text-[var(--text-tertiary)]">
+            <p className="mt-2 text-[11px] text-[#8E8E93]">
               Incluye cambio de moneda {kpis.cambioMoneda < 0 ? '-' : '+'}{fmt(kpis.cambioMoneda)}
             </p>
           )}
         </div>
       </section>
-      <div className="mb-5">
-        <div className="overflow-hidden ds-panel">
-          {/* Título solo, sobre blanco (sin franja) */}
-          <h2 className="px-5 pt-4 text-[15px] font-semibold tracking-[-0.01em] text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">
-            Evolución financiera
-          </h2>
-          <EvolutionTabs chartData={chartData} chartTx={chartTx} categoryBreakdown={categoryBreakdown} incomeCategoryBreakdown={incomeCategoryBreakdown} />
-        </div>
+
+      {/* Evolución: sin título; arriba el selector y la leyenda en una sola fila */}
+      <div className={`mb-5 overflow-hidden ${CARD_CLS}`}>
+        <EvolutionTabs chartData={chartData} chartTx={chartTx} categoryBreakdown={categoryBreakdown} incomeCategoryBreakdown={incomeCategoryBreakdown} />
       </div>
 
       {/* -- SECCIÓN 3 — RESUMEN OPERATIVO ----------------------------------- */}
-      <section className="dashboard-summary-grid mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
 
         {/* Caja */}
-        <Link
-          href={sectionHref('/cajas')}
-          className="dashboard-summary-card group flex min-h-[150px] min-w-0 flex-col rounded-xl border border-[var(--brand-700)]/20 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-700)]/50 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] dark:border-[#9AC7A8]/30 dark:hover:border-[#9AC7A8]/70 dark:bg-[var(--ds-ink)] dark:shadow-none"
-        >
-          <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--income-soft)] text-[var(--income)]">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Caja</span>
-          </div>
-          <div className="dashboard-summary-body flex flex-1 flex-col justify-center">
-          <p className="dashboard-summary-value metric-value w-full font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{cajaTotal < 0 ? '-' : ''}{fmt(cajaTotal)}</p>
-          {cajaUsd !== 0 && (
-            <p className="dashboard-summary-meta mt-2 w-fit rounded-md bg-black/[0.045] px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-white/[0.07] dark:text-gray-300">
-              {cajaUsd < 0 ? '- ' : '+ '}US${Math.abs(cajaUsd).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
-            </p>
-          )}
+        <Link href={sectionHref('/cajas')} className={CARD_LINK_CLS}>
+          <CardHeader
+            label="Caja"
+            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
+          />
+          <div className="flex flex-1 flex-col justify-end">
+            <p className={SUMMARY_VALUE_CLS}>{cajaTotal < 0 ? '-' : ''}{fmt(cajaTotal)}</p>
+            {cajaUsd !== 0 && (
+              <p className="mt-1.5 w-fit rounded-full bg-black/[0.04] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[#636366] dark:bg-white/[0.08] dark:text-[#AEAEB2]">
+                {cajaUsd < 0 ? '- ' : '+ '}US${Math.abs(cajaUsd).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+              </p>
+            )}
           </div>
         </Link>
 
@@ -240,74 +211,45 @@ async function DashboardContent({
         <Link
           href={sectionHref('/creditos')}
           title={`Caja ${fmt(cajaTotal)} menos compromisos urgentes ${fmt(deudasUrgentes)}${deudasFuturas > 0 ? `; futuras ${fmt(deudasFuturas)}` : ''}${fxRate !== null ? `; dólar ${fxSource === 'dolarapi' ? 'oficial' : 'registrado'} $${Math.round(fxRate).toLocaleString('es-AR')}` : ''}`}
-          className={`dashboard-summary-card group flex min-h-[150px] min-w-0 flex-col rounded-xl border bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] dark:bg-[var(--ds-ink)] dark:shadow-none ${
-            disponibleOk
-              ? 'border-[var(--income)]/25 hover:border-[var(--income)]/60'
-              : 'border-[var(--expense)]/30 hover:border-[var(--expense)]/60'
-          }`}
+          className={CARD_LINK_CLS}
         >
-          <div className="mb-3 flex items-center gap-2">
-            <span className={`flex h-8 w-8 items-center justify-center rounded-xl ${
-              disponibleOk
-                ? 'bg-[var(--income-soft)] text-[var(--income)]'
-                : 'bg-[var(--expense-soft)] text-[var(--expense)]'
-            }`}>
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Disponible</span>
-          </div>
-          <div className="dashboard-summary-body flex flex-1 flex-col justify-center">
-            <p className={`dashboard-summary-value metric-value w-full font-bold ${
-              disponibleOk
-                ? 'text-[var(--income)]'
-                : 'text-[var(--expense)]'
-            }`}>{disponible < 0 ? '-' : ''}{fmt(disponible)}</p>
-            <p className="dashboard-summary-meta mt-2 text-[11px] leading-4 text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">
-              Neto de deudas urgentes
-            </p>
+          <CardHeader
+            label="Disponible"
+            tone={disponibleOk ? 'income' : 'expense'}
+            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>}
+          />
+          <div className="flex flex-1 flex-col justify-end">
+            <p className={`${SUMMARY_VALUE_CLS} ${disponibleOk ? '!text-[var(--income)]' : '!text-[var(--expense)]'}`}>{disponible < 0 ? '-' : ''}{fmt(disponible)}</p>
+            <p className="mt-1.5 text-[11px] leading-4 text-[#8E8E93]">Neto de deudas urgentes</p>
           </div>
         </Link>
 
         {/* Créditos / Deudas */}
-        <Link
-          href={sectionHref('/creditos')}
-          className="dashboard-summary-card group flex min-h-[150px] min-w-0 flex-col rounded-xl border border-[var(--expense)]/25 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--expense)]/50 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] dark:border-[var(--expense)]/35 dark:hover:border-[var(--expense)]/70 dark:bg-[var(--ds-ink)] dark:shadow-none"
-        >
-          <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--expense-soft)] text-[var(--expense)]">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Créditos / Deudas</span>
-          </div>
-          {/* Monto centrado en el espacio que queda debajo del título */}
-          <div className="dashboard-summary-body dashboard-summary-ledger flex flex-1 flex-col justify-center">
-          <div className="flex flex-col gap-2">
+        <Link href={sectionHref('/creditos')} className={CARD_LINK_CLS}>
+          <CardHeader
+            label="Créditos / Deudas"
+            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" /></svg>}
+          />
+          <div className="flex flex-1 flex-col justify-end gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
-              <p className="shrink-0 text-[10px] font-medium text-[var(--text-tertiary)]">A cobrar</p>
-              <p className="dashboard-summary-value min-w-0 flex-1 text-right font-semibold text-[var(--income)]">{fmt(totalACobrar)}</p>
+              <p className="shrink-0 text-[11px] text-[#8E8E93]">A cobrar</p>
+              <p className="min-w-0 truncate text-right text-[15px] font-semibold tabular-nums text-[var(--income)]">{fmt(totalACobrar)}</p>
             </div>
-            <div className="flex items-baseline justify-between gap-2 border-t border-black/[0.07] pt-2 dark:border-white/[0.1]">
-              <p className="shrink-0 text-[10px] font-medium text-[var(--text-tertiary)]">A pagar</p>
-              <p className="dashboard-summary-value min-w-0 flex-1 text-right font-semibold text-[var(--expense)]">{fmt(totalAPagar)}</p>
+            <div className="flex items-baseline justify-between gap-2 border-t border-black/[0.06] pt-1.5 dark:border-white/[0.08]">
+              <p className="shrink-0 text-[11px] text-[#8E8E93]">A pagar</p>
+              <p className="min-w-0 truncate text-right text-[15px] font-semibold tabular-nums text-[var(--expense)]">{fmt(totalAPagar)}</p>
             </div>
-          </div>
           </div>
         </Link>
 
         {/* Stock */}
-        <Link
-          href={sectionHref('/stock')}
-          className="dashboard-summary-card dashboard-summary-stock group flex min-h-[150px] min-w-0 flex-col rounded-xl border border-[var(--brand-700)]/20 bg-[var(--ds-white)] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.05)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--brand-700)]/50 hover:shadow-[0_8px_20px_rgba(15,23,42,0.08)] dark:border-[var(--brand-300)]/30 dark:hover:border-[var(--brand-300)]/70 dark:bg-[var(--ds-ink)] dark:shadow-none"
-        >
-          <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--brand-100)] text-[var(--brand-700)] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Stock</span>
-          </div>
-          {/* Monto centrado en el espacio que queda debajo del título */}
-          <div className="dashboard-summary-body flex flex-1 flex-col justify-center">
-          <p className="dashboard-summary-value metric-value w-full font-bold text-[var(--ds-neutral-800)] dark:text-[var(--ds-line)]">{fmt(stockTotal)}</p>
+        <Link href={sectionHref('/stock')} className={CARD_LINK_CLS}>
+          <CardHeader
+            label="Stock"
+            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
+          />
+          <div className="flex flex-1 flex-col justify-end">
+            <p className={SUMMARY_VALUE_CLS}>{fmt(stockTotal)}</p>
           </div>
         </Link>
 
@@ -316,10 +258,10 @@ async function DashboardContent({
       </section>
 
       {/* -- SECCIÓN 4 — INDICADORES CLAVE ---------------------------------- */}
-      <section className="dashboard-ratios mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
 
         {/* Rentabilidad */}
-        <div className="dashboard-ratio-card flex min-w-0 flex-col overflow-hidden ds-panel">
+        <div className={`${CARD_CLS} flex min-w-0 flex-col overflow-hidden`}>
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -344,7 +286,7 @@ async function DashboardContent({
         </div>
 
         {/* ROA — Rentabilidad sobre Activos */}
-        <div className="dashboard-ratio-card flex min-w-0 flex-col overflow-hidden ds-panel">
+        <div className={`${CARD_CLS} flex min-w-0 flex-col overflow-hidden`}>
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -369,7 +311,7 @@ async function DashboardContent({
         </div>
 
         {/* Rotación de Inventario */}
-        <div className="dashboard-ratio-card flex min-w-0 flex-col overflow-hidden ds-panel">
+        <div className={`${CARD_CLS} flex min-w-0 flex-col overflow-hidden`}>
           <div className="flex flex-1 flex-col p-5">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -406,20 +348,21 @@ export default async function Home({
   searchParams: Promise<{ periodo?: string; from?: string; to?: string; year?: string; month?: string; day?: string; weekStart?: string }>
 }) {
   const [sessionContext, sp] = await Promise.all([requireBusinessContext(), searchParams])
-  const periodo = (sp.periodo ?? 'mensual') as PeriodKey
-  const customFrom = sp.from
-  const customTo = sp.to
+  // La URL se valida antes de usarla: lo inválido (período desconocido, año "abc", fechas
+  // que no existen) vuelve al valor por defecto en vez de romper la página
+  const clean = sanitizePeriodParams({
+    period: sp.periodo, customFrom: sp.from, customTo: sp.to,
+    selectedYear: sp.year, selectedMonth: sp.month, selectedDay: sp.day, selectedWeekStart: sp.weekStart,
+  })
+  const periodo: PeriodKey = clean.period
+  const { customFrom, customTo, selectedDay, selectedWeekStart } = clean
   const today = getArtCalendarParts()
   const currentYear = today.year
   const currentMonth = today.monthIndex + 1
-  const selectedYear = sp.year
-    ? Number.parseInt(sp.year, 10)
-    : (periodo === 'mensual' || periodo === 'anual' ? currentYear : undefined)
-  const selectedMonth = sp.month
-    ? Number.parseInt(sp.month, 10)
-    : (periodo === 'mensual' ? currentMonth : undefined)
-  const selectedDay = sp.day
-  const selectedWeekStart = sp.weekStart
+  const selectedYear = clean.selectedYear
+    ?? (periodo === 'mensual' || periodo === 'anual' ? currentYear : undefined)
+  const selectedMonth = clean.selectedMonth
+    ?? (periodo === 'mensual' ? currentMonth : undefined)
 
   return (
     <div className="premium-page dashboard-polish mx-auto min-h-screen max-w-[1920px] bg-[var(--surface-muted)] p-4 font-sans text-[var(--text)] sm:p-6 lg:p-8">
@@ -427,7 +370,7 @@ export default async function Home({
 
       {/* -- Header con selector de período moderno ----------------------------- */}
       <AppHeader
-        title="Balance General"
+        title="Inicio"
         sessionContext={sessionContext}
         icon={
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>

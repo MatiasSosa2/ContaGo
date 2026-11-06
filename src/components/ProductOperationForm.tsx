@@ -237,7 +237,7 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
 
   // Resultados del buscador (debajo de la última fila del carrito, sin estirar la pestaña)
   const listaResultados = searching && (
-    <div className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-xl bg-[#fff] shadow-[0_12px_40px_rgba(0,0,0,0.16)] ring-1 ring-black/[0.06] dark:bg-[#2C2C2E] dark:ring-white/10">
+    <div className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-xl bg-[#fff] shadow-[0_12px_40px_rgba(0,0,0,0.16)] ring-1 ring-black/[0.06] dark:bg-[var(--reg-pop,#2C2C2E)] dark:ring-white/10">
       <div className="max-h-60 overflow-y-auto py-1">
         {resultados.length === 0 ? (
           <p className="px-3 py-2.5 text-[12px] text-[#8E8E93]">Sin coincidencias</p>
@@ -307,14 +307,16 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
 
   // ── Carrito: encabezado, ítems, buscador (última fila) y total ──
   const carrito = (
-    <div className={`rounded-xl bg-[#fff] dark:bg-[#1C1C1E] ${IOS_FONT}`}>
-      <div className={`${ITEM_GRID} px-3 pb-1 pt-2.5 text-[10px] text-[#AEAEB2]`}>
-        <span>Producto</span>
-        <span className="text-right">Cant.</span>
-        <span className="text-right">Precio</span>
-        <span className="text-right">Total</span>
-        <span />
-      </div>
+    <div className={`reg-card rounded-xl bg-[#fff] dark:bg-[var(--reg-card,#1C1C1E)] ${IOS_FONT}`}>
+      {items.length > 0 && (
+        <div className={`${ITEM_GRID} px-3 pb-1 pt-2.5 text-[10px] text-[#AEAEB2]`}>
+          <span>Producto</span>
+          <span className="text-right">Cant.</span>
+          <span className="text-right">Precio</span>
+          <span className="text-right">Total</span>
+          <span />
+        </div>
+      )}
 
       {items.map((i) => (
         <div key={i.key} className={`${ITEM_GRID} group min-h-[32px] border-t border-black/[0.05] px-3 py-1 text-[12px] text-[#1C1C1E] dark:border-white/[0.06] dark:text-white`}>
@@ -334,8 +336,8 @@ export default function ProductOperationForm({ tipo, accounts, contacts, emplead
       ))}
 
       {/* Última fila: buscador sutil para agregar productos */}
-      <div ref={pickerRef} className="relative border-t border-black/[0.05] dark:border-white/[0.06]">
-        <div className="flex min-h-[34px] items-center gap-2 px-3">
+      <div ref={pickerRef} className={`relative ${items.length > 0 ? 'border-t border-black/[0.05] dark:border-white/[0.06]' : ''}`}>
+        <div className={`flex items-center gap-2 px-3 ${items.length > 0 ? 'min-h-[34px]' : 'min-h-[40px]'}`}>
           <svg className="h-3.5 w-3.5 shrink-0 text-[#C7C7CC] dark:text-[#636366]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" /></svg>
           <input
             value={query}

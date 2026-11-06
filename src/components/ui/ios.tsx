@@ -16,8 +16,8 @@ export const IOS_FONT = 'font-[-apple-system,BlinkMacSystemFont,"SF_Pro_Text","S
 /** Título chico sobre un grupo ("Productos", "Pago") */
 export function Caption({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
-    <div className="mb-1.5 mt-5 flex items-baseline justify-between px-4 first:mt-0">
-      <p className="text-[13px] text-[#8E8E93]">{children}</p>
+    <div className="mb-1.5 mt-5 flex items-baseline justify-between px-1 first:mt-0">
+      <p className="text-[12px] font-medium text-[#8E8E93]">{children}</p>
       {right}
     </div>
   )
@@ -27,7 +27,7 @@ export function Caption({ children, right }: { children: ReactNode; right?: Reac
 export function Group({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     // Sin overflow-hidden para que los menús flotantes de adentro no se corten
-    <div className={`rounded-xl bg-[#fff] dark:bg-[#1C1C1E] [&>*:first-child]:rounded-t-xl [&>*:last-child]:rounded-b-xl [&>*+*]:border-t [&>*+*]:border-black/[0.08] dark:[&>*+*]:border-white/[0.08] ${className}`}>
+    <div className={`reg-card rounded-xl bg-[#fff] dark:bg-[var(--reg-card,#1C1C1E)] [&>*:first-child]:rounded-t-xl [&>*:last-child]:rounded-b-xl [&>*+*]:border-t [&>*+*]:border-black/[0.08] dark:[&>*+*]:border-white/[0.08] ${className}`}>
       {children}
     </div>
   )
@@ -171,7 +171,7 @@ export function useDismiss(open: boolean, close: () => void) {
 }
 
 export const POPOVER_CLS =
-  'absolute top-full z-40 mt-1 overflow-hidden rounded-xl bg-[#fff]/95 shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] backdrop-blur-xl dark:bg-[#2C2C2E]/95 dark:ring-white/10'
+  'absolute top-full z-40 mt-1 overflow-hidden rounded-xl bg-[#fff]/95 shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] backdrop-blur-xl dark:bg-[var(--reg-pop,#2C2C2E)]/95 dark:ring-white/10'
 
 /** Menú desplegable estilo iOS (reemplaza al <select> nativo) */
 export function MenuSelect<T extends string>({ value, options, onChange, align = 'right', tone = 'muted', label, size = 'md' }: {
@@ -286,7 +286,7 @@ export function DateChip({ value, onChange, label, align = 'left' }: {
 /** Tarjetita flotante chica (ej. Cliente / Empleado en Más datos): etiqueta arriba y valor abajo */
 export function MiniCard({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="min-w-0 rounded-xl bg-[#fff] px-3 py-2 shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:bg-[#1C1C1E]">
+    <div className="reg-card min-w-0 rounded-xl bg-[#fff] px-3 py-2 dark:bg-[var(--reg-card,#1C1C1E)]">
       <p className="text-[11px] text-[#8E8E93]">{label}</p>
       <div className="mt-0.5 min-w-0">{children}</div>
     </div>

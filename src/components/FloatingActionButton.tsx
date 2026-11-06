@@ -25,8 +25,8 @@ type CatalogsData = {
 type Mode = 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'ADJUST'
 
 const MODE_TITLE: Record<Mode, string> = {
-  INCOME: 'Ingreso',
-  EXPENSE: 'Egreso',
+  INCOME: 'Nuevo ingreso',
+  EXPENSE: 'Nuevo egreso',
   TRANSFER: 'Cambio de caja',
   ADJUST: 'Cierre de caja',
 }
@@ -49,8 +49,8 @@ const DRAG_CLOSE_SPEED = 0.6
 // Pastillas principales del abanico: Ingresos arriba del "+", Egresos a su izquierda.
 // `pos` las ubica abiertas; `from` es el desplazamiento hacia el "+" cuando están cerradas.
 const FAN_ITEMS = [
-  { type: 'INCOME' as const, label: 'Ingresos', bg: 'bg-brand-military', pos: 'bottom-[68px] right-0', from: 'translate(0, 44px)' },
-  { type: 'EXPENSE' as const, label: 'Egresos', bg: 'bg-brand-oxide', pos: 'right-[68px] top-2', from: 'translate(44px, 0)' },
+  { type: 'INCOME' as const, label: 'Ingresos', bg: 'bg-[#4F8A6B] dark:bg-[#6FA287]', pos: 'bottom-[68px] right-0', from: 'translate(0, 44px)' },
+  { type: 'EXPENSE' as const, label: 'Egresos', bg: 'bg-[#B8664F] dark:bg-[#D08770]', pos: 'right-[68px] top-2', from: 'translate(44px, 0)' },
 ]
 
 // Opciones secundarias: fila de chips grises debajo del "+" (el "+" sube para hacerles lugar)
@@ -352,7 +352,7 @@ export default function FloatingActionButton() {
     <>
       {/* Menú del "+" en abanico: dos burbujas que salen en arco */}
       <div
-        className={`fixed inset-0 z-40 bg-black/25 transition-opacity duration-200 ${menuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        className={`fixed inset-0 z-40 bg-black/30 backdrop-blur-[3px] transition-opacity duration-200 ${menuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         onClick={() => setMenuOpen(false)}
         aria-hidden
       />
@@ -411,10 +411,9 @@ export default function FloatingActionButton() {
       {/* Botón flotante */}
       <button
         onClick={() => setMenuOpen((v) => !v)}
-        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl active:scale-95 lg:bottom-6 lg:right-6"
+        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#1C1C1E] shadow-[0_8px_24px_rgba(0,0,0,0.28)] transition-all duration-200 hover:scale-110 hover:shadow-xl active:scale-95 lg:bottom-6 lg:right-6 dark:bg-white dark:shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
         style={{
-          // Dorado de la marca: no se confunde con Ingresos (verde), Egresos (rojo) ni las grises
-          background: 'linear-gradient(135deg, #235347 0%, #8EB698 100%)',
+          // Negro / blanco iOS: no compite con el verde de Ingresos ni el terracota de Egresos
           // Sube junto con el abanico para dejar la fila secundaria abajo
           translate: menuOpen ? '0 -48px' : '0 0',
           transition: `translate 380ms ${SPRING}, scale 200ms ease, box-shadow 200ms ease`,
@@ -422,7 +421,7 @@ export default function FloatingActionButton() {
         aria-label="Registrar operación"
         aria-expanded={menuOpen}
       >
-        <svg className={`h-7 w-7 text-white transition-transform duration-300 ${menuOpen ? 'rotate-45' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <svg className={`h-7 w-7 text-white transition-transform duration-300 dark:text-[#1C1C1E] ${menuOpen ? 'rotate-45' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
       </button>
@@ -432,7 +431,7 @@ export default function FloatingActionButton() {
         <div className="fixed inset-0 z-[60] flex items-end justify-center md:items-center">
           {/* Backdrop */}
           <div
-            className="reg-backdrop absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="reg-backdrop absolute inset-0 bg-black/55 backdrop-blur-md"
             data-closing={closing || undefined}
             onClick={requestClose}
           />
@@ -461,7 +460,7 @@ export default function FloatingActionButton() {
 
           <div className="flex w-full items-start gap-4">
           {/* Panel */}
-          <div className="relative flex max-h-[calc(88vh-80px)] w-full shrink-0 flex-col overflow-hidden rounded-3xl md:w-[32rem] bg-[var(--ds-gray-100)] shadow-2xl dark:bg-black md:max-h-[calc(92vh-80px)]">
+          <div className="reg-panel relative flex max-h-[calc(88vh-80px)] w-full shrink-0 flex-col overflow-hidden rounded-3xl md:w-[32rem] bg-[#F2F2F7] shadow-2xl dark:bg-[#1C1C1E] dark:ring-1 dark:ring-white/[0.06] md:max-h-[calc(92vh-80px)]">
             {/* Manija + header: desde acá se arrastra la hoja para cerrarla (celu) */}
             <div
               className="shrink-0 touch-none md:touch-auto"
@@ -473,17 +472,20 @@ export default function FloatingActionButton() {
               <div className="flex justify-center pt-2 md:hidden" aria-hidden>
                 <span className="h-[5px] w-9 rounded-full bg-black/15 dark:bg-white/20" />
               </div>
-              <div className="flex items-center justify-between px-5 pt-3 pb-3 md:pt-5">
-                <h2 className="text-[17px] font-semibold text-[var(--reg-accent)]">
+              <div className="flex flex-col items-start gap-0.5 px-5 pb-3 pt-3 md:pt-5">
+                <h2 className="flex items-center gap-2 text-[20px] font-semibold tracking-[-0.02em] text-[#1C1C1E] dark:text-white">
+                  <span className="h-2 w-2 rounded-full bg-[var(--reg-accent)]" aria-hidden />
                   {MODE_TITLE[activeTab]}
                 </h2>
-                <DatePickerField variant="icon" value={date} onChange={setDate} />
+                <div className="-ml-1 text-[#8E8E93]">
+                  <DatePickerField variant="icon" value={date} onChange={setDate} />
+                </div>
               </div>
             </div>
 
             {/* Confirmación: check que se dibuja sobre la ventana */}
             {exito && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[var(--ds-gray-100)]/85 backdrop-blur-md dark:bg-black/80" role="status">
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 bg-[#F2F2F7]/85 backdrop-blur-md dark:bg-[#1C1C1E]/85" role="status">
                 <span className="reg-check-circle flex h-20 w-20 items-center justify-center rounded-full bg-[var(--reg-accent)] shadow-lg">
                   <svg className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.6}>
                     <path className="reg-check-path" strokeLinecap="round" strokeLinejoin="round" d="m5 12.5 4.5 4.5L19 7.5" />

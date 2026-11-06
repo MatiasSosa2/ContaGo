@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import OperationTypeSelect from './ui/OperationTypeSelect'
 import ProductOperationForm from './ProductOperationForm'
 import ConceptOperationForm, { type ConceptKind } from './ConceptOperationForm'
-import { Caption, IOS_FONT } from './ui/ios'
+import { IOS_FONT } from './ui/ios'
 import type { Registrado } from '@/lib/registro'
 
 export type Account = { id: string; name: string; currency: string; type: string }
@@ -191,7 +191,6 @@ export default function TransactionForm({
 
   return (
     <div className={`flex h-full flex-col ${IOS_FONT}`}>
-      <Caption>Categoría</Caption>
       <OperationTypeSelect
         variant="ios"
         value={categoryId || subType}

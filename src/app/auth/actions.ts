@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import {
   registerWithCredentialsSchema,
   requestEmailChallengeSchema,
@@ -306,6 +307,43 @@ export async function changePassword(formData: FormData): Promise<ActionResult> 
     console.error('[changePassword] failed', error)
     return { success: false, error: 'No pudimos actualizar la contraseña ahora. Inténtalo nuevamente.' }
   }
+}
+
+/** Datos de "Mi cuenta" que no viajan en la sesión */
+export async function getAccountInfo(): Promise<{ hasPassword: boolean }> {
+  if (USE_MOCK) {
+    return { hasPassword: true }
+  }
+
+  const sessionContext = await requireAuth()
+  const user = await prisma.user.findUnique({
+    where: { id: sessionContext.user.id },
+    select: { password: true },
+  })
+  return { hasPassword: Boolean(user?.password) }
+}
+
+export async function updateProfileName(formData: FormData): Promise<ActionResult> {
+  const name = String(formData.get('name') ?? '').trim().replace(/\s+/g, ' ')
+  if (name.length < 2) {
+    return { success: false, error: 'El nombre tiene que tener al menos 2 letras.' }
+  }
+  if (name.length > 60) {
+    return { success: false, error: 'El nombre puede tener hasta 60 caracteres.' }
+  }
+  if (USE_MOCK) {
+    return { success: true }
+  }
+
+  const sessionContext = await requireAuth()
+  try {
+    await prisma.user.update({ where: { id: sessionContext.user.id }, data: { name } })
+  } catch (error) {
+    console.error('[updateProfileName] failed', error)
+    return { success: false, error: 'No pudimos guardar el nombre. Inténtalo nuevamente.' }
+  }
+  revalidatePath('/', 'layout')
+  return { success: true }
 }
 
 export async function setActiveBusiness(formData: FormData): Promise<ActionResult> {
