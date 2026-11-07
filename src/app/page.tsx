@@ -10,7 +10,7 @@ import KpiNumber from '@/components/dashboard/KpiNumber'
 import Link from 'next/link'
 import BienesDeUsoModal from '@/components/BienesDeUsoModal'
 import { periodQueryFrom } from '@/lib/period-navigation'
-import { CARD_CLS, CARD_LINK_CLS, CardHeader, SUMMARY_VALUE_CLS } from '@/components/dashboard/cards'
+import { CARD_CLS, CARD_LINK_CLS, CardHeader, Delta, SUMMARY_VALUE_CLS } from '@/components/dashboard/cards'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,7 +80,7 @@ async function DashboardContent({
     getCashFlowKpis(periodo, customFrom, customTo, selectedYear, selectedMonth, selectedDay, selectedWeekStart),
   ])
 
-  const { chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown, debtStatus } = stats
+  const { chartData, chartTx, categoryBreakdown, incomeCategoryBreakdown } = stats
   // Ingresos, egresos y variación neta = Estado de flujo de efectivo (pesos), igual que Informes:
   // la variación incluye el cambio de moneda. Rentabilidad y ROA salen de la ganancia neta del
   // Estado de resultados (no de la caja).
@@ -108,38 +108,12 @@ async function DashboardContent({
   const expenseV = variationState(expenseGrowth, 'inverse')
   const gainV = variationState(gainGrowth)
 
-  const { totalACobrar, totalAPagar, stockTotal, bienesTotal, cmvPeriod, prev, fxRate, fxSource } = snapshot
+  const { totalACobrar, totalAPagar, stockTotal, bienesTotal, prev } = snapshot
   // Caja = saldo real de las cajas en pesos al cierre del período (igual que la pestaña Cajas)
   const cajaTotal = cashFlow.current.saldoFinal
   const cajaUsd = cashFlow.usdSaldoFinal
-
-  // Disponible para usar = caja al cierre del período menos las deudas urgentes
-  // (vencidas + las que vencen en las próximas 48 hs). Las deudas futuras se informan aparte.
-  const deudasUrgentes = debtStatus.vencidos.total + debtStatus.en48hs.total
-  const deudasFuturas = debtStatus.futuros.total
-  const disponible = cajaTotal - deudasUrgentes
-  const disponibleOk = disponible >= 0
-
-  // Total de activos al cierre del período (para ROA)
-  const activosTotal = cajaTotal + totalACobrar + stockTotal + bienesTotal
-  const roaPct = activosTotal > 0 ? (kpis.netProfit / activosTotal) * 100 : 0
-  const rotacionInventario = stockTotal > 0 ? cmvPeriod / stockTotal : 0
-
-  // Variaciones vs período anterior
-  const prevActivosTotal = cashFlow.prev.saldoFinal + prev.totalACobrar + prev.stockTotal + prev.bienesTotal
-  const prevRoaPct = prevActivosTotal > 0 ? (prevKpis.netProfit / prevActivosTotal) * 100 : 0
-  const prevRotacion = prev.stockTotal > 0 ? prev.cmvPeriod / prev.stockTotal : 0
-
-  const rentDelta = comparable && kpis.hasSales && prevKpis.hasSales ? kpis.marginPct - prevKpis.marginPct : null
-  const roaDelta = comparable && activosTotal > 0 && prevActivosTotal > 0 ? roaPct - prevRoaPct : null
-  const rotDelta = comparable && stockTotal > 0 && prev.stockTotal > 0 ? rotacionInventario - prevRotacion : null
-
-  const deltaClass = (d: number | null) =>
-    d === null ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-    : d >= 0 ? 'bg-[var(--income-soft)] text-[var(--income)]'
-    : 'bg-[var(--expense-soft)] text-[var(--expense)]'
-  const deltaArrow = (d: number | null) => (d === null ? '' : d > 0 ? '↑' : d < 0 ? '↓' : '→')
-
+  // Saldos al cierre del período anterior (sin comparación si el negocio arrancó a mitad de ese período)
+  const anterior = (v: number) => (comparable ? v : null)
 
   return (
     <>
@@ -189,15 +163,17 @@ async function DashboardContent({
       </div>
 
       {/* -- SECCIÓN 3 — RESUMEN OPERATIVO ----------------------------------- */}
-      <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <section className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
 
         {/* Caja */}
         <Link href={sectionHref('/cajas')} className={CARD_LINK_CLS}>
           <CardHeader
             label="Caja"
+            right={<Delta actual={cajaTotal} anterior={anterior(cashFlow.prev.saldoFinal)} />}
             icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
           />
-          <div className="flex flex-1 flex-col justify-end">
+          {/* Monto en el medio de lo que queda de la tarjeta */}
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
             <p className={SUMMARY_VALUE_CLS}>{cajaTotal < 0 ? '-' : ''}{fmt(cajaTotal)}</p>
             {cajaUsd !== 0 && (
               <p className="mt-1.5 w-fit rounded-full bg-black/[0.04] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[#636366] dark:bg-white/[0.08] dark:text-[#AEAEB2]">
@@ -207,24 +183,7 @@ async function DashboardContent({
           </div>
         </Link>
 
-        {/* Disponible para usar: caja menos deudas urgentes (vencidas + 48 hs) */}
-        <Link
-          href={sectionHref('/creditos')}
-          title={`Caja ${fmt(cajaTotal)} menos compromisos urgentes ${fmt(deudasUrgentes)}${deudasFuturas > 0 ? `; futuras ${fmt(deudasFuturas)}` : ''}${fxRate !== null ? `; dólar ${fxSource === 'dolarapi' ? 'oficial' : 'registrado'} $${Math.round(fxRate).toLocaleString('es-AR')}` : ''}`}
-          className={CARD_LINK_CLS}
-        >
-          <CardHeader
-            label="Disponible"
-            tone={disponibleOk ? 'income' : 'expense'}
-            icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>}
-          />
-          <div className="flex flex-1 flex-col justify-end">
-            <p className={`${SUMMARY_VALUE_CLS} ${disponibleOk ? '!text-[var(--income)]' : '!text-[var(--expense)]'}`}>{disponible < 0 ? '-' : ''}{fmt(disponible)}</p>
-            <p className="mt-1.5 text-[11px] leading-4 text-[#8E8E93]">Neto de deudas urgentes</p>
-          </div>
-        </Link>
-
-        {/* Créditos / Deudas */}
+        {/* Créditos / Deudas: que suban las deudas es malo (rojo) */}
         <Link href={sectionHref('/creditos')} className={CARD_LINK_CLS}>
           <CardHeader
             label="Créditos / Deudas"
@@ -233,11 +192,17 @@ async function DashboardContent({
           <div className="flex flex-1 flex-col justify-end gap-1.5">
             <div className="flex items-baseline justify-between gap-2">
               <p className="shrink-0 text-[11px] text-[#8E8E93]">A cobrar</p>
-              <p className="min-w-0 truncate text-right text-[15px] font-semibold tabular-nums text-[var(--income)]">{fmt(totalACobrar)}</p>
+              <div className="flex min-w-0 items-baseline gap-2">
+                <Delta actual={totalACobrar} anterior={anterior(prev.totalACobrar)} />
+                <p className="min-w-0 truncate text-right text-[15px] font-semibold tabular-nums text-[var(--income)]">{fmt(totalACobrar)}</p>
+              </div>
             </div>
             <div className="flex items-baseline justify-between gap-2 border-t border-black/[0.06] pt-1.5 dark:border-white/[0.08]">
               <p className="shrink-0 text-[11px] text-[#8E8E93]">A pagar</p>
-              <p className="min-w-0 truncate text-right text-[15px] font-semibold tabular-nums text-[var(--expense)]">{fmt(totalAPagar)}</p>
+              <div className="flex min-w-0 items-baseline gap-2">
+                <Delta actual={totalAPagar} anterior={anterior(prev.totalAPagar)} inverso />
+                <p className="min-w-0 truncate text-right text-[15px] font-semibold tabular-nums text-[var(--expense)]">{fmt(totalAPagar)}</p>
+              </div>
             </div>
           </div>
         </Link>
@@ -246,97 +211,17 @@ async function DashboardContent({
         <Link href={sectionHref('/stock')} className={CARD_LINK_CLS}>
           <CardHeader
             label="Stock"
+            right={<Delta actual={stockTotal} anterior={anterior(prev.stockTotal)} />}
             icon={<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>}
           />
-          <div className="flex flex-1 flex-col justify-end">
+          <div className="flex flex-1 items-center justify-center text-center">
             <p className={SUMMARY_VALUE_CLS}>{fmt(stockTotal)}</p>
           </div>
         </Link>
 
         {/* Bienes de Uso */}
-        <BienesDeUsoModal bienesTotal={bienesTotal} />
+        <BienesDeUsoModal bienesTotal={bienesTotal} bienesAnterior={anterior(prev.bienesTotal)} />
       </section>
-
-      {/* -- SECCIÓN 4 — INDICADORES CLAVE ---------------------------------- */}
-      <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-
-        {/* Rentabilidad */}
-        <div className={`${CARD_CLS} flex min-w-0 flex-col overflow-hidden`}>
-          <div className="flex flex-1 flex-col p-5">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--income-soft)] text-[var(--income)]">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.281m5.94 2.28l-2.28 5.941" /></svg>
-                </span>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Rentabilidad</p>
-              </div>
-              <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(rentDelta)}`}>
-                <span>{deltaArrow(rentDelta)} {rentDelta === null ? '—' : `${rentDelta >= 0 ? '+' : ''}${dec1(rentDelta)} pp`}</span>
-                <span className="text-[11px] font-medium opacity-80">vs anterior</span>
-              </span>
-            </div>
-            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[var(--income)]">
-              {kpis.hasSales ? `${dec1(kpis.marginPct)}%` : '—'}
-            </p>
-            <p className="mt-2 text-[11px] text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">Ganancia neta / Ingresos</p>
-          </div>
-          <div className="h-1.5 bg-[var(--income-soft)]">
-            <div className="h-full bg-[var(--income)]" style={{ width: `${Math.min(100, Math.max(0, kpis.marginPct))}%` }} />
-          </div>
-        </div>
-
-        {/* ROA — Rentabilidad sobre Activos */}
-        <div className={`${CARD_CLS} flex min-w-0 flex-col overflow-hidden`}>
-          <div className="flex flex-1 flex-col p-5">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--income-soft)] text-[var(--income)]">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </span>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">ROA</p>
-              </div>
-              <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(roaDelta)}`}>
-                <span>{deltaArrow(roaDelta)} {roaDelta === null ? '—' : `${roaDelta >= 0 ? '+' : ''}${dec1(roaDelta)} pp`}</span>
-                <span className="text-[11px] font-medium opacity-80">vs anterior</span>
-              </span>
-            </div>
-            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[var(--income)]">
-              {activosTotal > 0 ? `${dec1(roaPct)}%` : '—'}
-            </p>
-            <p className="mt-2 text-[11px] text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">Ganancia neta / Activos</p>
-          </div>
-          <div className="h-1.5 bg-[var(--income-soft)]">
-            <div className="h-full bg-[var(--income)]" style={{ width: `${Math.min(100, Math.max(0, roaPct))}%` }} />
-          </div>
-        </div>
-
-        {/* Rotación de Inventario */}
-        <div className={`${CARD_CLS} flex min-w-0 flex-col overflow-hidden`}>
-          <div className="flex flex-1 flex-col p-5">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--brand-100)] text-[var(--brand-700)] dark:bg-[var(--brand-800)] dark:text-[var(--brand-300)]">
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
-                </span>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Rotación de Inventario</p>
-              </div>
-              <span className={`flex flex-col items-end rounded-md px-2 py-1 text-[10px] font-semibold leading-tight ${deltaClass(rotDelta)}`}>
-                <span>{deltaArrow(rotDelta)} {rotDelta === null ? '—' : `${rotDelta >= 0 ? '+' : ''}${dec1(rotDelta)}×`}</span>
-                <span className="text-[11px] font-medium opacity-80">vs anterior</span>
-              </span>
-            </div>
-            <p className="font-mono text-3xl font-bold leading-none num-tabular text-[var(--ds-violet)] dark:text-[var(--ds-violet-light)]">
-              {stockTotal > 0 ? `${dec1(rotacionInventario)}×` : '—'}
-            </p>
-            <p className="mt-2 text-[11px] text-[var(--text-tertiary)] dark:text-[var(--text-tertiary)]">Costo de mercadería vendida / Inventario</p>
-          </div>
-          <div className="h-1.5 bg-[var(--brand-100)] dark:bg-[var(--brand-800)]">
-            <div className="h-full bg-[var(--brand-700)] dark:bg-[var(--brand-300)]" style={{ width: `${Math.min(100, (rotacionInventario / 12) * 100)}%` }} />
-          </div>
-        </div>
-      </section>
-
-
     </>
   )
 }

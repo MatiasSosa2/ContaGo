@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { getBienesDeUso } from '@/app/actions'
-import { CARD_LINK_CLS, CardHeader, SUMMARY_VALUE_CLS } from '@/components/dashboard/cards'
+import { CARD_LINK_CLS, CardHeader, Delta, SUMMARY_VALUE_CLS } from '@/components/dashboard/cards'
 
 export interface BienItem {
   id: string
@@ -57,8 +57,11 @@ function buildGroups(bienes: BienItem[]): CategoryGroup[] {
 
 export default function BienesDeUsoModal({
   bienesTotal,
+  bienesAnterior = null,
 }: {
   bienesTotal: number
+  /** Valor al cierre del período anterior, para la variación (null: sin comparación) */
+  bienesAnterior?: number | null
 }) {
   const [open, setOpen] = useState(false)
   const [bienes, setBienes] = useState<BienItem[]>([])
@@ -83,13 +86,14 @@ export default function BienesDeUsoModal({
       <button type="button" onClick={abrir} className={CARD_LINK_CLS}>
         <CardHeader
           label="Bienes de uso"
+          right={<Delta actual={bienesTotal} anterior={bienesAnterior} />}
           icon={
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           }
         />
-        <div className="flex flex-1 flex-col justify-end">
+        <div className="flex w-full flex-1 items-center justify-center text-center">
           <p className={SUMMARY_VALUE_CLS}>{fmt(bienesTotal)}</p>
         </div>
       </button>
